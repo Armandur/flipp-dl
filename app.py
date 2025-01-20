@@ -133,14 +133,20 @@ def writePdf(pdfs, publicationFolder, issueName):
 
 def downloadAllIssues(publicationId, publications):
 	name = getPublicationNameFromId(publicationId, publications)
+	publicationFolder = safeName(name)
+	publicationFolder = os.path.join(OUTPUTPATH, publicationFolder)
+
 	issues = getIssuesIds(publicationId, publications)
 
 	for issue in issues:
 		issueInfo = getIssueInfoFromId(issue, publicationId, publications)
 		print(f"Downloading: {issue} - {name} - {issueInfo}")
-		filename = f"{name} - {issueInfo[0]} - {issueInfo[1]}.pdf"
-		writePdf(getIssuePDFs(publicationId, issue), name, filename)
-		print(f"Written file: {filename}")
+		filename = safeName(f"{name} - {issueInfo[0]} - {issueInfo[1]}.pdf")
+		if os.path.isfile(os.path.join(publicationFolder, filename)):
+			print("File already exists")
+		else:
+			writePdf(getIssuePDFs(publicationId, issue), name, filename)
+			print(f"Written file: {filename}")
 		print()
 
 
