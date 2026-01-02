@@ -147,6 +147,18 @@ def getIssueInfoFromId(issueId, publicationId, publications):
 				if issue["customIssueCode"] == issueId:
 					return issue["issueDate"], issue["issueName"]
 
+def getIssuesForPublication(publicationId, publications):
+	# Returnerar lista av tuples (issueId, issueDate, issueName) sorterad nyast först på datumsträng
+	issues_info = []
+	for publication in publications["publications"]:
+		if publication["customPublicationCode"] == publicationId:
+			for issue in publication["issues"]:
+				issues_info.append((issue["customIssueCode"], issue.get("issueDate", ""), issue.get("issueName", "")))
+			break
+	# Sortera på datum (string-jämförelse räcker om formatet är ISO-likt)
+	issues_info.sort(key=lambda x: x[1], reverse=True)
+	return issues_info
+
 
 def getIssuePDFs(publicationId, issueId):
 	url = f"https://reader.flipp.se/html5/reader/get_page_groups_from_eid.aspx?pubid={publicationId}&eid={issueId}"
@@ -221,6 +233,33 @@ def downloadAllIssues(publicationId, publications, *, skip_if_in_db=True, force=
 				print("Skipped writing (already exists)")
 		print()
 
+def downloadLatestNIssues(publicationId, publications, n, *, skip_if_in_db=True, force=False):
+	# Hämtar de N senaste enligt datum och laddar ner i ordning nyast→äldst
+	issues_info = getIssuesForPublication(publicationId, publications)
+	if not issues_info:
+		print("Inga nummer hittades för vald publikation.")
+		return
+	selected = issues_info[:max(0, int(n))]
+	for issueId, issueDate, issueName in selected:
+		# Återanvänd logik från downloadAllIssues men utan att räkna om info
+		name = getPublicationNameFromId(publicationId, publications)
+		publicationFolder = os.path.join(OUTPUTPATH, safeName(name))
+		filename = safeName(f"{name} - {issueDate} - {issueName}.pdf")
+		print(f"Downloading: {issueId} - {name} - ({issueDate}, {issueName})")
+		if skip_if_in_db and not force and is_downloaded(publicationId, issueId):
+			print("Already downloaded (DB)")
+			continue
+		if not force and os.path.isfile(os.path.join(publicationFolder, filename)):
+			print("File already exists")
+			if skip_if_in_db and not is_downloaded(publicationId, issueId):
+				mark_downloaded(publicationId, issueId, issueDate, issueName, filename)
+			continue
+		ok = writePdf(getIssuePDFs(publicationId, issueId), name, filename)
+		if ok:
+			mark_downloaded(publicationId, issueId, issueDate, issueName, filename)
+			print(f"Written file: {filename}")
+		print()
+
 
 def parse_args():
 	parser = argparse.ArgumentParser(description="flipp-dl - Ladda ner och slå ihop tidningsnummer från Flipp.")
@@ -293,15 +332,54 @@ def main():
 					category_id = categories[i-1][0]
 					break
 			print("Ogiltigt val, försök igen.")
-		plist = filterbyCategory(getPublicationsInfo(publicationJson), category_id)
-		if not plist:
+		plist_cat = filterbyCategory(getPublicationsInfo(publicationJson), category_id)
+		if not plist_cat:
 			print("Inga publikationer i vald kategori.")
 			return
 		print("\nPublikationer i vald kategori:\n")
-		for idx, (pname, pcode, num_issues, _cats) in enumerate(plist, start=1):
+		for idx, (pname, pcode, num_issues, _cats) in enumerate(plist_cat, start=1):
 			print(f"[{idx}] {pname} ({num_issues} nummer)")
-		print("\nKlart.")
-		return
+		print("\nVälj publikation eller [0] för att avbryta.")
+		while True:
+			val = input("Publikationsval: ").strip()
+			if val == "0" or val == "":
+				return
+			if val.isdigit():
+				i = int(val)
+				if 1 <= i <= len(plist_cat):
+					_, selected_pub_code, _, _ = plist_cat[i-1]
+					break
+			print("Ogiltigt val, försök igen.")
+		# Nästa steg: lista nummer eller ladda ner senaste N
+		print("\nVälj åtgärd:\n[1] Lista nummer\n[2] Ladda ner senaste N\n[0] Avbryt")
+		while True:
+			act = input("Ditt val: ").strip()
+			if act in ("0", ""):
+				return
+			if act == "1":
+				issues_info = getIssuesForPublication(selected_pub_code, publicationJson)
+				if not issues_info:
+					print("Inga nummer hittades.")
+					return
+				print("\nNummer (nyast först):\n")
+				for idx, (_iid, idate, iname) in enumerate(issues_info, start=1):
+					print(f"[{idx}] {idate} - {iname}")
+				print("\nKlart.")
+				return
+			if act == "2":
+				n_str = input("Hur många nummer vill du ladda ner? (t.ex. 1): ").strip()
+				try:
+					n = int(n_str) if n_str else 1
+					if n <= 0:
+						print("Ange ett tal > 0.")
+						continue
+				except ValueError:
+					print("Ogiltigt tal. Försök igen.")
+					continue
+				downloadLatestNIssues(selected_pub_code, publicationJson, n, skip_if_in_db=True, force=False)
+				print("Klart.")
+				return
+			print("Ogiltigt val, försök igen.")
 
 	if args.list_publications:
 		pprint(plist)
