@@ -92,6 +92,16 @@ def is_downloaded(publication_code, issue_code):
 		""", (publication_code, issue_code))
 		return cur.fetchone() is not None
 
+def get_issue_status(publication_code, issue_code):
+	with sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT_SECS) as conn:
+		conn.execute(f"PRAGMA busy_timeout={DB_TIMEOUT_SECS*1000};")
+		cur = conn.execute("""
+			SELECT status FROM issues_downloads
+			WHERE publication_code=? AND issue_code=?
+		""", (publication_code, issue_code))
+		row = cur.fetchone()
+		return row[0] if row else None
+
 def mark_downloaded(publication_code, issue_code, issue_date, issue_name, filename):
 	with db_write_lock:
 		with sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT_SECS) as conn:
@@ -114,6 +124,12 @@ def mark_archived(publication_code, issue_code):
 			conn.execute("""
 			UPDATE issues_downloads SET status='archived' WHERE publication_code=? AND issue_code=?
 			""", (publication_code, issue_code))
+
+def unmark_issue(publication_code, issue_code):
+	with db_write_lock:
+		with sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT_SECS) as conn:
+			conn.execute(f"PRAGMA busy_timeout={DB_TIMEOUT_SECS*1000};")
+			conn.execute("""DELETE FROM issues_downloads WHERE publication_code=? AND issue_code=?""", (publication_code, issue_code))
 
 def enqueue_job(job_type, publication_code, payload: dict):
 	with db_write_lock:
@@ -616,7 +632,7 @@ def main():
 						payload = {}
 					pub_name = getPublicationNameFromId(pub_code, publications) or pub_code
 					print(f"[{idx}] id:{job_id} {status} - {job_type} - {pub_name} payload:{payload} ({created_at})")
-			print("\nVälj åtgärd: [1] Kör kö [2] Töm kö [3] Ta bort valda [4] Ändra jobb [5] Markera valda som redan nedladdade (DB) [0] Tillbaka")
+			print("\nVälj åtgärd: [1] Kör kö [2] Töm kö [3] Ta bort valda [4] Ändra jobb [5] Markera valda som nedladdade/arkiverade [6] Avmarkera (inte nedladdade) [0] Tillbaka")
 			choice = input("Ditt val: ").strip()
 			if choice in ("0", ""):
 				return
@@ -715,6 +731,7 @@ def main():
 				if not rows:
 					continue
 				val = input("Vilka jobb vill du markera som nedladdade? (t.ex. 1,3-5): ").strip()
+				arch = input("Ska dessa markeras som archived istället för downloaded? [j/N]: ").strip().lower() in ("j","y","yes")
 				if not val:
 					continue
 				parts = [p.strip() for p in val.split(",") if p.strip()]
@@ -743,13 +760,50 @@ def main():
 					pub_name = getPublicationNameFromId(pub_code, publications) or pub_code
 					for issueId, issueDate, issueName in issues:
 						filename = safeName(f"{pub_name} - {issueDate} - {issueName}.pdf")
-						mark_downloaded(pub_code, issueId, issueDate, issueName, filename)
+						if arch:
+							mark_downloaded(pub_code, issueId, issueDate, issueName, filename)  # ensure row exists
+							mark_archived(pub_code, issueId)
+						else:
+							mark_downloaded(pub_code, issueId, issueDate, issueName, filename)
 					# Markera jobbet som klart
 					with db_write_lock, sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT_SECS) as conn_mark:
 						conn_mark.execute(f"PRAGMA busy_timeout={DB_TIMEOUT_SECS*1000};")
 						conn_mark.execute("""UPDATE download_jobs SET status='done', finished_at=?, last_error=NULL WHERE id=?""", (datetime.datetime.utcnow().isoformat(), job_id))
 					done += 1
 				print(f"Markerade {done} jobb och deras nummer som nedladdade i DB.")
+			elif choice == "6":
+				if not rows:
+					continue
+				val = input("Vilka jobb vill du avmarkera (ta bort DB-markering)? (t.ex. 1,3-5): ").strip()
+				if not val:
+					continue
+				parts = [p.strip() for p in val.split(",") if p.strip()]
+				sel = set()
+				try:
+					for part in parts:
+						if "-" in part:
+							a, b = part.split("-", 1); a = int(a); b = int(b)
+							if a > b: a, b = b, a
+							for x in range(a, b+1):
+								sel.add(x)
+						else:
+							sel.add(int(part))
+				except Exception:
+					print("Ogiltigt urval."); continue
+				done = 0
+				for i in sorted(sel):
+					if not (1 <= i <= len(rows)):
+						continue
+					job_id, job_type, pub_code, payload_json, status, created_at = rows[i-1]
+					try:
+						payload = json.loads(payload_json or "{}")
+					except Exception:
+						payload = {}
+					issues = compute_issues_for_job(job_type, pub_code, payload, publications)
+					for issueId, _, _ in issues:
+						unmark_issue(pub_code, issueId)
+					done += 1
+				print(f"Tog bort DB-markering för {done} jobb (alla tillhörande nummer).")
 			else:
 				print("Ogiltigt val.")
 
@@ -969,7 +1023,8 @@ def main():
 									print("Inga nummer hittades."); continue
 								print("\nNummer (nyast först):\n")
 								for idx, (iid, idate, iname) in enumerate(issues_info, start=1):
-									flag = "✓" if is_downloaded(selected_codes[0], iid) else "–"
+									st = get_issue_status(selected_codes[0], iid)
+									flag = "✓" if st == "downloaded" else ("A" if st == "archived" else "–")
 									print(f"[{idx}] {idate} - {iname}  [{flag}]")
 								print("\nKlart."); continue
 							if act == "2":
