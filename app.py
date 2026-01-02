@@ -443,7 +443,7 @@ def main():
 						payload = {}
 					pub_name = getPublicationNameFromId(pub_code, publications) or pub_code
 					print(f"[{idx}] id:{job_id} {status} - {job_type} - {pub_name} payload:{payload} ({created_at})")
-			print("\nVälj åtgärd: [1] Kör kö [2] Töm queued [3] Ta bort valda [4] Ändra jobb [0] Tillbaka")
+			print("\nVälj åtgärd: [1] Kör kö [2] Töm kö [3] Ta bort valda [4] Ändra jobb [0] Tillbaka")
 			choice = input("Ditt val: ").strip()
 			if choice in ("0", ""):
 				return
@@ -456,7 +456,7 @@ def main():
 				print(f"Körning klar. (force={force_flag}, skip_if_in_db={skip_flag})")
 			elif choice == "2":
 				clear_jobs(status="queued")
-				print("Tömde queued.")
+				print("Tömde kö.")
 			elif choice == "3":
 				if not rows:
 					continue
@@ -537,7 +537,7 @@ def main():
 					update_job_payload(job_id, payload)
 					print("Uppdaterat.")
 				else:
-					print("Okänd jobtyp; kan inte redigera.")
+					print("Okänd jobbtyp; kan inte redigera.")
 			else:
 				print("Ogiltigt val.")
 
@@ -672,12 +672,12 @@ def main():
 					issues_info = getIssuesForPublication(selected_codes[0], publicationJson)
 					if not issues_info:
 						print("Inga nummer hittades.")
-						return
+						continue
 					print("\nNummer (nyast först):\n")
 					for idx, (_iid, idate, iname) in enumerate(issues_info, start=1):
 						print(f"[{idx}] {idate} - {iname}")
 					print("\nKlart.")
-					return
+					continue
 				if act == "2":
 					n_str = input("Hur många nummer vill du ladda ner? (t.ex. 1): ").strip()
 					try:
