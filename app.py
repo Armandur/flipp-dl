@@ -615,7 +615,11 @@ def main():
 			if root in ("0",""):
 				return
 			if root == "2":
-				interactive_queue_manager(publicationJson)
+				rows = list_jobs()
+				if not rows or not any((row[4] == 'queued') for row in rows):
+					print("Inga köade jobb. Återgår till huvudmeny.")
+				else:
+					interactive_queue_manager(publicationJson)
 				continue
 			if root != "1":
 				print("Ogiltigt val."); continue
