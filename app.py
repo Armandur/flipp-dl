@@ -663,8 +663,8 @@ def main():
 		# Nästa steg
 		if not multi_mode:
 			# Enkel publikation: lista nummer eller ladda senaste N
-			print("\nVälj åtgärd:\n[1] Lista nummer\n[2] Ladda ner senaste N\n[3] Lägg till i kö: senaste N\n[4] Lägg till i kö: indexintervall\n[5] Lägg till i kö: datumintervall\n[6] Hantera kö\n[0] Avbryt")
 			while True:
+				print("\nVälj åtgärd:\n[1] Lista nummer\n[2] Ladda ner senaste N\n[3] Lägg till i kö: senaste N\n[4] Lägg till i kö: indexintervall\n[5] Lägg till i kö: datumintervall\n[6] Hantera kö\n[0] Avbryt")
 				act = input("Ditt val: ").strip()
 				if act in ("0", ""):
 					return
