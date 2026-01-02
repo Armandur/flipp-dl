@@ -448,8 +448,12 @@ def main():
 			if choice in ("0", ""):
 				return
 			if choice == "1":
-				run_jobs(publications, skip_if_in_db=True, force=False)
-				print("Körning klar.")
+				force_ans = input("Köra med force (ignorera DB och filsystemkontroll)? [j/N]: ").strip().lower()
+				force_flag = force_ans in ("j","y","yes")
+				skip_ans = input("Hoppa över enligt DB (skip-if-in-db)? [J/n]: ").strip().lower()
+				skip_flag = not (skip_ans in ("n","no"))
+				run_jobs(publications, skip_if_in_db=skip_flag, force=force_flag)
+				print(f"Körning klar. (force={force_flag}, skip_if_in_db={skip_flag})")
 			elif choice == "2":
 				clear_jobs(status="queued")
 				print("Tömde queued.")
