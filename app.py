@@ -15,7 +15,7 @@ import sys
 # Steg 3 : Välj Tidning, spara publication[n]["customPublicationCode"] som pubID
 # Steg 4 : Välj specifik utgåva eller alla, spara publication[n][issues][n][customIssueCode] som issID
 # Steg 5 : För vald utgåva, anropa https://reader.flipp.se/html5/reader/get_page_groups_from_eid.aspx?pubid=pubID&eid=issID
-# Steg 6 : Lägg jason.pages[n][pdf] i lista
+# Steg 6 : Lägg json.pages[n][pdf] i lista
 # Steg 7 : Ladda ner alla pdf-urler i listan och sammanfoga
 # Steg 8 : Döp om filen
 
@@ -129,6 +129,16 @@ def getPublicationNameFromId(publicationId, publications):
 		if publication["customPublicationCode"] == publicationId:
 			return publication["name"]
 
+def getAllCategories(publications):
+	# Returnerar unik lista av (id, name) över alla publikationer
+	seen = {}
+	for publication in publications["publications"]:
+		for category in publication.get("categories", []):
+			seen[category["id"]] = category["name"]
+	cats = [(cid, seen[cid]) for cid in seen]
+	cats.sort(key=lambda x: x[1].lower())
+	return cats
+
 
 def getIssueInfoFromId(issueId, publicationId, publications):
 	for publication in publications["publications"]:
@@ -219,6 +229,9 @@ def parse_args():
 	parser.add_argument("--publication", help="Specifik publication customPublicationCode att ladda ner.")
 	parser.add_argument("--output", help="Sökväg för utdata (Output-katalog).")
 	parser.add_argument("--list-publications", action="store_true", help="Lista publikationer och avsluta.")
+	parser.add_argument("--list-categories", action="store_true", help="Lista kategorier och avsluta.")
+	parser.add_argument("--list-publications-in", type=int, help="Lista publikationer i angiven kategori och avsluta.")
+	parser.add_argument("--interactive", action="store_true", help="Interaktivt läge: välj kategori och lista publikationer.")
 	parser.add_argument("--skip-if-in-db", action="store_true", default=True, help="Hoppa över om nedladdad enligt DB (default).")
 	parser.add_argument("--no-skip-if-in-db", action="store_false", dest="skip_if_in_db", help="Inaktivera DB-skip.")
 	parser.add_argument("--force", action="store_true", help="Ignorera DB och filsystemkontroll, ladda ner ändå.")
@@ -245,8 +258,50 @@ def main():
 	publicationJson = getPublicationsJSON(token)
 	plist = getPublicationsInfo(publicationJson)
 
+	# Rent listläge (icke-interaktivt)
+	if args.list_categories:
+		cats = getAllCategories(publicationJson)
+		for idx, (cid, cname) in enumerate(cats, start=1):
+			print(f"[{idx}] {cname} (ID: {cid})")
+		return
+	if args.list_publications_in is not None:
+		plist = filterbyCategory(plist, args.list_publications_in)
+		for idx, (pname, pcode, num_issues, _cats) in enumerate(plist, start=1):
+			print(f"[{idx}] {pname} ({num_issues} nummer)")
+		return
+
 	if args.category is not None:
 		plist = filterbyCategory(plist, args.category)
+
+	if args.interactive:
+		# Interaktivt läge: välj kategori och lista publikationer
+		categories = getAllCategories(publicationJson)
+		if not categories:
+			print("Inga kategorier hittades.")
+			return
+		print("Välj kategori:\n")
+		for idx, (cid, cname) in enumerate(categories, start=1):
+			print(f"[{idx}] {cname} (ID: {cid})")
+		print("\n[0] Avbryt")
+		while True:
+			val = input("Ditt val: ").strip()
+			if val == "0" or val == "":
+				return
+			if val.isdigit():
+				i = int(val)
+				if 1 <= i <= len(categories):
+					category_id = categories[i-1][0]
+					break
+			print("Ogiltigt val, försök igen.")
+		plist = filterbyCategory(getPublicationsInfo(publicationJson), category_id)
+		if not plist:
+			print("Inga publikationer i vald kategori.")
+			return
+		print("\nPublikationer i vald kategori:\n")
+		for idx, (pname, pcode, num_issues, _cats) in enumerate(plist, start=1):
+			print(f"[{idx}] {pname} ({num_issues} nummer)")
+		print("\nKlart.")
+		return
 
 	if args.list_publications:
 		pprint(plist)
