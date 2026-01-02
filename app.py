@@ -8,6 +8,7 @@ import sqlite3
 import datetime
 import argparse
 import sys
+import json
 
 
 # Steg 1 : Logga in
@@ -39,6 +40,19 @@ def init_db():
 			PRIMARY KEY (publication_code, issue_code)
 		)
 		""")
+		conn.execute("""
+		CREATE TABLE IF NOT EXISTS download_jobs (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			job_type TEXT NOT NULL,
+			publication_code TEXT NOT NULL,
+			payload_json TEXT NOT NULL,
+			status TEXT NOT NULL DEFAULT 'queued',
+			created_at TEXT NOT NULL,
+			started_at TEXT,
+			finished_at TEXT,
+			last_error TEXT
+		)
+		""")
 
 def is_downloaded(publication_code, issue_code):
 	with sqlite3.connect(DB_PATH) as conn:
@@ -66,6 +80,54 @@ def mark_archived(publication_code, issue_code):
 		conn.execute("""
 		UPDATE issues_downloads SET status='archived' WHERE publication_code=? AND issue_code=?
 		""", (publication_code, issue_code))
+
+def enqueue_job(job_type, publication_code, payload: dict):
+	with sqlite3.connect(DB_PATH) as conn:
+		conn.execute("""
+		INSERT INTO download_jobs (job_type, publication_code, payload_json, status, created_at)
+		VALUES (?, ?, ?, 'queued', ?)
+		""", (job_type, publication_code, json.dumps(payload), datetime.datetime.utcnow().isoformat()))
+
+def list_jobs(status=None):
+	with sqlite3.connect(DB_PATH) as conn:
+		if status:
+			cur = conn.execute("""
+			SELECT id, job_type, publication_code, payload_json, status, created_at FROM download_jobs
+			WHERE status = ? ORDER BY id ASC
+			""", (status,))
+		else:
+			cur = conn.execute("""
+			SELECT id, job_type, publication_code, payload_json, status, created_at FROM download_jobs
+			ORDER BY id ASC
+			""")
+		return cur.fetchall()
+
+def clear_jobs(status="queued"):
+	with sqlite3.connect(DB_PATH) as conn:
+		if status:
+			conn.execute("""DELETE FROM download_jobs WHERE status = ?""", (status,))
+		else:
+			conn.execute("""DELETE FROM download_jobs""")
+
+def run_jobs(publications, *, skip_if_in_db=True, force=False):
+	with sqlite3.connect(DB_PATH) as conn:
+		cur = conn.execute("""SELECT id, job_type, publication_code, payload_json FROM download_jobs WHERE status='queued' ORDER BY id ASC""")
+		rows = cur.fetchall()
+		for job_id, job_type, pub_code, payload_json in rows:
+			started = datetime.datetime.utcnow().isoformat()
+			conn.execute("""UPDATE download_jobs SET status='running', started_at=? WHERE id=?""", (started, job_id))
+			try:
+				payload = json.loads(payload_json or "{}")
+				if job_type == "latest_n":
+					n = int(payload.get("n", 1))
+					downloadLatestNIssues(pub_code, publications, n, skip_if_in_db=skip_if_in_db, force=force)
+				else:
+					raise ValueError(f"Okänt job_type: {job_type}")
+				finished = datetime.datetime.utcnow().isoformat()
+				conn.execute("""UPDATE download_jobs SET status='done', finished_at=?, last_error=NULL WHERE id=?""", (finished, job_id))
+			except Exception as e:
+				finished = datetime.datetime.utcnow().isoformat()
+				conn.execute("""UPDATE download_jobs SET status='failed', finished_at=?, last_error=? WHERE id=?""", (finished, str(e), job_id))
 
 def getPublicationsJSON(token, useruuid="dummy"): #Turns out user uuid isn't needed
 	url = "https://flippapi.egmontservice.com/api/refreshsignintoken"
@@ -271,6 +333,9 @@ def parse_args():
 	parser.add_argument("--list-categories", action="store_true", help="Lista kategorier och avsluta.")
 	parser.add_argument("--list-publications-in", type=int, help="Lista publikationer i angiven kategori och avsluta.")
 	parser.add_argument("--interactive", action="store_true", help="Interaktivt läge: välj kategori och lista publikationer.")
+	parser.add_argument("--list-jobs", action="store_true", help="Lista jobb i kön och avsluta.")
+	parser.add_argument("--run-queue", action="store_true", help="Kör alla köade jobb.")
+	parser.add_argument("--clear-jobs", action="store_true", help="Töm köade jobb (status=queued).")
 	parser.add_argument("--skip-if-in-db", action="store_true", default=True, help="Hoppa över om nedladdad enligt DB (default).")
 	parser.add_argument("--no-skip-if-in-db", action="store_false", dest="skip_if_in_db", help="Inaktivera DB-skip.")
 	parser.add_argument("--force", action="store_true", help="Ignorera DB och filsystemkontroll, ladda ner ändå.")
@@ -296,6 +361,29 @@ def main():
 
 	publicationJson = getPublicationsJSON(token)
 	plist = getPublicationsInfo(publicationJson)
+
+	# Jobbkö-hantering (icke-interaktiv)
+	if args.list_jobs:
+		rows = list_jobs()
+		if not rows:
+			print("Inga jobb i kön.")
+		else:
+			for row in rows:
+				job_id, job_type, pub_code, payload_json, status, created_at = row
+				try:
+					payload = json.loads(payload_json or "{}")
+				except Exception:
+					payload = {}
+				print(f"[{job_id}] {status} - {job_type} - pub:{pub_code} payload:{payload} skapad:{created_at}")
+		return
+	if args.clear_jobs:
+		clear_jobs(status="queued")
+		print("Tömde köade jobb.")
+		return
+	if args.run_queue:
+		run_jobs(publicationJson, skip_if_in_db=args.skip_if_in_db, force=args.force)
+		print("Körning av kö avslutad.")
+		return
 
 	# Rent listläge (icke-interaktivt)
 	if args.list_categories:
@@ -339,7 +427,7 @@ def main():
 		print("\nPublikationer i vald kategori:\n")
 		for idx, (pname, pcode, num_issues, _cats) in enumerate(plist_cat, start=1):
 			print(f"[{idx}] {pname} ({num_issues} nummer)")
-		print("\nVälj publikation eller [0] för att avbryta.")
+		print("\nVälj publikation ([siffra]) för direkt åtgärd, eller markera flera publikationer med kommaseparerade val och intervall (t.ex. 1,3-5). [0] för att avbryta.")
 		while True:
 			val = input("Publikationsval: ").strip()
 			if val == "0" or val == "":
@@ -348,38 +436,92 @@ def main():
 				i = int(val)
 				if 1 <= i <= len(plist_cat):
 					_, selected_pub_code, _, _ = plist_cat[i-1]
+					selected_codes = [selected_pub_code]
+					multi_mode = False
 					break
 			print("Ogiltigt val, försök igen.")
-		# Nästa steg: lista nummer eller ladda ner senaste N
-		print("\nVälj åtgärd:\n[1] Lista nummer\n[2] Ladda ner senaste N\n[0] Avbryt")
-		while True:
-			act = input("Ditt val: ").strip()
-			if act in ("0", ""):
-				return
-			if act == "1":
-				issues_info = getIssuesForPublication(selected_pub_code, publicationJson)
-				if not issues_info:
-					print("Inga nummer hittades.")
-					return
-				print("\nNummer (nyast först):\n")
-				for idx, (_iid, idate, iname) in enumerate(issues_info, start=1):
-					print(f"[{idx}] {idate} - {iname}")
-				print("\nKlart.")
-				return
-			if act == "2":
-				n_str = input("Hur många nummer vill du ladda ner? (t.ex. 1): ").strip()
-				try:
-					n = int(n_str) if n_str else 1
-					if n <= 0:
-						print("Ange ett tal > 0.")
-						continue
-				except ValueError:
-					print("Ogiltigt tal. Försök igen.")
+			# Försök tolka som multival (1,3-5,...)
+			parts = [p.strip() for p in val.split(",") if p.strip()]
+			indices = set()
+			try:
+				for part in parts:
+					if "-" in part:
+						a, b = part.split("-", 1)
+						a = int(a); b = int(b)
+						if a > b: a, b = b, a
+						for x in range(a, b+1):
+							indices.add(x)
+					else:
+						indices.add(int(part))
+				valid = [i for i in indices if 1 <= i <= len(plist_cat)]
+				if not valid:
+					print("Inga giltiga val. Försök igen.")
 					continue
-				downloadLatestNIssues(selected_pub_code, publicationJson, n, skip_if_in_db=True, force=False)
-				print("Klart.")
-				return
-			print("Ogiltigt val, försök igen.")
+				selected_codes = [plist_cat[i-1][1] for i in sorted(valid)]
+				multi_mode = True
+				break
+			except ValueError:
+				print("Ogiltigt format. Försök igen.")
+		# Nästa steg
+		if not multi_mode:
+			# Enkel publikation: lista nummer eller ladda senaste N
+			print("\nVälj åtgärd:\n[1] Lista nummer\n[2] Ladda ner senaste N\n[0] Avbryt")
+			while True:
+				act = input("Ditt val: ").strip()
+				if act in ("0", ""):
+					return
+				if act == "1":
+					issues_info = getIssuesForPublication(selected_codes[0], publicationJson)
+					if not issues_info:
+						print("Inga nummer hittades.")
+						return
+					print("\nNummer (nyast först):\n")
+					for idx, (_iid, idate, iname) in enumerate(issues_info, start=1):
+						print(f"[{idx}] {idate} - {iname}")
+					print("\nKlart.")
+					return
+				if act == "2":
+					n_str = input("Hur många nummer vill du ladda ner? (t.ex. 1): ").strip()
+					try:
+						n = int(n_str) if n_str else 1
+						if n <= 0:
+							print("Ange ett tal > 0.")
+							continue
+					except ValueError:
+						print("Ogiltigt tal. Försök igen.")
+						continue
+					downloadLatestNIssues(selected_codes[0], publicationJson, n, skip_if_in_db=True, force=False)
+					print("Klart.")
+					return
+				print("Ogiltigt val, försök igen.")
+		else:
+			# Multival: fråga om enqueue "senaste N" per publikation
+			print("\nValda publikationer:", ", ".join(selected_codes))
+			print("Skapa jobb för 'senaste N' nedladdning per vald publikation? [J/n]")
+			confirm = input().strip().lower()
+			if confirm in ("", "j", "y", "yes"):
+				while True:
+					n_str = input("Hur många senaste nummer? (t.ex. 1): ").strip()
+					try:
+						n = int(n_str) if n_str else 1
+						if n <= 0:
+							print("Ange ett tal > 0.")
+							continue
+						break
+					except ValueError:
+						print("Ogiltigt tal. Försök igen.")
+				for code in selected_codes:
+					enqueue_job("latest_n", code, {"n": n})
+				print(f"Lade till {len(selected_codes)} jobb i kön.")
+				run_now = input("Vill du köra kön nu? [j/N]: ").strip().lower()
+				if run_now in ("j","y","yes"):
+					run_jobs(publicationJson, skip_if_in_db=True, force=False)
+					print("Körning av kö klar.")
+				else:
+					print("Du kan köra senare med flaggan --run-queue.")
+			else:
+				print("Avbröt jobbskapande.")
+			return
 
 	if args.list_publications:
 		pprint(plist)
