@@ -429,6 +429,36 @@ def get_preset(name):
 		row = cur.fetchone()
 		return json.loads(row[0]) if row else None
 
+def export_presets_to_file(target_path):
+	with sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT_SECS) as conn:
+		conn.execute(f"PRAGMA busy_timeout={DB_TIMEOUT_SECS*1000};")
+		cur = conn.execute("""SELECT name, payload_json, created_at FROM presets ORDER BY name ASC""")
+		items = [{"name": n, "payload": json.loads(pj), "created_at": created} for (n, pj, created) in cur.fetchall()]
+	data = {"version": 1, "exported_at": datetime.datetime.utcnow().isoformat(), "presets": items}
+	with open(target_path, "w", encoding="utf-8") as f:
+		json.dump(data, f, ensure_ascii=False, indent=2)
+
+def import_presets_from_file(source_path, overwrite=False):
+	with open(source_path, "r", encoding="utf-8") as f:
+		data = json.load(f)
+	items = data.get("presets", [])
+	with db_write_lock:
+		with sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT_SECS) as conn:
+			conn.execute(f"PRAGMA busy_timeout={DB_TIMEOUT_SECS*1000};")
+			if overwrite:
+				conn.execute("DELETE FROM presets")
+			for item in items:
+				name = item.get("name")
+				payload = item.get("payload") or {}
+				created = item.get("created_at") or datetime.datetime.utcnow().isoformat()
+				if not name:
+					continue
+				conn.execute("""
+				INSERT INTO presets (name, payload_json, created_at)
+				VALUES (?, ?, ?)
+				ON CONFLICT(name) DO UPDATE SET payload_json=excluded.payload_json, created_at=excluded.created_at
+				""", (name, json.dumps(payload), created))
+
 def parse_index_spec(spec, max_index):
 	parts = [p.strip() for p in spec.split(",") if p.strip()]
 	indices = set()
@@ -661,6 +691,9 @@ def parse_args():
 	parser.add_argument("--workers-pages", type=int, help="Antal trådar för sidnedladdning per nummer (default 6).")
 	parser.add_argument("--workers-issues", type=int, help="Antal trådar för parallella nummer (default 3).")
 	parser.add_argument("--no-progress", action="store_true", help="Stäng av progress bars under nedladdning.")
+	parser.add_argument("--export-presets", help="Exportera alla presets till JSON-fil.")
+	parser.add_argument("--import-presets", help="Importera presets från JSON-fil.")
+	parser.add_argument("--import-overwrite", action="store_true", help="Rensa befintliga presets före import.")
 	parser.add_argument("--skip-if-in-db", action="store_true", default=True, help="Hoppa över om nedladdad enligt DB (default).")
 	parser.add_argument("--no-skip-if-in-db", action="store_false", dest="skip_if_in_db", help="Inaktivera DB-skip.")
 	parser.add_argument("--force", action="store_true", help="Ignorera DB och filsystemkontroll, ladda ner ändå.")
@@ -889,6 +922,22 @@ def main():
 	publicationJson = getPublicationsJSON(token)
 	plist = getPublicationsInfo(publicationJson)
 
+	# Presets export/import (icke-interaktivt)
+	if args.export_presets:
+		try:
+			export_presets_to_file(args.export_presets)
+			print(f"Exporterade presets till {args.export_presets}")
+		except Exception as e:
+			print(f"Fel vid export: {e}")
+		return
+	if args.import_presets:
+		try:
+			import_presets_from_file(args.import_presets, overwrite=args.import_overwrite)
+			print(f"Importerade presets från {args.import_presets}{' (overwrite)' if args.import_overwrite else ''}")
+		except Exception as e:
+			print(f"Fel vid import: {e}")
+		return
+
 	# Jobbkö-hantering (icke-interaktiv)
 	if args.list_jobs:
 		rows = list_jobs()
@@ -1013,7 +1062,7 @@ def main():
 						else:
 							for i, (n, _p, created) in enumerate(pres, start=1):
 								print(f"[{i}] {n} ({created})")
-						print("\nVälj: [nummer] kör åtgärd, [d] radera, [0] tillbaka")
+						print("\nVälj: [nummer] kör åtgärd, [d] radera, [e] exportera, [i] importera, [0] tillbaka")
 						choice = input("Ditt val: ").strip().lower()
 						if choice in ("0",""):
 							break
@@ -1022,6 +1071,25 @@ def main():
 							if name:
 								delete_preset(name)
 								print("Raderad (om den fanns).")
+							continue
+						if choice == "e":
+							path = input("Sökväg för export (t.ex. presets.json): ").strip()
+							if path:
+								try:
+									export_presets_to_file(path)
+									print(f"Exporterade till {path}.")
+								except Exception as e:
+									print(f"Fel vid export: {e}")
+							continue
+						if choice == "i":
+							path = input("Sökväg för import (t.ex. presets.json): ").strip()
+							if path:
+								ow = input("Skriv över befintliga presets? [j/N]: ").strip().lower() in ("j","y","yes")
+								try:
+									import_presets_from_file(path, overwrite=ow)
+									print(f"Importerade från {path}{' (overwrite)' if ow else ''}.")
+								except Exception as e:
+									print(f"Fel vid import: {e}")
 							continue
 						if choice.isdigit():
 							i = int(choice)
