@@ -9,6 +9,7 @@ import datetime
 import argparse
 import sys
 import json
+import threading
 
 
 # Steg 1 : Logga in
@@ -28,6 +29,10 @@ MAX_PAGE_WORKERS = 6
 MAX_ISSUE_WORKERS = 3
 SHOW_PROGRESS = True
 PROGRESS_BAR_WIDTH = 30
+DB_TIMEOUT_SECS = 30
+
+progress_lock = threading.Lock()
+db_write_lock = threading.Lock()
 
 def print_header():
 	print("\n==========================================================")
@@ -41,13 +46,17 @@ def render_progress(prefix, current, total, *, width=PROGRESS_BAR_WIDTH):
 	current = min(current, total)
 	filled = int(width * (current / float(total)))
 	bar = "█" * filled + "-" * (width - filled)
-	print(f"\r{prefix} |{bar}| {current}/{total}", end="", flush=True)
+	with progress_lock:
+		print(f"\r{prefix} |{bar}| {current}/{total}", end="", flush=True)
 	if current >= total:
-		print()
+		with progress_lock:
+			print()
 
 def init_db():
 	# Skapar tabell för att hålla koll på redan nedladdade nummer
-	with sqlite3.connect(DB_PATH) as conn:
+	with sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT_SECS) as conn:
+		conn.execute("PRAGMA journal_mode=WAL;")
+		conn.execute(f"PRAGMA busy_timeout={DB_TIMEOUT_SECS*1000};")
 		conn.execute("""
 		CREATE TABLE IF NOT EXISTS issues_downloads (
 			publication_code TEXT NOT NULL,
@@ -75,7 +84,8 @@ def init_db():
 		""")
 
 def is_downloaded(publication_code, issue_code):
-	with sqlite3.connect(DB_PATH) as conn:
+	with sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT_SECS) as conn:
+		conn.execute(f"PRAGMA busy_timeout={DB_TIMEOUT_SECS*1000};")
 		cur = conn.execute("""
 			SELECT 1 FROM issues_downloads
 			WHERE publication_code=? AND issue_code=? AND status IN ('downloaded','archived')
@@ -83,33 +93,40 @@ def is_downloaded(publication_code, issue_code):
 		return cur.fetchone() is not None
 
 def mark_downloaded(publication_code, issue_code, issue_date, issue_name, filename):
-	with sqlite3.connect(DB_PATH) as conn:
-		conn.execute("""
-		INSERT INTO issues_downloads (publication_code, issue_code, issue_date, issue_name, filename, downloaded_at, status)
-		VALUES (?, ?, ?, ?, ?, ?, 'downloaded')
-		ON CONFLICT(publication_code, issue_code) DO UPDATE SET
-			issue_date=excluded.issue_date,
-			issue_name=excluded.issue_name,
-			filename=excluded.filename,
-			downloaded_at=excluded.downloaded_at,
-			status='downloaded'
-		""", (publication_code, issue_code, issue_date, issue_name, filename, datetime.datetime.utcnow().isoformat()))
+	with db_write_lock:
+		with sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT_SECS) as conn:
+			conn.execute(f"PRAGMA busy_timeout={DB_TIMEOUT_SECS*1000};")
+			conn.execute("""
+			INSERT INTO issues_downloads (publication_code, issue_code, issue_date, issue_name, filename, downloaded_at, status)
+			VALUES (?, ?, ?, ?, ?, ?, 'downloaded')
+			ON CONFLICT(publication_code, issue_code) DO UPDATE SET
+				issue_date=excluded.issue_date,
+				issue_name=excluded.issue_name,
+				filename=excluded.filename,
+				downloaded_at=excluded.downloaded_at,
+				status='downloaded'
+			""", (publication_code, issue_code, issue_date, issue_name, filename, datetime.datetime.utcnow().isoformat()))
 
 def mark_archived(publication_code, issue_code):
-	with sqlite3.connect(DB_PATH) as conn:
-		conn.execute("""
-		UPDATE issues_downloads SET status='archived' WHERE publication_code=? AND issue_code=?
-		""", (publication_code, issue_code))
+	with db_write_lock:
+		with sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT_SECS) as conn:
+			conn.execute(f"PRAGMA busy_timeout={DB_TIMEOUT_SECS*1000};")
+			conn.execute("""
+			UPDATE issues_downloads SET status='archived' WHERE publication_code=? AND issue_code=?
+			""", (publication_code, issue_code))
 
 def enqueue_job(job_type, publication_code, payload: dict):
-	with sqlite3.connect(DB_PATH) as conn:
-		conn.execute("""
-		INSERT INTO download_jobs (job_type, publication_code, payload_json, status, created_at)
-		VALUES (?, ?, ?, 'queued', ?)
-		""", (job_type, publication_code, json.dumps(payload), datetime.datetime.utcnow().isoformat()))
+	with db_write_lock:
+		with sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT_SECS) as conn:
+			conn.execute(f"PRAGMA busy_timeout={DB_TIMEOUT_SECS*1000};")
+			conn.execute("""
+			INSERT INTO download_jobs (job_type, publication_code, payload_json, status, created_at)
+			VALUES (?, ?, ?, 'queued', ?)
+			""", (job_type, publication_code, json.dumps(payload), datetime.datetime.utcnow().isoformat()))
 
 def list_jobs(status=None):
-	with sqlite3.connect(DB_PATH) as conn:
+	with sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT_SECS) as conn:
+		conn.execute(f"PRAGMA busy_timeout={DB_TIMEOUT_SECS*1000};")
 		if status:
 			cur = conn.execute("""
 			SELECT id, job_type, publication_code, payload_json, status, created_at FROM download_jobs
@@ -123,32 +140,40 @@ def list_jobs(status=None):
 		return cur.fetchall()
 
 def clear_jobs(status="queued"):
-	with sqlite3.connect(DB_PATH) as conn:
-		if status:
-			conn.execute("""DELETE FROM download_jobs WHERE status = ?""", (status,))
-		else:
-			conn.execute("""DELETE FROM download_jobs""")
+	with db_write_lock:
+		with sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT_SECS) as conn:
+			conn.execute(f"PRAGMA busy_timeout={DB_TIMEOUT_SECS*1000};")
+			if status:
+				conn.execute("""DELETE FROM download_jobs WHERE status = ?""", (status,))
+			else:
+				conn.execute("""DELETE FROM download_jobs""")
 
 def delete_jobs_by_ids(job_ids):
 	if not job_ids:
 		return
-	with sqlite3.connect(DB_PATH) as conn:
-		qmarks = ",".join(["?"] * len(job_ids))
-		conn.execute(f"DELETE FROM download_jobs WHERE id IN ({qmarks})", tuple(job_ids))
+	with db_write_lock:
+		with sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT_SECS) as conn:
+			conn.execute(f"PRAGMA busy_timeout={DB_TIMEOUT_SECS*1000};")
+			qmarks = ",".join(["?"] * len(job_ids))
+			conn.execute(f"DELETE FROM download_jobs WHERE id IN ({qmarks})", tuple(job_ids))
 
 def update_job_payload(job_id, payload: dict):
-	with sqlite3.connect(DB_PATH) as conn:
-		conn.execute("""
-		UPDATE download_jobs SET payload_json=? WHERE id=?
-		""", (json.dumps(payload), job_id))
+	with db_write_lock:
+		with sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT_SECS) as conn:
+			conn.execute(f"PRAGMA busy_timeout={DB_TIMEOUT_SECS*1000};")
+			conn.execute("""
+			UPDATE download_jobs SET payload_json=? WHERE id=?
+			""", (json.dumps(payload), job_id))
 
 def run_jobs(publications, *, skip_if_in_db=True, force=False):
-	with sqlite3.connect(DB_PATH) as conn:
+	with sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT_SECS) as conn:
+		conn.execute(f"PRAGMA busy_timeout={DB_TIMEOUT_SECS*1000};")
 		cur = conn.execute("""SELECT id, job_type, publication_code, payload_json FROM download_jobs WHERE status='queued' ORDER BY id ASC""")
 		rows = cur.fetchall()
 		for job_id, job_type, pub_code, payload_json in rows:
 			started = datetime.datetime.utcnow().isoformat()
-			conn.execute("""UPDATE download_jobs SET status='running', started_at=? WHERE id=?""", (started, job_id))
+			with db_write_lock:
+				conn.execute("""UPDATE download_jobs SET status='running', started_at=? WHERE id=?""", (started, job_id))
 			try:
 				payload = json.loads(payload_json or "{}")
 				if job_type == "latest_n":
@@ -185,10 +210,12 @@ def run_jobs(publications, *, skip_if_in_db=True, force=False):
 				else:
 					raise ValueError(f"Okänt job_type: {job_type}")
 				finished = datetime.datetime.utcnow().isoformat()
-				conn.execute("""UPDATE download_jobs SET status='done', finished_at=?, last_error=NULL WHERE id=?""", (finished, job_id))
+				with db_write_lock:
+					conn.execute("""UPDATE download_jobs SET status='done', finished_at=?, last_error=NULL WHERE id=?""", (finished, job_id))
 			except Exception as e:
 				finished = datetime.datetime.utcnow().isoformat()
-				conn.execute("""UPDATE download_jobs SET status='failed', finished_at=?, last_error=? WHERE id=?""", (finished, str(e), job_id))
+				with db_write_lock:
+					conn.execute("""UPDATE download_jobs SET status='failed', finished_at=?, last_error=? WHERE id=?""", (finished, str(e), job_id))
 
 def getPublicationsJSON(token, useruuid="dummy"): #Turns out user uuid isn't needed
 	url = "https://flippapi.egmontservice.com/api/refreshsignintoken"
@@ -366,7 +393,9 @@ def writePdf(pdfs, publicationFolder, issueName):
 	
 	merger = PdfMerger()
 	if MAX_PAGE_WORKERS and MAX_PAGE_WORKERS > 1:
-		buffers = download_pdfs_concurrently(pdfs, MAX_PAGE_WORKERS, progress_prefix=f"Sidor: {issueName}")
+		# Visa sid-progress endast när vi inte kör flera nummer parallellt för att undvika bar-krockar
+		progress_prefix = f"Sidor: {issueName}" if SHOW_PROGRESS and (MAX_ISSUE_WORKERS <= 1) else None
+		buffers = download_pdfs_concurrently(pdfs, MAX_PAGE_WORKERS, progress_prefix=progress_prefix)
 		for bio in buffers:
 			merger.append(PdfReader(bio))
 	else:
@@ -495,9 +524,12 @@ def downloadIssuesSubsetConcurrent(publicationId, publications, issues_info_subs
 			render_progress(f"Nummer: {name}", 0, total)
 		for fut in as_completed(futures):
 			try:
-				print(fut.result())
+				msg = fut.result()
+				with progress_lock:
+					print("\n" + msg)
 			except Exception as e:
-				print(f"Error in worker: {e}")
+				with progress_lock:
+					print(f"\nError in worker: {e}")
 			if SHOW_PROGRESS:
 				completed += 1
 				render_progress(f"Nummer: {name}", completed, total)
