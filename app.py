@@ -109,6 +109,19 @@ def clear_jobs(status="queued"):
 		else:
 			conn.execute("""DELETE FROM download_jobs""")
 
+def delete_jobs_by_ids(job_ids):
+	if not job_ids:
+		return
+	with sqlite3.connect(DB_PATH) as conn:
+		qmarks = ",".join(["?"] * len(job_ids))
+		conn.execute(f"DELETE FROM download_jobs WHERE id IN ({qmarks})", tuple(job_ids))
+
+def update_job_payload(job_id, payload: dict):
+	with sqlite3.connect(DB_PATH) as conn:
+		conn.execute("""
+		UPDATE download_jobs SET payload_json=? WHERE id=?
+		""", (json.dumps(payload), job_id))
+
 def run_jobs(publications, *, skip_if_in_db=True, force=False):
 	with sqlite3.connect(DB_PATH) as conn:
 		cur = conn.execute("""SELECT id, job_type, publication_code, payload_json FROM download_jobs WHERE status='queued' ORDER BY id ASC""")
@@ -121,6 +134,30 @@ def run_jobs(publications, *, skip_if_in_db=True, force=False):
 				if job_type == "latest_n":
 					n = int(payload.get("n", 1))
 					downloadLatestNIssues(pub_code, publications, n, skip_if_in_db=skip_if_in_db, force=force)
+				elif job_type == "range_indices":
+					ranges = payload.get("ranges", [])
+					issues_info = getIssuesForPublication(pub_code, publications)
+					selected_info = []
+					for rng in ranges:
+						if not isinstance(rng, list) or len(rng) != 2:
+							continue
+						a, b = rng
+						try:
+							a = int(a); b = int(b)
+						except Exception:
+							continue
+						if a > b:
+							a, b = b, a
+						for idx in range(max(1, a), min(len(issues_info), b) + 1):
+							selected_info.append(issues_info[idx - 1])
+					if selected_info:
+						downloadIssuesSubset(pub_code, publications, selected_info, skip_if_in_db=skip_if_in_db, force=force)
+				elif job_type == "date_range":
+					date_from = payload.get("from")
+					date_to = payload.get("to")
+					selected_info = filterIssuesByDateRange(pub_code, publications, date_from, date_to)
+					if selected_info:
+						downloadIssuesSubset(pub_code, publications, selected_info, skip_if_in_db=skip_if_in_db, force=force)
 				else:
 					raise ValueError(f"Okänt job_type: {job_type}")
 				finished = datetime.datetime.utcnow().isoformat()
@@ -220,6 +257,31 @@ def getIssuesForPublication(publicationId, publications):
 	# Sortera på datum (string-jämförelse räcker om formatet är ISO-likt)
 	issues_info.sort(key=lambda x: x[1], reverse=True)
 	return issues_info
+
+def parse_iso_date(s):
+	try:
+		return datetime.date.fromisoformat(s)
+	except Exception:
+		return None
+
+def filterIssuesByDateRange(publicationId, publications, date_from, date_to):
+	issues_info = getIssuesForPublication(publicationId, publications)
+	df = parse_iso_date(date_from) if date_from else None
+	dt = parse_iso_date(date_to) if date_to else None
+	selected = []
+	for issueId, issueDate, issueName in issues_info:
+		idate = parse_iso_date(issueDate)
+		ok = True
+		if df and idate and idate < df:
+			ok = False
+		if dt and idate and idate > dt:
+			ok = False
+		# Om datum inte kunde parsas, behåll bara om inga filter gav restriktion
+		if (df or dt) and idate is None:
+			ok = False
+		if ok:
+			selected.append((issueId, issueDate, issueName))
+	return selected
 
 
 def getIssuePDFs(publicationId, issueId):
@@ -322,6 +384,28 @@ def downloadLatestNIssues(publicationId, publications, n, *, skip_if_in_db=True,
 			print(f"Written file: {filename}")
 		print()
 
+def downloadIssuesSubset(publicationId, publications, issues_info_subset, *, skip_if_in_db=True, force=False):
+	if not issues_info_subset:
+		return
+	name = getPublicationNameFromId(publicationId, publications)
+	publicationFolder = os.path.join(OUTPUTPATH, safeName(name))
+	for issueId, issueDate, issueName in issues_info_subset:
+		filename = safeName(f"{name} - {issueDate} - {issueName}.pdf")
+		print(f"Downloading: {issueId} - {name} - ({issueDate}, {issueName})")
+		if skip_if_in_db and not force and is_downloaded(publicationId, issueId):
+			print("Already downloaded (DB)")
+			continue
+		if not force and os.path.isfile(os.path.join(publicationFolder, filename)):
+			print("File already exists")
+			if skip_if_in_db and not is_downloaded(publicationId, issueId):
+				mark_downloaded(publicationId, issueId, issueDate, issueName, filename)
+			continue
+		ok = writePdf(getIssuePDFs(publicationId, issueId), name, filename)
+		if ok:
+			mark_downloaded(publicationId, issueId, issueDate, issueName, filename)
+			print(f"Written file: {filename}")
+		print()
+
 
 def parse_args():
 	parser = argparse.ArgumentParser(description="flipp-dl - Ladda ner och slå ihop tidningsnummer från Flipp.")
@@ -343,6 +427,115 @@ def parse_args():
 
 def main():
 	global OUTPUTPATH
+
+	def interactive_queue_manager(publications):
+		while True:
+			print("\n--- Jobbkö ---")
+			rows = list_jobs()
+			if not rows:
+				print("Inga jobb i kön.")
+			else:
+				for idx, row in enumerate(rows, start=1):
+					job_id, job_type, pub_code, payload_json, status, created_at = row
+					try:
+						payload = json.loads(payload_json or "{}")
+					except Exception:
+						payload = {}
+					pub_name = getPublicationNameFromId(pub_code, publications) or pub_code
+					print(f"[{idx}] id:{job_id} {status} - {job_type} - {pub_name} payload:{payload} ({created_at})")
+			print("\nVälj åtgärd: [1] Kör kö [2] Töm queued [3] Ta bort valda [4] Ändra jobb [0] Tillbaka")
+			choice = input("Ditt val: ").strip()
+			if choice in ("0", ""):
+				return
+			if choice == "1":
+				run_jobs(publications, skip_if_in_db=True, force=False)
+				print("Körning klar.")
+			elif choice == "2":
+				clear_jobs(status="queued")
+				print("Tömde queued.")
+			elif choice == "3":
+				if not rows:
+					continue
+				val = input("Vilka jobb (t.ex. 1,3-4): ").strip()
+				if not val:
+					continue
+				parts = [p.strip() for p in val.split(",") if p.strip()]
+				sel = set()
+				try:
+					for part in parts:
+						if "-" in part:
+							a, b = part.split("-", 1); a = int(a); b = int(b)
+							if a > b: a, b = b, a
+							for x in range(a, b+1):
+								sel.add(x)
+						else:
+							sel.add(int(part))
+				except Exception:
+					print("Ogiltigt urval."); continue
+				job_ids = []
+				for i in sorted(sel):
+					if 1 <= i <= len(rows):
+						job_ids.append(rows[i-1][0])
+				delete_jobs_by_ids(job_ids)
+				print(f"Tog bort {len(job_ids)} jobb.")
+			elif choice == "4":
+				if not rows:
+					continue
+				val = input("Vilket jobbnummer vill du ändra? ").strip()
+				try:
+					i = int(val)
+					if not (1 <= i <= len(rows)):
+						print("Ogiltigt nummer."); continue
+				except Exception:
+					print("Ogiltigt nummer."); continue
+				job_id, job_type, pub_code, payload_json, status, created_at = rows[i-1]
+				try:
+					payload = json.loads(payload_json or "{}")
+				except Exception:
+					payload = {}
+				print(f"Redigerar id:{job_id} typ:{job_type} payload:{payload}")
+				if job_type == "latest_n":
+					n_str = input("Nytt N (tomt = oförändrat): ").strip()
+					if n_str:
+						try:
+							n = int(n_str); payload["n"] = n
+						except Exception:
+							print("Ogiltigt tal.")
+					update_job_payload(job_id, payload)
+					print("Uppdaterat.")
+				elif job_type == "range_indices":
+					span = input("Nytt intervall (t.ex. 1-5 eller 1,3-4,7). Tomt = oförändrat: ").strip()
+					if span:
+						new_ranges = []
+						ok = True
+						try:
+							for part in [p.strip() for p in span.split(",") if p.strip()]:
+								if "-" in part:
+									a, b = part.split("-", 1); a = int(a); b = int(b)
+									new_ranges.append([a, b])
+								else:
+									x = int(part); new_ranges.append([x, x])
+						except Exception:
+							ok = False
+						if ok:
+							payload["ranges"] = new_ranges
+							update_job_payload(job_id, payload)
+							print("Uppdaterat.")
+						else:
+							print("Ogiltigt format.")
+				elif job_type == "date_range":
+					df = input("Ny från-datum (YYYY-MM-DD, tomt = oförändrat): ").strip()
+					dt = input("Ny till-datum (YYYY-MM-DD, tomt = oförändrat): ").strip()
+					if df:
+						payload["from"] = df
+					if dt:
+						payload["to"] = dt
+					update_job_payload(job_id, payload)
+					print("Uppdaterat.")
+				else:
+					print("Okänd jobtyp; kan inte redigera.")
+			else:
+				print("Ogiltigt val.")
 
 	args = parse_args()
 
@@ -374,7 +567,8 @@ def main():
 					payload = json.loads(payload_json or "{}")
 				except Exception:
 					payload = {}
-				print(f"[{job_id}] {status} - {job_type} - pub:{pub_code} payload:{payload} skapad:{created_at}")
+				pub_name = getPublicationNameFromId(pub_code, publicationJson) or pub_code
+				print(f"[{job_id}] {status} - {job_type} - {pub_name} ({pub_code}) payload:{payload} skapad:{created_at}")
 		return
 	if args.clear_jobs:
 		clear_jobs(status="queued")
@@ -465,7 +659,7 @@ def main():
 		# Nästa steg
 		if not multi_mode:
 			# Enkel publikation: lista nummer eller ladda senaste N
-			print("\nVälj åtgärd:\n[1] Lista nummer\n[2] Ladda ner senaste N\n[0] Avbryt")
+			print("\nVälj åtgärd:\n[1] Lista nummer\n[2] Ladda ner senaste N\n[3] Lägg till i kö: senaste N\n[4] Lägg till i kö: indexintervall\n[5] Lägg till i kö: datumintervall\n[6] Hantera kö\n[0] Avbryt")
 			while True:
 				act = input("Ditt val: ").strip()
 				if act in ("0", ""):
@@ -493,34 +687,90 @@ def main():
 					downloadLatestNIssues(selected_codes[0], publicationJson, n, skip_if_in_db=True, force=False)
 					print("Klart.")
 					return
+				if act == "3":
+					n_str = input("Hur många senaste vill du lägga till i kö? (t.ex. 1): ").strip()
+					try:
+						n = int(n_str) if n_str else 1
+						if n <= 0:
+							print("Ange ett tal > 0."); continue
+					except ValueError:
+						print("Ogiltigt tal."); continue
+					enqueue_job("latest_n", selected_codes[0], {"n": n})
+					print("Jobb tillagt.")
+					return
+				if act == "4":
+					print("Ange indexintervall (t.ex. 1-5 eller 1,3-4,7):")
+					span = input().strip()
+					if not span:
+						print("Inget intervall angivet."); return
+					# Validera i grova drag; lagra rått och låt körning göra det exakta urvalet
+					ranges = []
+					try:
+						for part in [p.strip() for p in span.split(",") if p.strip()]:
+							if "-" in part:
+								a, b = part.split("-", 1); a = int(a); b = int(b)
+								ranges.append([a, b])
+							else:
+								x = int(part); ranges.append([x, x])
+					except Exception:
+						print("Ogiltigt format."); return
+					enqueue_job("range_indices", selected_codes[0], {"ranges": ranges})
+					print("Jobb tillagt.")
+					return
+				if act == "5":
+					df = input("Från-datum (YYYY-MM-DD, tomt = ingen nedre gräns): ").strip()
+					dt = input("Till-datum (YYYY-MM-DD, tomt = ingen övre gräns): ").strip()
+					enqueue_job("date_range", selected_codes[0], {"from": df or None, "to": dt or None})
+					print("Jobb tillagt.")
+					return
+				if act == "6":
+					interactive_queue_manager(publicationJson)
+					return
 				print("Ogiltigt val, försök igen.")
 		else:
 			# Multival: fråga om enqueue "senaste N" per publikation
 			print("\nValda publikationer:", ", ".join(selected_codes))
-			print("Skapa jobb för 'senaste N' nedladdning per vald publikation? [J/n]")
-			confirm = input().strip().lower()
-			if confirm in ("", "j", "y", "yes"):
+			print("Välj åtgärd för ALLA valda:\n[1] Lägg i kö: senaste N\n[2] Lägg i kö: indexintervall\n[3] Lägg i kö: datumintervall\n[4] Hantera kö nu\n[0] Avbryt")
+			act = input("Ditt val: ").strip()
+			if act == "1":
 				while True:
 					n_str = input("Hur många senaste nummer? (t.ex. 1): ").strip()
 					try:
 						n = int(n_str) if n_str else 1
 						if n <= 0:
-							print("Ange ett tal > 0.")
-							continue
+							print("Ange ett tal > 0."); continue
 						break
 					except ValueError:
 						print("Ogiltigt tal. Försök igen.")
 				for code in selected_codes:
 					enqueue_job("latest_n", code, {"n": n})
 				print(f"Lade till {len(selected_codes)} jobb i kön.")
-				run_now = input("Vill du köra kön nu? [j/N]: ").strip().lower()
-				if run_now in ("j","y","yes"):
-					run_jobs(publicationJson, skip_if_in_db=True, force=False)
-					print("Körning av kö klar.")
-				else:
-					print("Du kan köra senare med flaggan --run-queue.")
+			elif act == "2":
+				span = input("Indexintervall (t.ex. 1-5 eller 1,3-4,7): ").strip()
+				ranges = []
+				try:
+					for part in [p.strip() for p in span.split(",") if p.strip()]:
+						if "-" in part:
+							a, b = part.split("-", 1); a = int(a); b = int(b)
+							ranges.append([a, b])
+						else:
+							x = int(part); ranges.append([x, x])
+				except Exception:
+					print("Ogiltigt format."); return
+				for code in selected_codes:
+					enqueue_job("range_indices", code, {"ranges": ranges})
+				print(f"Lade till {len(selected_codes)} jobb i kön.")
+			elif act == "3":
+				df = input("Från-datum (YYYY-MM-DD, tomt = ingen nedre gräns): ").strip()
+				dt = input("Till-datum (YYYY-MM-DD, tomt = ingen övre gräns): ").strip()
+				for code in selected_codes:
+					enqueue_job("date_range", code, {"from": df or None, "to": dt or None})
+				print(f"Lade till {len(selected_codes)} jobb i kön.")
+			elif act == "4":
+				interactive_queue_manager(publicationJson)
+				return
 			else:
-				print("Avbröt jobbskapande.")
+				print("Avbröt.")
 			return
 
 	if args.list_publications:
