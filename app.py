@@ -164,6 +164,10 @@ def run_jobs(publications, *, skip_if_in_db=True, force=False):
 					selected_info = filterIssuesByDateRange(pub_code, publications, date_from, date_to)
 					if selected_info:
 						downloadIssuesSubset(pub_code, publications, selected_info, skip_if_in_db=skip_if_in_db, force=force)
+				elif job_type == "all_issues":
+					issues_info = getIssuesForPublication(pub_code, publications)
+					if issues_info:
+						downloadIssuesSubset(pub_code, publications, issues_info, skip_if_in_db=skip_if_in_db, force=force)
 				else:
 					raise ValueError(f"Okänt job_type: {job_type}")
 				finished = datetime.datetime.utcnow().isoformat()
@@ -692,7 +696,7 @@ def main():
 					# Åtgärder
 					if not multi_mode:
 						while True:
-							print("\nVälj åtgärd:\n[1] Lista nummer\n[2] Ladda ner senaste N\n[3] Lägg till i kö: senaste N\n[4] Lägg till i kö: indexintervall\n[5] Lägg till i kö: datumintervall\n[6] Hantera kö\n[7] Till kategorier\n[8] Till huvudmeny\n[0] Till publikationer")
+							print("\nVälj åtgärd:\n[1] Lista nummer\n[2] Ladda ner senaste N\n[3] Lägg till i kö: senaste N\n[4] Lägg till i kö: indexintervall\n[5] Lägg till i kö: datumintervall\n[6] Hantera kö\n[9] Ladda ner alla nummer\n[10] Lägg till i kö: alla nummer\n[7] Till kategorier\n[8] Till huvudmeny\n[0] Till publikationer")
 							act = input("Ditt val: ").strip()
 							if act in ("0",""):
 								break
@@ -749,11 +753,23 @@ def main():
 								print("Jobb tillagt."); continue
 							if act == "6":
 								interactive_queue_manager(publicationJson); continue
+							if act == "9":
+								issues_info = getIssuesForPublication(selected_codes[0], publicationJson)
+								if not issues_info:
+									print("Inga nummer hittades."); continue
+								downloadIssuesSubset(selected_codes[0], publicationJson, issues_info, skip_if_in_db=True, force=False)
+								print("Klart."); continue
+							if act == "10":
+								enqueue_job("all_issues", selected_codes[0], {})
+								print("Jobb tillagt (alla nummer)."); continue
 							print("Ogiltigt val.")
 					else:
 						while True:
-							print("\nValda publikationer:", ", ".join(selected_codes))
-							print("Välj åtgärd för ALLA valda:\n[1] Lägg i kö: senaste N\n[2] Lägg i kö: indexintervall\n[3] Lägg i kö: datumintervall\n[4] Hantera kö nu\n[0] Till publikationer\n[H] Huvudmeny")
+							print("\nValda publikationer:")
+							for code in selected_codes:
+								name = getPublicationNameFromId(code, publicationJson) or code
+								print(f"- {name} ({code})")
+							print("Välj åtgärd för ALLA valda:\n[1] Lägg i kö: senaste N\n[2] Lägg i kö: indexintervall\n[3] Lägg i kö: datumintervall\n[4] Hantera kö nu\n[5] Lägg i kö: alla nummer\n[0] Till publikationer\n[H] Huvudmeny")
 							act = input("Ditt val: ").strip()
 							if act in ("0",""): break
 							if act.lower() == "h": go_main = True; break
@@ -793,6 +809,10 @@ def main():
 								print(f"Lade till {len(selected_codes)} jobb i kön."); continue
 							if act == "4":
 								interactive_queue_manager(publicationJson); continue
+							if act == "5":
+								for code in selected_codes:
+									enqueue_job("all_issues", code, {})
+								print(f"Lade till {len(selected_codes)} jobb (alla nummer) i kön."); continue
 							print("Ogiltigt val.")
 					if go_main: break
 				if go_main: break
