@@ -607,9 +607,18 @@ def main():
 		print("Välj kategori:\n")
 		for idx, (cid, cname) in enumerate(categories, start=1):
 			print(f"[{idx}] {cname} (ID: {cid})")
-		print("\n[0] Avbryt")
+		print("\n[K] Hantera kö")
+		print("[0] Avbryt")
 		while True:
 			val = input("Ditt val: ").strip()
+			if val.lower() == "k":
+				interactive_queue_manager(publicationJson)
+				print("\nVälj kategori:\n")
+				for idx, (cid, cname) in enumerate(categories, start=1):
+					print(f"[{idx}] {cname} (ID: {cid})")
+				print("\n[K] Hantera kö")
+				print("[0] Avbryt")
+				continue
 			if val == "0" or val == "":
 				return
 			if val.isdigit():
@@ -781,6 +790,8 @@ def main():
 					continue
 				print("Ogiltigt val, försök igen.")
 
+		# Lämna interaktivt läge utan att falla igenom till nedladdningar
+		return
 	if args.list_publications:
 		pprint(plist)
 		return
