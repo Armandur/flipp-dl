@@ -10,6 +10,7 @@ import argparse
 import sys
 import json
 import threading
+import re
 
 
 # Steg 1 : Logga in
@@ -67,6 +68,13 @@ def init_db():
 			downloaded_at TEXT,
 			status TEXT NOT NULL DEFAULT 'downloaded',
 			PRIMARY KEY (publication_code, issue_code)
+		)
+		""")
+		conn.execute("""
+		CREATE TABLE IF NOT EXISTS presets (
+			name TEXT PRIMARY KEY,
+			payload_json TEXT NOT NULL,
+			created_at TEXT NOT NULL
 		)
 		""")
 		conn.execute("""
@@ -391,6 +399,50 @@ def count_downloaded_issues(publicationId, publications):
 		if is_downloaded(publicationId, issueId):
 			downloaded += 1
 	return downloaded, len(issues)
+
+def save_preset(name, publication_codes):
+	with db_write_lock:
+		with sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT_SECS) as conn:
+			conn.execute(f"PRAGMA busy_timeout={DB_TIMEOUT_SECS*1000};")
+			conn.execute("""
+			INSERT INTO presets (name, payload_json, created_at)
+			VALUES (?, ?, ?)
+			ON CONFLICT(name) DO UPDATE SET payload_json=excluded.payload_json, created_at=excluded.created_at
+			""", (name, json.dumps({"publication_codes": publication_codes}), datetime.datetime.utcnow().isoformat()))
+
+def list_presets():
+	with sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT_SECS) as conn:
+		conn.execute(f"PRAGMA busy_timeout={DB_TIMEOUT_SECS*1000};")
+		cur = conn.execute("""SELECT name, payload_json, created_at FROM presets ORDER BY name ASC""")
+		return cur.fetchall()
+
+def delete_preset(name):
+	with db_write_lock:
+		with sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT_SECS) as conn:
+			conn.execute(f"PRAGMA busy_timeout={DB_TIMEOUT_SECS*1000};")
+			conn.execute("""DELETE FROM presets WHERE name=?""", (name,))
+
+def get_preset(name):
+	with sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT_SECS) as conn:
+		conn.execute(f"PRAGMA busy_timeout={DB_TIMEOUT_SECS*1000};")
+		cur = conn.execute("""SELECT payload_json FROM presets WHERE name=?""", (name,))
+		row = cur.fetchone()
+		return json.loads(row[0]) if row else None
+
+def parse_index_spec(spec, max_index):
+	parts = [p.strip() for p in spec.split(",") if p.strip()]
+	indices = set()
+	for part in parts:
+		if "-" in part:
+			a, b = part.split("-", 1)
+			a = int(a); b = int(b)
+			if a > b:
+				a, b = b, a
+			for i in range(max(1, a), min(max_index, b) + 1):
+				indices.add(i)
+		else:
+			indices.add(int(part))
+	return sorted(i for i in indices if 1 <= i <= max_index)
 
 def getIssuePDFs(publicationId, issueId):
 	url = f"https://reader.flipp.se/html5/reader/get_page_groups_from_eid.aspx?pubid={publicationId}&eid={issueId}"
@@ -947,10 +999,64 @@ def main():
 				print("\nVälj kategori:\n")
 				for idx, (cid, cname) in enumerate(categories, start=1):
 					print(f"[{idx}] {cname} (ID: {cid})")
-				print("\n[0] Till huvudmeny")
+				print("\n[0] Till huvudmeny    [P] Presets")
 				val = input("Ditt val: ").strip()
 				if val in ("0",""):
 					break
+				if val.lower() == "p":
+					# Preset manager
+					while True:
+						print("\n--- Presets ---")
+						pres = list_presets()
+						if not pres:
+							print("Inga presets sparade.")
+						else:
+							for i, (n, _p, created) in enumerate(pres, start=1):
+								print(f"[{i}] {n} ({created})")
+						print("\nVälj: [nummer] kör åtgärd, [d] radera, [0] tillbaka")
+						choice = input("Ditt val: ").strip().lower()
+						if choice in ("0",""):
+							break
+						if choice == "d":
+							name = input("Namn på preset att radera: ").strip()
+							if name:
+								delete_preset(name)
+								print("Raderad (om den fanns).")
+							continue
+						if choice.isdigit():
+							i = int(choice)
+							if 1 <= i <= len(pres):
+								name, payload_json, _created = pres[i-1]
+								payload = json.loads(payload_json)
+								pcodes = payload.get("publication_codes", [])
+								if not pcodes:
+									print("Preset saknar publikationer."); continue
+								print(f"\nPreset '{name}' ({len(pcodes)} publikationer)")
+								print("[1] Lägg i kö: senaste N\n[2] Lägg i kö: alla nummer\n[3] Ladda ner alla nu\n[0] Tillbaka")
+								actp = input("Ditt val: ").strip()
+								if actp == "1":
+									n_str = input("Hur många senaste nummer? (t.ex. 1): ").strip()
+									try:
+										n = int(n_str) if n_str else 1
+									except Exception:
+										print("Ogiltigt tal."); continue
+									for code in pcodes:
+										enqueue_job("latest_n", code, {"n": n})
+									print(f"Lade till {len(pcodes)} jobb i kön.")
+								elif actp == "2":
+									for code in pcodes:
+										enqueue_job("all_issues", code, {})
+									print(f"Lade till {len(pcodes)} jobb (alla nummer) i kön.")
+								elif actp == "3":
+									for code in pcodes:
+										issues_info = getIssuesForPublication(code, publicationJson)
+										downloadIssuesSubsetConcurrent(code, publicationJson, issues_info, skip_if_in_db=True, force=False, max_workers=MAX_ISSUE_WORKERS)
+									print("Klart.")
+								else:
+									continue
+							continue
+						print("Ogiltigt val.")
+					continue
 				category_id = None
 				if val.isdigit():
 					i = int(val)
@@ -1010,6 +1116,34 @@ def main():
 						while True:
 							print("\nVälj åtgärd:\n[1] Lista nummer\n[2] Ladda ner senaste N\n[3] Lägg till i kö: senaste N\n[4] Lägg till i kö: indexintervall\n[5] Lägg till i kö: datumintervall\n[6] Hantera kö\n[9] Ladda ner alla nummer\n[10] Lägg till i kö: alla nummer\n[7] Till kategorier\n[8] Till huvudmeny\n[0] Till publikationer")
 							act = input("Ditt val: ").strip()
+							# Snabbkommandon: d/a/c <indexspec>, l <indexspec>
+							if re.match(r"^[dac]\s+[\d,\-\s]+$", act, re.IGNORECASE):
+								if not issues_info:
+									issues_info = getIssuesForPublication(selected_codes[0], publicationJson)
+								cmd = act.split(None, 1)[0].lower()
+								spec = act[len(cmd):].strip()
+								idxs = parse_index_spec(spec, len(issues_info))
+								name_pub = getPublicationNameFromId(selected_codes[0], publicationJson) or ""
+								for i in idxs:
+									issueId, issueDate, issueName = issues_info[i-1]
+									filename = safeName(f"{name_pub} - {issueDate} - {issueName}.pdf")
+									if cmd == "d":
+										mark_downloaded(selected_codes[0], issueId, issueDate, issueName, filename)
+									elif cmd == "a":
+										mark_downloaded(selected_codes[0], issueId, issueDate, issueName, filename)
+										mark_archived(selected_codes[0], issueId)
+									else:
+										unmark_issue(selected_codes[0], issueId)
+								print(f"Uppdaterade {len(idxs)} nummer."); continue
+							if re.match(r"^l\s+[\d,\-\s]+$", act, re.IGNORECASE):
+								if not issues_info:
+                                    # hämta vid behov
+									issues_info = getIssuesForPublication(selected_codes[0], publicationJson)
+								spec = act.split(None, 1)[1].strip()
+								idxs = parse_index_spec(spec, len(issues_info))
+								subset = [issues_info[i-1] for i in idxs]
+								downloadIssuesSubsetConcurrent(selected_codes[0], publicationJson, subset, skip_if_in_db=True, force=False, max_workers=MAX_ISSUE_WORKERS)
+								print("Klart."); continue
 							if act in ("0",""):
 								break
 							if act == "7":
@@ -1123,10 +1257,29 @@ def main():
 							for code in selected_codes:
 								name = getPublicationNameFromId(code, publicationJson) or code
 								print(f"- {name} ({code})")
-							print("Välj åtgärd för ALLA valda:\n[1] Lägg i kö: senaste N\n[2] Lägg i kö: indexintervall\n[3] Lägg i kö: datumintervall\n[4] Hantera kö nu\n[5] Lägg i kö: alla nummer\n[6] Ladda ner alla nummer nu\n[0] Till publikationer\n[H] Huvudmeny")
+							print("Välj åtgärd för ALLA valda:\n[1] Lägg i kö: senaste N\n[2] Lägg i kö: indexintervall\n[3] Lägg i kö: datumintervall\n[4] Hantera kö nu\n[5] Lägg i kö: alla nummer\n[6] Ladda ner alla nummer nu\n[7] Spara urval som preset\n[0] Till publikationer\n[H] Huvudmeny")
 							act = input("Ditt val: ").strip()
 							if act in ("0",""): break
 							if act.lower() == "h": go_main = True; break
+							# Snabbkommandon: n <N>, all, dlall, save <name>
+							if re.match(r"^n\s+\d+$", act, re.IGNORECASE):
+								n = int(act.split()[1])
+								for code in selected_codes:
+									enqueue_job("latest_n", code, {"n": n})
+								print(f"Lade till {len(selected_codes)} jobb i kön."); continue
+							if act.strip().lower() == "all":
+								for code in selected_codes:
+									enqueue_job("all_issues", code, {})
+								print(f"Lade till {len(selected_codes)} jobb (alla nummer) i kön."); continue
+							if act.strip().lower() == "dlall":
+								for code in selected_codes:
+									issues_info = getIssuesForPublication(code, publicationJson)
+									downloadIssuesSubsetConcurrent(code, publicationJson, issues_info, skip_if_in_db=True, force=False, max_workers=MAX_ISSUE_WORKERS)
+								print("Klart."); continue
+							if re.match(r"^save\s+.+$", act, re.IGNORECASE):
+								name = act.split(None, 1)[1].strip()
+								save_preset(name, selected_codes)
+								print(f"Sparade preset '{name}' ({len(selected_codes)} publikationer)."); continue
 							if act == "1":
 								while True:
 									n_str = input("Hur många senaste nummer? (t.ex. 1): ").strip()
@@ -1167,6 +1320,12 @@ def main():
 								for code in selected_codes:
 									enqueue_job("all_issues", code, {})
 								print(f"Lade till {len(selected_codes)} jobb (alla nummer) i kön."); continue
+							if act == "7":
+								name = input("Namn på preset: ").strip()
+								if name:
+									save_preset(name, selected_codes)
+									print(f"Sparade preset '{name}' ({len(selected_codes)} publikationer).")
+								continue
 							if act == "6":
 								for code in selected_codes:
 									issues_info = getIssuesForPublication(code, publicationJson)
