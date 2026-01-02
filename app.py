@@ -667,7 +667,7 @@ def main():
 				print("\nVälj åtgärd:\n[1] Lista nummer\n[2] Ladda ner senaste N\n[3] Lägg till i kö: senaste N\n[4] Lägg till i kö: indexintervall\n[5] Lägg till i kö: datumintervall\n[6] Hantera kö\n[0] Avbryt")
 				act = input("Ditt val: ").strip()
 				if act in ("0", ""):
-					return
+					break
 				if act == "1":
 					issues_info = getIssuesForPublication(selected_codes[0], publicationJson)
 					if not issues_info:
@@ -690,7 +690,7 @@ def main():
 						continue
 					downloadLatestNIssues(selected_codes[0], publicationJson, n, skip_if_in_db=True, force=False)
 					print("Klart.")
-					return
+					continue
 				if act == "3":
 					n_str = input("Hur många senaste vill du lägga till i kö? (t.ex. 1): ").strip()
 					try:
@@ -701,12 +701,12 @@ def main():
 						print("Ogiltigt tal."); continue
 					enqueue_job("latest_n", selected_codes[0], {"n": n})
 					print("Jobb tillagt.")
-					return
+					continue
 				if act == "4":
 					print("Ange indexintervall (t.ex. 1-5 eller 1,3-4,7):")
 					span = input().strip()
 					if not span:
-						print("Inget intervall angivet."); return
+						print("Inget intervall angivet."); continue
 					# Validera i grova drag; lagra rått och låt körning göra det exakta urvalet
 					ranges = []
 					try:
@@ -717,65 +717,69 @@ def main():
 							else:
 								x = int(part); ranges.append([x, x])
 					except Exception:
-						print("Ogiltigt format."); return
+						print("Ogiltigt format."); continue
 					enqueue_job("range_indices", selected_codes[0], {"ranges": ranges})
 					print("Jobb tillagt.")
-					return
+					continue
 				if act == "5":
 					df = input("Från-datum (YYYY-MM-DD, tomt = ingen nedre gräns): ").strip()
 					dt = input("Till-datum (YYYY-MM-DD, tomt = ingen övre gräns): ").strip()
 					enqueue_job("date_range", selected_codes[0], {"from": df or None, "to": dt or None})
 					print("Jobb tillagt.")
-					return
+					continue
 				if act == "6":
 					interactive_queue_manager(publicationJson)
-					return
+					continue
 				print("Ogiltigt val, försök igen.")
 		else:
 			# Multival: fråga om enqueue "senaste N" per publikation
-			print("\nValda publikationer:", ", ".join(selected_codes))
-			print("Välj åtgärd för ALLA valda:\n[1] Lägg i kö: senaste N\n[2] Lägg i kö: indexintervall\n[3] Lägg i kö: datumintervall\n[4] Hantera kö nu\n[0] Avbryt")
-			act = input("Ditt val: ").strip()
-			if act == "1":
-				while True:
-					n_str = input("Hur många senaste nummer? (t.ex. 1): ").strip()
+			while True:
+				print("\nValda publikationer:", ", ".join(selected_codes))
+				print("Välj åtgärd för ALLA valda:\n[1] Lägg i kö: senaste N\n[2] Lägg i kö: indexintervall\n[3] Lägg i kö: datumintervall\n[4] Hantera kö nu\n[0] Tillbaka")
+				act = input("Ditt val: ").strip()
+				if act in ("0", ""):
+					break
+				if act == "1":
+					while True:
+						n_str = input("Hur många senaste nummer? (t.ex. 1): ").strip()
+						try:
+							n = int(n_str) if n_str else 1
+							if n <= 0:
+								print("Ange ett tal > 0."); continue
+							break
+						except ValueError:
+							print("Ogiltigt tal. Försök igen.")
+					for code in selected_codes:
+						enqueue_job("latest_n", code, {"n": n})
+					print(f"Lade till {len(selected_codes)} jobb i kön.")
+					continue
+				if act == "2":
+					span = input("Indexintervall (t.ex. 1-5 eller 1,3-4,7): ").strip()
+					ranges = []
 					try:
-						n = int(n_str) if n_str else 1
-						if n <= 0:
-							print("Ange ett tal > 0."); continue
-						break
-					except ValueError:
-						print("Ogiltigt tal. Försök igen.")
-				for code in selected_codes:
-					enqueue_job("latest_n", code, {"n": n})
-				print(f"Lade till {len(selected_codes)} jobb i kön.")
-			elif act == "2":
-				span = input("Indexintervall (t.ex. 1-5 eller 1,3-4,7): ").strip()
-				ranges = []
-				try:
-					for part in [p.strip() for p in span.split(",") if p.strip()]:
-						if "-" in part:
-							a, b = part.split("-", 1); a = int(a); b = int(b)
-							ranges.append([a, b])
-						else:
-							x = int(part); ranges.append([x, x])
-				except Exception:
-					print("Ogiltigt format."); return
-				for code in selected_codes:
-					enqueue_job("range_indices", code, {"ranges": ranges})
-				print(f"Lade till {len(selected_codes)} jobb i kön.")
-			elif act == "3":
-				df = input("Från-datum (YYYY-MM-DD, tomt = ingen nedre gräns): ").strip()
-				dt = input("Till-datum (YYYY-MM-DD, tomt = ingen övre gräns): ").strip()
-				for code in selected_codes:
-					enqueue_job("date_range", code, {"from": df or None, "to": dt or None})
-				print(f"Lade till {len(selected_codes)} jobb i kön.")
-			elif act == "4":
-				interactive_queue_manager(publicationJson)
-				return
-			else:
-				print("Avbröt.")
-			return
+						for part in [p.strip() for p in span.split(",") if p.strip()]:
+							if "-" in part:
+								a, b = part.split("-", 1); a = int(a); b = int(b)
+								ranges.append([a, b])
+							else:
+								x = int(part); ranges.append([x, x])
+					except Exception:
+						print("Ogiltigt format."); continue
+					for code in selected_codes:
+						enqueue_job("range_indices", code, {"ranges": ranges})
+					print(f"Lade till {len(selected_codes)} jobb i kön.")
+					continue
+				if act == "3":
+					df = input("Från-datum (YYYY-MM-DD, tomt = ingen nedre gräns): ").strip()
+					dt = input("Till-datum (YYYY-MM-DD, tomt = ingen övre gräns): ").strip()
+					for code in selected_codes:
+						enqueue_job("date_range", code, {"from": df or None, "to": dt or None})
+					print(f"Lade till {len(selected_codes)} jobb i kön.")
+					continue
+				if act == "4":
+					interactive_queue_manager(publicationJson)
+					continue
+				print("Ogiltigt val, försök igen.")
 
 	if args.list_publications:
 		pprint(plist)
