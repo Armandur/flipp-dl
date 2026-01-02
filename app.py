@@ -24,12 +24,26 @@ import json
 OUTPUTPATH = os.path.join(os.getcwd(), "Output")
 DB_PATH = os.path.join(os.getcwd(), "downloads.db")
 REQUEST_TIMEOUT_SECS = 15
+MAX_PAGE_WORKERS = 6
+MAX_ISSUE_WORKERS = 3
+SHOW_PROGRESS = True
+PROGRESS_BAR_WIDTH = 30
 
 def print_header():
 	print("\n==========================================================")
 	print("                       FLIPP-DL")
 	print("        Människohuggen grund • Finjusterad med vibbkodning")
 	print("==========================================================\n")
+
+def render_progress(prefix, current, total, *, width=PROGRESS_BAR_WIDTH):
+	if not SHOW_PROGRESS or total <= 0:
+		return
+	current = min(current, total)
+	filled = int(width * (current / float(total)))
+	bar = "█" * filled + "-" * (width - filled)
+	print(f"\r{prefix} |{bar}| {current}/{total}", end="", flush=True)
+	if current >= total:
+		print()
 
 def init_db():
 	# Skapar tabell för att hålla koll på redan nedladdade nummer
@@ -308,6 +322,31 @@ def readPdf(pdf):
 		return io.BytesIO(req.content)
 	raise Exception(f"Error Code:  {req.status_code}")
 
+def download_pdfs_concurrently(urls, max_workers, progress_prefix=None):
+	# Laddar ner alla urls parallellt och returnerar en lista av BytesIO i samma ordning
+	if not urls:
+		return []
+	from concurrent.futures import ThreadPoolExecutor, as_completed
+	results = [None] * len(urls)
+	def fetch(idx, url):
+		resp = requests.get(url=url, timeout=REQUEST_TIMEOUT_SECS)
+		if not resp.ok:
+			raise Exception(f"HTTP {resp.status_code} for {url}")
+		return idx, io.BytesIO(resp.content)
+	with ThreadPoolExecutor(max_workers=max_workers) as executor:
+		fut_to_idx = {executor.submit(fetch, i, url): i for i, url in enumerate(urls)}
+		completed = 0
+		total = len(urls)
+		if progress_prefix:
+			render_progress(progress_prefix, 0, total)
+		for fut in as_completed(fut_to_idx):
+			i, bio = fut.result()
+			results[i] = bio
+			if progress_prefix:
+				completed += 1
+				render_progress(progress_prefix, completed, total)
+	return results
+
 def safeName(s):
 	s = s.replace("/", "-")
 	s = s.replace("&", "och")
@@ -326,8 +365,13 @@ def writePdf(pdfs, publicationFolder, issueName):
 		return False
 	
 	merger = PdfMerger()
-	for pdf in pdfs:
-		merger.append(PdfReader(readPdf(pdf)))
+	if MAX_PAGE_WORKERS and MAX_PAGE_WORKERS > 1:
+		buffers = download_pdfs_concurrently(pdfs, MAX_PAGE_WORKERS, progress_prefix=f"Sidor: {issueName}")
+		for bio in buffers:
+			merger.append(PdfReader(bio))
+	else:
+		for pdf in pdfs:
+			merger.append(PdfReader(readPdf(pdf)))
 
 	if not os.path.exists(outputFolder):
 		os.makedirs(outputFolder, exist_ok=True)
@@ -374,6 +418,10 @@ def downloadLatestNIssues(publicationId, publications, n, *, skip_if_in_db=True,
 		print("Inga nummer hittades för vald publikation.")
 		return
 	selected = issues_info[:max(0, int(n))]
+	# Parallellisera nedladdning av flera nummer om möjligt
+	if MAX_ISSUE_WORKERS and MAX_ISSUE_WORKERS > 1:
+		downloadIssuesSubsetConcurrent(publicationId, publications, selected, skip_if_in_db=skip_if_in_db, force=force, max_workers=MAX_ISSUE_WORKERS)
+		return
 	for issueId, issueDate, issueName in selected:
 		# Återanvänd logik från downloadAllIssues men utan att räkna om info
 		name = getPublicationNameFromId(publicationId, publications)
@@ -416,6 +464,44 @@ def downloadIssuesSubset(publicationId, publications, issues_info_subset, *, ski
 			print(f"Written file: {filename}")
 		print()
 
+def downloadIssuesSubsetConcurrent(publicationId, publications, issues_info_subset, *, skip_if_in_db=True, force=False, max_workers=3):
+	if not issues_info_subset:
+		return
+	from concurrent.futures import ThreadPoolExecutor, as_completed
+	name = getPublicationNameFromId(publicationId, publications)
+	publicationFolder = os.path.join(OUTPUTPATH, safeName(name))
+
+	def worker(issueId, issueDate, issueName):
+		filename = safeName(f"{name} - {issueDate} - {issueName}.pdf")
+		msgs = []
+		msgs.append(f"Downloading: {issueId} - {name} - ({issueDate}, {issueName})")
+		if skip_if_in_db and not force and is_downloaded(publicationId, issueId):
+			return "\n".join(msgs + ["Already downloaded (DB)"])
+		if not force and os.path.isfile(os.path.join(publicationFolder, filename)):
+			if skip_if_in_db and not is_downloaded(publicationId, issueId):
+				mark_downloaded(publicationId, issueId, issueDate, issueName, filename)
+			return "\n".join(msgs + ["File already exists"])
+		ok = writePdf(getIssuePDFs(publicationId, issueId), name, filename)
+		if ok:
+			mark_downloaded(publicationId, issueId, issueDate, issueName, filename)
+			return "\n".join(msgs + [f"Written file: {filename}"])
+		return "\n".join(msgs + ["Skipped writing (already exists)"])
+
+	with ThreadPoolExecutor(max_workers=max_workers) as executor:
+		futures = [executor.submit(worker, issueId, issueDate, issueName) for (issueId, issueDate, issueName) in issues_info_subset]
+		total = len(futures)
+		completed = 0
+		if SHOW_PROGRESS:
+			render_progress(f"Nummer: {name}", 0, total)
+		for fut in as_completed(futures):
+			try:
+				print(fut.result())
+			except Exception as e:
+				print(f"Error in worker: {e}")
+			if SHOW_PROGRESS:
+				completed += 1
+				render_progress(f"Nummer: {name}", completed, total)
+
 
 def parse_args():
 	parser = argparse.ArgumentParser(description="flipp-dl - Ladda ner och slå ihop tidningsnummer från Flipp.")
@@ -430,6 +516,9 @@ def parse_args():
 	parser.add_argument("--list-jobs", action="store_true", help="Lista jobb i kön och avsluta.")
 	parser.add_argument("--run-queue", action="store_true", help="Kör alla köade jobb.")
 	parser.add_argument("--clear-jobs", action="store_true", help="Töm köade jobb (status=queued).")
+	parser.add_argument("--workers-pages", type=int, help="Antal trådar för sidnedladdning per nummer (default 6).")
+	parser.add_argument("--workers-issues", type=int, help="Antal trådar för parallella nummer (default 3).")
+	parser.add_argument("--no-progress", action="store_true", help="Stäng av progress bars under nedladdning.")
 	parser.add_argument("--skip-if-in-db", action="store_true", default=True, help="Hoppa över om nedladdad enligt DB (default).")
 	parser.add_argument("--no-skip-if-in-db", action="store_false", dest="skip_if_in_db", help="Inaktivera DB-skip.")
 	parser.add_argument("--force", action="store_true", help="Ignorera DB och filsystemkontroll, ladda ner ändå.")
@@ -563,6 +652,18 @@ def main():
 	if args.output:
 		OUTPUTPATH = args.output
 
+	# Workers (konkurrens)
+	global MAX_PAGE_WORKERS, MAX_ISSUE_WORKERS
+	if args.workers_pages is not None and args.workers_pages > 0:
+		MAX_PAGE_WORKERS = args.workers_pages
+	if args.workers_issues is not None and args.workers_issues > 0:
+		MAX_ISSUE_WORKERS = args.workers_issues
+
+	# Progress
+	global SHOW_PROGRESS
+	if args.no_progress:
+		SHOW_PROGRESS = False
+
 	# Init DB
 	init_db()
 
@@ -614,6 +715,7 @@ def main():
 			print_header()
 			print("[1] Bläddra kategorier")
 			print("[2] Hantera kö")
+			print(f"[3] Inställningar (workers/progress)  [pages={MAX_PAGE_WORKERS}, issues={MAX_ISSUE_WORKERS}, progress={'på' if SHOW_PROGRESS else 'av'}]")
 			print("[0] Avsluta")
 			root = input("Ditt val: ").strip()
 			if root in ("0",""):
@@ -624,6 +726,48 @@ def main():
 					print("Inga köade jobb. Återgår till huvudmeny.")
 				else:
 					interactive_queue_manager(publicationJson)
+				continue
+			if root == "3":
+				def interactive_settings():
+					global MAX_PAGE_WORKERS, MAX_ISSUE_WORKERS, SHOW_PROGRESS
+					while True:
+						print("\n--- Inställningar ---")
+						print(f"[1] Sätt workers för sidor (nu: {MAX_PAGE_WORKERS})")
+						print(f"[2] Sätt workers för nummer (nu: {MAX_ISSUE_WORKERS})")
+						print(f"[3] Växla progress bars (nu: {'på' if SHOW_PROGRESS else 'av'})")
+						print("[0] Tillbaka")
+						opt = input("Ditt val: ").strip()
+						if opt in ("0",""):
+							return
+						if opt == "1":
+							val = input("Nytt värde (>=1): ").strip()
+							try:
+								n = int(val)
+								if n >= 1:
+									MAX_PAGE_WORKERS = n
+									print(f"Satte sid-workers till {n}.")
+								else:
+									print("Ange ett tal >= 1.")
+							except Exception:
+								print("Ogiltigt tal.")
+						elif opt == "2":
+							val = input("Nytt värde (>=1): ").strip()
+							try:
+								n = int(val)
+								if n >= 1:
+                                    # även vid interaktivt läge
+									MAX_ISSUE_WORKERS = n
+									print(f"Satte nummer-workers till {n}.")
+								else:
+									print("Ange ett tal >= 1.")
+							except Exception:
+								print("Ogiltigt tal.")
+						elif opt == "3":
+							SHOW_PROGRESS = not SHOW_PROGRESS
+							print(f"Progress bars är nu {'på' if SHOW_PROGRESS else 'av'}.")
+						else:
+							print("Ogiltigt val.")
+				interactive_settings()
 				continue
 			if root != "1":
 				print("Ogiltigt val."); continue
@@ -769,7 +913,7 @@ def main():
 							for code in selected_codes:
 								name = getPublicationNameFromId(code, publicationJson) or code
 								print(f"- {name} ({code})")
-							print("Välj åtgärd för ALLA valda:\n[1] Lägg i kö: senaste N\n[2] Lägg i kö: indexintervall\n[3] Lägg i kö: datumintervall\n[4] Hantera kö nu\n[5] Lägg i kö: alla nummer\n[0] Till publikationer\n[H] Huvudmeny")
+							print("Välj åtgärd för ALLA valda:\n[1] Lägg i kö: senaste N\n[2] Lägg i kö: indexintervall\n[3] Lägg i kö: datumintervall\n[4] Hantera kö nu\n[5] Lägg i kö: alla nummer\n[6] Ladda ner alla nummer nu\n[0] Till publikationer\n[H] Huvudmeny")
 							act = input("Ditt val: ").strip()
 							if act in ("0",""): break
 							if act.lower() == "h": go_main = True; break
@@ -813,6 +957,12 @@ def main():
 								for code in selected_codes:
 									enqueue_job("all_issues", code, {})
 								print(f"Lade till {len(selected_codes)} jobb (alla nummer) i kön."); continue
+							if act == "6":
+								for code in selected_codes:
+									issues_info = getIssuesForPublication(code, publicationJson)
+									downloadIssuesSubsetConcurrent(code, publicationJson, issues_info, skip_if_in_db=True, force=False, max_workers=MAX_ISSUE_WORKERS)
+								print("Klart.")
+								continue
 							print("Ogiltigt val.")
 					if go_main: break
 				if go_main: break
