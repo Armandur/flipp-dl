@@ -338,6 +338,43 @@ def filterIssuesByDateRange(publicationId, publications, date_from, date_to):
 			selected.append((issueId, issueDate, issueName))
 	return selected
 
+def compute_issues_for_job(job_type, pub_code, payload, publications):
+	# Returnerar lista med (issueId, issueDate, issueName) för ett jobb
+	if job_type == "latest_n":
+		n = int(payload.get("n", 1))
+		return getIssuesForPublication(pub_code, publications)[:max(0, n)]
+	if job_type == "range_indices":
+		ranges = payload.get("ranges", [])
+		issues_info = getIssuesForPublication(pub_code, publications)
+		selected_info = []
+		for rng in ranges:
+			if not isinstance(rng, list) or len(rng) != 2:
+				continue
+			a, b = rng
+			try:
+				a = int(a); b = int(b)
+			except Exception:
+				continue
+			if a > b:
+				a, b = b, a
+			for idx in range(max(1, a), min(len(issues_info), b) + 1):
+				selected_info.append(issues_info[idx - 1])
+		return selected_info
+	if job_type == "date_range":
+		date_from = payload.get("from")
+		date_to = payload.get("to")
+		return filterIssuesByDateRange(pub_code, publications, date_from, date_to)
+	if job_type == "all_issues":
+		return getIssuesForPublication(pub_code, publications)
+	return []
+
+def count_downloaded_issues(publicationId, publications):
+	issues = getIssuesForPublication(publicationId, publications)
+	downloaded = 0
+	for issueId, _, _ in issues:
+		if is_downloaded(publicationId, issueId):
+			downloaded += 1
+	return downloaded, len(issues)
 
 def getIssuePDFs(publicationId, issueId):
 	url = f"https://reader.flipp.se/html5/reader/get_page_groups_from_eid.aspx?pubid={publicationId}&eid={issueId}"
@@ -579,7 +616,7 @@ def main():
 						payload = {}
 					pub_name = getPublicationNameFromId(pub_code, publications) or pub_code
 					print(f"[{idx}] id:{job_id} {status} - {job_type} - {pub_name} payload:{payload} ({created_at})")
-			print("\nVälj åtgärd: [1] Kör kö [2] Töm kö [3] Ta bort valda [4] Ändra jobb [0] Tillbaka")
+			print("\nVälj åtgärd: [1] Kör kö [2] Töm kö [3] Ta bort valda [4] Ändra jobb [5] Markera valda som redan nedladdade (DB) [0] Tillbaka")
 			choice = input("Ditt val: ").strip()
 			if choice in ("0", ""):
 				return
@@ -674,6 +711,45 @@ def main():
 					print("Uppdaterat.")
 				else:
 					print("Okänd jobbtyp; kan inte redigera.")
+			elif choice == "5":
+				if not rows:
+					continue
+				val = input("Vilka jobb vill du markera som nedladdade? (t.ex. 1,3-5): ").strip()
+				if not val:
+					continue
+				parts = [p.strip() for p in val.split(",") if p.strip()]
+				sel = set()
+				try:
+					for part in parts:
+						if "-" in part:
+							a, b = part.split("-", 1); a = int(a); b = int(b)
+							if a > b: a, b = b, a
+							for x in range(a, b+1):
+								sel.add(x)
+						else:
+							sel.add(int(part))
+				except Exception:
+					print("Ogiltigt urval."); continue
+				done = 0
+				for i in sorted(sel):
+					if not (1 <= i <= len(rows)):
+						continue
+					job_id, job_type, pub_code, payload_json, status, created_at = rows[i-1]
+					try:
+						payload = json.loads(payload_json or "{}")
+					except Exception:
+						payload = {}
+					issues = compute_issues_for_job(job_type, pub_code, payload, publications)
+					pub_name = getPublicationNameFromId(pub_code, publications) or pub_code
+					for issueId, issueDate, issueName in issues:
+						filename = safeName(f"{pub_name} - {issueDate} - {issueName}.pdf")
+						mark_downloaded(pub_code, issueId, issueDate, issueName, filename)
+					# Markera jobbet som klart
+					with db_write_lock, sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT_SECS) as conn_mark:
+						conn_mark.execute(f"PRAGMA busy_timeout={DB_TIMEOUT_SECS*1000};")
+						conn_mark.execute("""UPDATE download_jobs SET status='done', finished_at=?, last_error=NULL WHERE id=?""", (datetime.datetime.utcnow().isoformat(), job_id))
+					done += 1
+				print(f"Markerade {done} jobb och deras nummer som nedladdade i DB.")
 			else:
 				print("Ogiltigt val.")
 
@@ -837,7 +913,8 @@ def main():
 						break
 					print("\nPublikationer i vald kategori:\n")
 					for idx, (pname, pcode, num_issues, _cats) in enumerate(plist_cat, start=1):
-						print(f"[{idx}] {pname} ({num_issues} nummer)")
+						dl, total = count_downloaded_issues(pcode, publicationJson)
+						print(f"[{idx}] {pname} ({num_issues} nummer)  –  DB: {dl}/{total}")
 					print("\nVälj publikation ([siffra]) eller flera (t.ex. 1,3-5)")
 					print("[0] Till kategorier   [H] Huvudmeny")
 					val = input("Publikationsval: ").strip()
@@ -891,8 +968,9 @@ def main():
 								if not issues_info:
 									print("Inga nummer hittades."); continue
 								print("\nNummer (nyast först):\n")
-								for idx, (_iid, idate, iname) in enumerate(issues_info, start=1):
-									print(f"[{idx}] {idate} - {iname}")
+								for idx, (iid, idate, iname) in enumerate(issues_info, start=1):
+									flag = "✓" if is_downloaded(selected_codes[0], iid) else "–"
+									print(f"[{idx}] {idate} - {iname}  [{flag}]")
 								print("\nKlart."); continue
 							if act == "2":
 								n_str = input("Hur många nummer vill du ladda ner? (t.ex. 1): ").strip()
