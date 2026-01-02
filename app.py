@@ -1026,6 +1026,46 @@ def main():
 									st = get_issue_status(selected_codes[0], iid)
 									flag = "✓" if st == "downloaded" else ("A" if st == "archived" else "–")
 									print(f"[{idx}] {idate} - {iname}  [{flag}]")
+								print("\nVill du ändra status på enskilda nummer? [j/N]")
+								ans = input().strip().lower()
+								if ans in ("j","y","yes"):
+									mode = input("Välj status [d=downloaded, a=archived, c=clear]: ").strip().lower()
+									if mode not in ("d","a","c"):
+										print("Ogiltigt val."); continue
+									span = input("Vilka index? (t.ex. 1,3-5): ").strip()
+									if not span:
+										print("Inget urval angivet."); continue
+									parts = [p.strip() for p in span.split(",") if p.strip()]
+									indices = set()
+									ok = True
+									try:
+										for part in parts:
+											if "-" in part:
+												a, b = part.split("-", 1); a = int(a); b = int(b)
+												if a > b: a, b = b, a
+												for x in range(a, b+1):
+													indices.add(x)
+											else:
+												indices.add(int(part))
+									except Exception:
+										ok = False
+									if not ok:
+										print("Ogiltigt urval."); continue
+									name_pub = getPublicationNameFromId(selected_codes[0], publicationJson) or ""
+									changed = 0
+									for i in sorted(indices):
+										if 1 <= i <= len(issues_info):
+											issueId, issueDate, issueName = issues_info[i-1]
+											filename = safeName(f"{name_pub} - {issueDate} - {issueName}.pdf")
+											if mode == "d":
+												mark_downloaded(selected_codes[0], issueId, issueDate, issueName, filename)
+											elif mode == "a":
+												mark_downloaded(selected_codes[0], issueId, issueDate, issueName, filename)
+												mark_archived(selected_codes[0], issueId)
+											else:
+												unmark_issue(selected_codes[0], issueId)
+											changed += 1
+									print(f"Uppdaterade {changed} nummer.")
 								print("\nKlart."); continue
 							if act == "2":
 								n_str = input("Hur många nummer vill du ladda ner? (t.ex. 1): ").strip()
