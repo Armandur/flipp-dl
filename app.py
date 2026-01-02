@@ -166,56 +166,60 @@ def update_job_payload(job_id, payload: dict):
 			""", (json.dumps(payload), job_id))
 
 def run_jobs(publications, *, skip_if_in_db=True, force=False):
-	with sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT_SECS) as conn:
-		conn.execute(f"PRAGMA busy_timeout={DB_TIMEOUT_SECS*1000};")
-		cur = conn.execute("""SELECT id, job_type, publication_code, payload_json FROM download_jobs WHERE status='queued' ORDER BY id ASC""")
-		rows = cur.fetchall()
-		for job_id, job_type, pub_code, payload_json in rows:
-			started = datetime.datetime.utcnow().isoformat()
-			with db_write_lock:
-				conn.execute("""UPDATE download_jobs SET status='running', started_at=? WHERE id=?""", (started, job_id))
-			try:
-				payload = json.loads(payload_json or "{}")
-				if job_type == "latest_n":
-					n = int(payload.get("n", 1))
-					downloadLatestNIssues(pub_code, publications, n, skip_if_in_db=skip_if_in_db, force=force)
-				elif job_type == "range_indices":
-					ranges = payload.get("ranges", [])
-					issues_info = getIssuesForPublication(pub_code, publications)
-					selected_info = []
-					for rng in ranges:
-						if not isinstance(rng, list) or len(rng) != 2:
-							continue
-						a, b = rng
-						try:
-							a = int(a); b = int(b)
-						except Exception:
-							continue
-						if a > b:
-							a, b = b, a
-						for idx in range(max(1, a), min(len(issues_info), b) + 1):
-							selected_info.append(issues_info[idx - 1])
-					if selected_info:
-						downloadIssuesSubset(pub_code, publications, selected_info, skip_if_in_db=skip_if_in_db, force=force)
-				elif job_type == "date_range":
-					date_from = payload.get("from")
-					date_to = payload.get("to")
-					selected_info = filterIssuesByDateRange(pub_code, publications, date_from, date_to)
-					if selected_info:
-						downloadIssuesSubset(pub_code, publications, selected_info, skip_if_in_db=skip_if_in_db, force=force)
-				elif job_type == "all_issues":
-					issues_info = getIssuesForPublication(pub_code, publications)
-					if issues_info:
-						downloadIssuesSubset(pub_code, publications, issues_info, skip_if_in_db=skip_if_in_db, force=force)
-				else:
-					raise ValueError(f"Okänt job_type: {job_type}")
-				finished = datetime.datetime.utcnow().isoformat()
-				with db_write_lock:
-					conn.execute("""UPDATE download_jobs SET status='done', finished_at=?, last_error=NULL WHERE id=?""", (finished, job_id))
-			except Exception as e:
-				finished = datetime.datetime.utcnow().isoformat()
-				with db_write_lock:
-					conn.execute("""UPDATE download_jobs SET status='failed', finished_at=?, last_error=? WHERE id=?""", (finished, str(e), job_id))
+	# Läs ut jobben i en separat, kort transaktion
+	with sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT_SECS) as conn_list:
+		conn_list.execute(f"PRAGMA busy_timeout={DB_TIMEOUT_SECS*1000};")
+		rows = conn_list.execute("""SELECT id, job_type, publication_code, payload_json FROM download_jobs WHERE status='queued' ORDER BY id ASC""").fetchall()
+
+	for job_id, job_type, pub_code, payload_json in rows:
+		started = datetime.datetime.utcnow().isoformat()
+		with db_write_lock, sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT_SECS) as conn_upd:
+			conn_upd.execute(f"PRAGMA busy_timeout={DB_TIMEOUT_SECS*1000};")
+			conn_upd.execute("""UPDATE download_jobs SET status='running', started_at=? WHERE id=?""", (started, job_id))
+		try:
+			payload = json.loads(payload_json or "{}")
+			if job_type == "latest_n":
+				n = int(payload.get("n", 1))
+				downloadLatestNIssues(pub_code, publications, n, skip_if_in_db=skip_if_in_db, force=force)
+			elif job_type == "range_indices":
+				ranges = payload.get("ranges", [])
+				issues_info = getIssuesForPublication(pub_code, publications)
+				selected_info = []
+				for rng in ranges:
+					if not isinstance(rng, list) or len(rng) != 2:
+						continue
+					a, b = rng
+					try:
+						a = int(a); b = int(b)
+					except Exception:
+						continue
+					if a > b:
+						a, b = b, a
+					for idx in range(max(1, a), min(len(issues_info), b) + 1):
+						selected_info.append(issues_info[idx - 1])
+				if selected_info:
+					downloadIssuesSubset(pub_code, publications, selected_info, skip_if_in_db=skip_if_in_db, force=force)
+			elif job_type == "date_range":
+				date_from = payload.get("from")
+				date_to = payload.get("to")
+				selected_info = filterIssuesByDateRange(pub_code, publications, date_from, date_to)
+				if selected_info:
+					downloadIssuesSubset(pub_code, publications, selected_info, skip_if_in_db=skip_if_in_db, force=force)
+			elif job_type == "all_issues":
+				issues_info = getIssuesForPublication(pub_code, publications)
+				if issues_info:
+					downloadIssuesSubset(pub_code, publications, issues_info, skip_if_in_db=skip_if_in_db, force=force)
+			else:
+				raise ValueError(f"Okänt job_type: {job_type}")
+			finished = datetime.datetime.utcnow().isoformat()
+			with db_write_lock, sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT_SECS) as conn_done:
+				conn_done.execute(f"PRAGMA busy_timeout={DB_TIMEOUT_SECS*1000};")
+				conn_done.execute("""UPDATE download_jobs SET status='done', finished_at=?, last_error=NULL WHERE id=?""", (finished, job_id))
+		except Exception as e:
+			finished = datetime.datetime.utcnow().isoformat()
+			with db_write_lock, sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT_SECS) as conn_fail:
+				conn_fail.execute(f"PRAGMA busy_timeout={DB_TIMEOUT_SECS*1000};")
+				conn_fail.execute("""UPDATE download_jobs SET status='failed', finished_at=?, last_error=? WHERE id=?""", (finished, str(e), job_id))
 
 def getPublicationsJSON(token, useruuid="dummy"): #Turns out user uuid isn't needed
 	url = "https://flippapi.egmontservice.com/api/refreshsignintoken"
@@ -524,15 +528,16 @@ def downloadIssuesSubsetConcurrent(publicationId, publications, issues_info_subs
 			render_progress(f"Nummer: {name}", 0, total)
 		for fut in as_completed(futures):
 			try:
+				# ticka först så progress inte släpar efter logg
+				if SHOW_PROGRESS:
+					completed += 1
+					render_progress(f"Nummer: {name}", completed, total)
 				msg = fut.result()
 				with progress_lock:
 					print("\n" + msg)
 			except Exception as e:
 				with progress_lock:
 					print(f"\nError in worker: {e}")
-			if SHOW_PROGRESS:
-				completed += 1
-				render_progress(f"Nummer: {name}", completed, total)
 
 
 def parse_args():
