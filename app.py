@@ -26,15 +26,10 @@ DB_PATH = os.path.join(os.getcwd(), "downloads.db")
 REQUEST_TIMEOUT_SECS = 15
 
 def print_header():
-	print("\n┌──────────────────────────────────────────────────────────┐")
-	print("│  ____ _     ___  ___  ___  ____    ____  _               │")
-	print("│ |  __| |   | __|/ _ \\/ _ \\|  _ \\  |  _ \\| |              │")
-	print("│ | |__| |__ | _| | (_) | (_) | | | | | | | |__            │")
-	print("│ |____|____||___| \\___/ \\___/|_|_| |_| |_|____|  FLIPP-DL │")
-	print("├──────────────────────────────────────────────────────────┤")
-	print("│  Människohuggen grund • Finjusterad med vibbkodning      │")
-	print("│  Retro-anda, modern leverans – för ordning i arkivet     │")
-	print("└──────────────────────────────────────────────────────────┘\n")
+	print("\n==========================================================")
+	print("                       FLIPP-DL")
+	print("        Människohuggen grund • Finjusterad med vibbkodning")
+	print("==========================================================\n")
 
 def init_db():
 	# Skapar tabell för att hålla koll på redan nedladdade nummer
