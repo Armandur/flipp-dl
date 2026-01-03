@@ -1202,7 +1202,7 @@ def main():
 				continue
 			if root == "3":
 				def interactive_settings():
-					global MAX_PAGE_WORKERS, MAX_ISSUE_WORKERS, SHOW_PROGRESS, RATE_LIMIT_RPS, REQUEST_TIMEOUT_SECS
+					global MAX_PAGE_WORKERS, MAX_ISSUE_WORKERS, SHOW_PROGRESS, RATE_LIMIT_RPS, REQUEST_TIMEOUT_SECS, BURST_RPS, BURST_WINDOW_SECS
 					while True:
 						print("\n--- Inställningar ---")
 						print(f"[1] Sätt workers för sidor (nu: {MAX_PAGE_WORKERS})")
