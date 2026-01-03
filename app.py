@@ -13,6 +13,7 @@ import threading
 import re
 import time
 import logging
+from collections import deque
 
 
 # Steg 1 : Logga in
@@ -40,6 +41,9 @@ http_lock = threading.Lock()
 last_request_ts = 0.0
 RATE_LIMIT_RPS = 5  # 0 = av
 http_session = None
+AUTO_TUNE = True
+_http_metrics = deque(maxlen=200)  # (ok:bool, elapsed:float, status:int)
+_autotune_lock = threading.Lock()
 
 def print_header():
 	print("\n==========================================================")
@@ -102,15 +106,57 @@ def rate_limited_sleep():
 
 def http_get_json(url):
 	rate_limited_sleep()
+	t0 = time.time()
 	resp = http_session.get(url, timeout=REQUEST_TIMEOUT_SECS)
 	resp.raise_for_status()
+	t1 = time.time()
+	record_http_result(True, t1 - t0, resp.status_code)
 	return resp.json()
 
 def http_post_json(url, payload, headers):
 	rate_limited_sleep()
+	t0 = time.time()
 	resp = http_session.post(url, json=payload, headers=headers, timeout=REQUEST_TIMEOUT_SECS)
 	resp.raise_for_status()
+	t1 = time.time()
+	record_http_result(True, t1 - t0, resp.status_code)
 	return resp.json()
+
+def record_http_result(ok, elapsed, status):
+	try:
+		with _autotune_lock:
+			_http_metrics.append((ok, float(elapsed), int(status or 0)))
+			# Tona endast vid jämna intervaller för låg overhead
+			if AUTO_TUNE and len(_http_metrics) % 25 == 0:
+				autotune_rate_limit()
+	except Exception:
+		pass
+
+def autotune_rate_limit():
+	global RATE_LIMIT_RPS
+	if RATE_LIMIT_RPS == 0:
+		return  # av
+	if not _http_metrics:
+		return
+	window = list(_http_metrics)[-50:]  # senaste 50
+	err = sum(1 for ok, _, _ in window if not ok)
+	err_rate = err / float(len(window))
+	lat = [elapsed for ok, elapsed, _ in window]
+	avg_lat = sum(lat) / float(len(lat))
+	has_429 = any(status == 429 for _, _, status in window)
+	# Enkla regler: för hög latens eller 429 => minska, annars öka
+	if has_429 or err_rate > 0.1 or avg_lat > 1.2:
+		new_rps = max(1, int(RATE_LIMIT_RPS * 0.7))
+		if new_rps != RATE_LIMIT_RPS:
+			RATE_LIMIT_RPS = new_rps
+			with progress_lock:
+				print(f"\n[auto] Sänker rate-limit till {RATE_LIMIT_RPS} rps (err={err_rate:.2f}, avg_lat={avg_lat:.2f}s)")
+	elif err_rate < 0.02 and avg_lat < 0.6:
+		new_rps = min(100, RATE_LIMIT_RPS + 5)
+		if new_rps != RATE_LIMIT_RPS:
+			RATE_LIMIT_RPS = new_rps
+			with progress_lock:
+				print(f"\n[auto] Höjer rate-limit till {RATE_LIMIT_RPS} rps (err={err_rate:.2f}, avg_lat={avg_lat:.2f}s)")
 
 def init_db():
 	# Skapar tabell för att hålla koll på redan nedladdade nummer
@@ -543,10 +589,14 @@ def getIssuePDFs(publicationId, issueId):
 
 def readPdf(pdf):
 	rate_limited_sleep()
+	t0 = time.time()
 	req = http_session.get(url=pdf, timeout=REQUEST_TIMEOUT_SECS)
 	if req.ok:
+		t1 = time.time()
+		record_http_result(True, t1 - t0, req.status_code)
 		return io.BytesIO(req.content)
-	raise Exception(f"Error Code:  {req.status_code}")
+	record_http_result(False, time.time() - t0, req.status_code if req is not None else 0)
+	raise Exception(f"Error Code:  {req.status_code if req is not None else 'N/A'}")
 
 def download_pdfs_concurrently(urls, max_workers, progress_prefix=None, print_mode="inline"):
 	# Laddar ner alla urls parallellt och returnerar en lista av BytesIO i samma ordning
@@ -556,10 +606,13 @@ def download_pdfs_concurrently(urls, max_workers, progress_prefix=None, print_mo
 	results = [None] * len(urls)  # (BytesIO, size_bytes)
 	def fetch(idx, url):
 		rate_limited_sleep()
+		t0 = time.time()
 		resp = http_session.get(url=url, timeout=REQUEST_TIMEOUT_SECS)
 		if not resp.ok:
+			record_http_result(False, time.time() - t0, resp.status_code)
 			raise Exception(f"HTTP {resp.status_code} for {url}")
 		content = resp.content
+		record_http_result(True, time.time() - t0, resp.status_code)
 		return idx, (io.BytesIO(content), len(content))
 	with ThreadPoolExecutor(max_workers=max_workers) as executor:
 		fut_to_idx = {executor.submit(fetch, i, url): i for i, url in enumerate(urls)}
@@ -578,13 +631,15 @@ def download_pdfs_concurrently(urls, max_workers, progress_prefix=None, print_mo
 				render_progress(progress_prefix, completed, total, start_ts=start_ts, bytes_done=total_bytes)
 			elif progress_prefix and print_mode == "lines" and SHOW_PROGRESS:
 				completed += 1
-				elapsed = max(0.0, time.time() - start_ts)
-				items_per_s = completed / elapsed if elapsed > 0 else 0.0
-				eta = (total - completed) / items_per_s if items_per_s > 0 else 0
-				mm = int(eta // 60); ss = int(eta % 60)
-				mbps = (total_bytes / 1048576.0) / elapsed if elapsed > 0 else 0.0
-				with progress_lock:
-					print(f"{progress_prefix} {completed}/{total} • {items_per_s:.2f}/s {mbps:.2f} MB/s ETA {mm:02d}:{ss:02d}")
+				# skriv bara var 5:e sida eller sista, för mindre overhead
+				if (completed % 5 == 0) or completed == total:
+					elapsed = max(0.0, time.time() - start_ts)
+					items_per_s = completed / elapsed if elapsed > 0 else 0.0
+					eta = (total - completed) / items_per_s if items_per_s > 0 else 0
+					mm = int(eta // 60); ss = int(eta % 60)
+					mbps = (total_bytes / 1048576.0) / elapsed if elapsed > 0 else 0.0
+					with progress_lock:
+						print(f"{progress_prefix} {completed}/{total} • {items_per_s:.2f}/s {mbps:.2f} MB/s ETA {mm:02d}:{ss:02d}")
 	return results
 
 def safeName(s):
