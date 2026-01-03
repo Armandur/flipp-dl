@@ -133,7 +133,7 @@ def record_http_result(ok, elapsed, status):
 		pass
 
 def autotune_rate_limit():
-	global RATE_LIMIT_RPS, MAX_PAGE_WORKERS
+	global RATE_LIMIT_RPS, MAX_PAGE_WORKERS, MAX_ISSUE_WORKERS
 	if RATE_LIMIT_RPS == 0:
 		return  # av
 	if not _http_metrics:
@@ -156,6 +156,11 @@ def autotune_rate_limit():
 			MAX_PAGE_WORKERS = max(4, MAX_PAGE_WORKERS - 1)
 			with progress_lock:
 				print(f"[auto] Minskar sid-workers till {MAX_PAGE_WORKERS}")
+		# minska nummer-workers om vi är högt
+		if MAX_ISSUE_WORKERS > 2:
+			MAX_ISSUE_WORKERS = max(2, MAX_ISSUE_WORKERS - 1)
+			with progress_lock:
+				print(f"[auto] Minskar nummer-workers till {MAX_ISSUE_WORKERS}")
 	elif err_rate < 0.02 and avg_lat < 0.6:
 		new_rps = min(100, RATE_LIMIT_RPS + 5)
 		if new_rps != RATE_LIMIT_RPS:
@@ -167,6 +172,11 @@ def autotune_rate_limit():
 			MAX_PAGE_WORKERS = min(16, MAX_PAGE_WORKERS + 1)
 			with progress_lock:
 				print(f"[auto] Ökar sid-workers till {MAX_PAGE_WORKERS}")
+		# öka nummer-workers försiktigt
+		if MAX_ISSUE_WORKERS < 6:
+			MAX_ISSUE_WORKERS = min(6, MAX_ISSUE_WORKERS + 1)
+			with progress_lock:
+				print(f"[auto] Ökar nummer-workers till {MAX_ISSUE_WORKERS}")
 
 def init_db():
 	# Skapar tabell för att hålla koll på redan nedladdade nummer
