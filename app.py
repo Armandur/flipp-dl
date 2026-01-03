@@ -44,6 +44,9 @@ http_session = None
 AUTO_TUNE = True
 _http_metrics = deque(maxlen=200)  # (ok:bool, elapsed:float, status:int)
 _autotune_lock = threading.Lock()
+BURST_RPS = 50
+BURST_WINDOW_SECS = 10
+_app_start_ts = time.time()
 
 def print_header():
 	print("\n==========================================================")
@@ -94,11 +97,16 @@ def setup_http_session():
 	http_session = session
 
 def rate_limited_sleep():
-	if RATE_LIMIT_RPS and RATE_LIMIT_RPS > 0:
+	# Burst-fas: använd högre rps under de första BURST_WINDOW_SECS sekunderna
+	now = time.time()
+	elapsed = now - _app_start_ts
+	target_rps = RATE_LIMIT_RPS
+	if BURST_RPS and BURST_WINDOW_SECS and elapsed < BURST_WINDOW_SECS:
+		target_rps = max(target_rps, BURST_RPS) if target_rps else BURST_RPS
+	if target_rps and target_rps > 0:
 		global last_request_ts
-		now = time.time()
 		with http_lock:
-			min_interval = 1.0 / float(RATE_LIMIT_RPS)
+			min_interval = 1.0 / float(target_rps)
 			delay = last_request_ts + min_interval - now
 			if delay > 0:
 				time.sleep(delay)
@@ -863,6 +871,8 @@ def parse_args():
 	parser.add_argument("--no-progress", action="store_true", help="Stäng av progress bars under nedladdning.")
 	parser.add_argument("--rate-limit", type=int, help="Max antal HTTP-anrop per sekund (0=av).")
 	parser.add_argument("--timeout", type=int, help="HTTP-timeout i sekunder (default 15).")
+	parser.add_argument("--burst-rps", type=int, help="Burst-RPS i början av körning (0=av).")
+	parser.add_argument("--burst-window", type=int, help="Sekunder för burst-fönster (default 10).")
 	parser.add_argument("--export-presets", help="Exportera alla presets till JSON-fil.")
 	parser.add_argument("--import-presets", help="Importera presets från JSON-fil.")
 	parser.add_argument("--import-overwrite", action="store_true", help="Rensa befintliga presets före import.")
@@ -1087,7 +1097,7 @@ def main():
 		OUTPUTPATH = args.output
 
 	# Workers (konkurrens)
-	global MAX_PAGE_WORKERS, MAX_ISSUE_WORKERS, RATE_LIMIT_RPS, REQUEST_TIMEOUT_SECS
+	global MAX_PAGE_WORKERS, MAX_ISSUE_WORKERS, RATE_LIMIT_RPS, REQUEST_TIMEOUT_SECS, BURST_RPS, BURST_WINDOW_SECS, _app_start_ts
 	if args.workers_pages is not None and args.workers_pages > 0:
 		MAX_PAGE_WORKERS = args.workers_pages
 	if args.workers_issues is not None and args.workers_issues > 0:
@@ -1096,6 +1106,12 @@ def main():
 		RATE_LIMIT_RPS = args.rate_limit
 	if args.timeout is not None and args.timeout > 0:
 		REQUEST_TIMEOUT_SECS = args.timeout
+	if args.burst_rps is not None and args.burst_rps >= 0:
+		BURST_RPS = args.burst_rps
+	if args.burst_window is not None and args.burst_window >= 0:
+		BURST_WINDOW_SECS = args.burst_window
+	# starttid för burst
+	_app_start_ts = time.time()
 
 	# Progress
 	global SHOW_PROGRESS
@@ -1172,7 +1188,7 @@ def main():
 			print_header()
 			print("[1] Bläddra kategorier")
 			print("[2] Hantera kö")
-			print(f"[3] Inställningar (workers/progress)  [pages={MAX_PAGE_WORKERS}, issues={MAX_ISSUE_WORKERS}, progress={'på' if SHOW_PROGRESS else 'av'}, rps={RATE_LIMIT_RPS}, timeout={REQUEST_TIMEOUT_SECS}s]")
+			print(f"[3] Inställningar (workers/progress)  [pages={MAX_PAGE_WORKERS}, issues={MAX_ISSUE_WORKERS}, progress={'på' if SHOW_PROGRESS else 'av'}, rps={RATE_LIMIT_RPS}, timeout={REQUEST_TIMEOUT_SECS}s, burst={BURST_RPS}@{BURST_WINDOW_SECS}s]")
 			print("[0] Avsluta")
 			root = input("Ditt val: ").strip()
 			if root in ("0",""):
@@ -1194,6 +1210,8 @@ def main():
 						print(f"[3] Växla progress bars (nu: {'på' if SHOW_PROGRESS else 'av'})")
 						print(f"[4] Sätt rate-limit RPS (nu: {RATE_LIMIT_RPS}, 0=av)")
 						print(f"[5] Sätt HTTP-timeout (nu: {REQUEST_TIMEOUT_SECS}s)")
+						print(f"[6] Sätt burst RPS (nu: {BURST_RPS}, 0=av)")
+						print(f"[7] Sätt burst-fönster (sek, nu: {BURST_WINDOW_SECS})")
 						print("[0] Tillbaka")
 						opt = input("Ditt val: ").strip()
 						if opt in ("0",""):
@@ -1243,6 +1261,28 @@ def main():
 									print(f"Satte timeout till {n}s.")
 								else:
 									print("Ange ett tal > 0.")
+							except Exception:
+								print("Ogiltigt tal.")
+						elif opt == "6":
+							val = input("Nytt burst-RPS (>=0, 0=av): ").strip()
+							try:
+								n = int(val)
+								if n >= 0:
+									BURST_RPS = n
+									print(f"Satte burst-RPS till {n}.")
+								else:
+									print("Ange ett tal >= 0.")
+							except Exception:
+								print("Ogiltigt tal.")
+						elif opt == "7":
+							val = input("Nytt burst-fönster (sek, >=0): ").strip()
+							try:
+								n = int(val)
+								if n >= 0:
+									BURST_WINDOW_SECS = n
+									print(f"Satte burst-fönster till {n}s.")
+								else:
+									print("Ange ett tal >= 0.")
 							except Exception:
 								print("Ogiltigt tal.")
 						else:
