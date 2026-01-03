@@ -58,7 +58,9 @@ def render_progress(prefix, current, total, *, width=PROGRESS_BAR_WIDTH, start_t
 		elapsed = max(0.0, time.time() - start_ts)
 		if elapsed > 0:
 			items_per_s = current / elapsed
-			suffix += f" • {items_per_s:.2f}/s"
+			eta = (total - current) / items_per_s if items_per_s > 0 else 0
+			mm = int(eta // 60); ss = int(eta % 60)
+			suffix += f" • {items_per_s:.2f}/s ETA {mm:02d}:{ss:02d}"
 			if bytes_done is not None and bytes_done > 0:
 				mbps = (bytes_done / 1048576.0) / elapsed
 				suffix += f" {mbps:.2f} MB/s"
@@ -546,7 +548,7 @@ def readPdf(pdf):
 		return io.BytesIO(req.content)
 	raise Exception(f"Error Code:  {req.status_code}")
 
-def download_pdfs_concurrently(urls, max_workers, progress_prefix=None):
+def download_pdfs_concurrently(urls, max_workers, progress_prefix=None, print_mode="inline"):
 	# Laddar ner alla urls parallellt och returnerar en lista av BytesIO i samma ordning
 	if not urls:
 		return []
@@ -565,15 +567,24 @@ def download_pdfs_concurrently(urls, max_workers, progress_prefix=None):
 		total = len(urls)
 		start_ts = time.time()
 		total_bytes = 0
-		if progress_prefix:
+		if progress_prefix and print_mode == "inline":
 			render_progress(progress_prefix, 0, total, start_ts=start_ts, bytes_done=0)
 		for fut in as_completed(fut_to_idx):
 			i, pair = fut.result()
 			results[i] = pair
 			total_bytes += pair[1]
-			if progress_prefix:
+			if progress_prefix and print_mode == "inline":
 				completed += 1
 				render_progress(progress_prefix, completed, total, start_ts=start_ts, bytes_done=total_bytes)
+			elif progress_prefix and print_mode == "lines" and SHOW_PROGRESS:
+				completed += 1
+				elapsed = max(0.0, time.time() - start_ts)
+				items_per_s = completed / elapsed if elapsed > 0 else 0.0
+				eta = (total - completed) / items_per_s if items_per_s > 0 else 0
+				mm = int(eta // 60); ss = int(eta % 60)
+				mbps = (total_bytes / 1048576.0) / elapsed if elapsed > 0 else 0.0
+				with progress_lock:
+					print(f"{progress_prefix} {completed}/{total} • {items_per_s:.2f}/s {mbps:.2f} MB/s ETA {mm:02d}:{ss:02d}")
 	return results
 
 def safeName(s):
@@ -595,9 +606,9 @@ def writePdf(pdfs, publicationFolder, issueName):
 	
 	merger = PdfMerger()
 	if MAX_PAGE_WORKERS and MAX_PAGE_WORKERS > 1:
-		# Visa sid-progress endast när vi inte kör flera nummer parallellt för att undvika bar-krockar
-		progress_prefix = f"Sidor: {issueName}" if SHOW_PROGRESS and (MAX_ISSUE_WORKERS <= 1) else None
-		buffers = download_pdfs_concurrently(pdfs, MAX_PAGE_WORKERS, progress_prefix=progress_prefix)
+		progress_prefix = f"Sidor: {issueName}"
+		print_mode = "inline" if (MAX_ISSUE_WORKERS <= 1) else "lines"
+		buffers = download_pdfs_concurrently(pdfs, MAX_PAGE_WORKERS, progress_prefix=progress_prefix, print_mode=print_mode)
 		total_bytes = 0
 		for bio, size in buffers:
 			total_bytes += size
@@ -775,6 +786,8 @@ def parse_args():
 	parser.add_argument("--workers-pages", type=int, help="Antal trådar för sidnedladdning per nummer (default 6).")
 	parser.add_argument("--workers-issues", type=int, help="Antal trådar för parallella nummer (default 3).")
 	parser.add_argument("--no-progress", action="store_true", help="Stäng av progress bars under nedladdning.")
+	parser.add_argument("--rate-limit", type=int, help="Max antal HTTP-anrop per sekund (0=av).")
+	parser.add_argument("--timeout", type=int, help="HTTP-timeout i sekunder (default 15).")
 	parser.add_argument("--export-presets", help="Exportera alla presets till JSON-fil.")
 	parser.add_argument("--import-presets", help="Importera presets från JSON-fil.")
 	parser.add_argument("--import-overwrite", action="store_true", help="Rensa befintliga presets före import.")
@@ -999,11 +1012,15 @@ def main():
 		OUTPUTPATH = args.output
 
 	# Workers (konkurrens)
-	global MAX_PAGE_WORKERS, MAX_ISSUE_WORKERS
+	global MAX_PAGE_WORKERS, MAX_ISSUE_WORKERS, RATE_LIMIT_RPS, REQUEST_TIMEOUT_SECS
 	if args.workers_pages is not None and args.workers_pages > 0:
 		MAX_PAGE_WORKERS = args.workers_pages
 	if args.workers_issues is not None and args.workers_issues > 0:
 		MAX_ISSUE_WORKERS = args.workers_issues
+	if args.rate_limit is not None and args.rate_limit >= 0:
+		RATE_LIMIT_RPS = args.rate_limit
+	if args.timeout is not None and args.timeout > 0:
+		REQUEST_TIMEOUT_SECS = args.timeout
 
 	# Progress
 	global SHOW_PROGRESS
@@ -1080,7 +1097,7 @@ def main():
 			print_header()
 			print("[1] Bläddra kategorier")
 			print("[2] Hantera kö")
-			print(f"[3] Inställningar (workers/progress)  [pages={MAX_PAGE_WORKERS}, issues={MAX_ISSUE_WORKERS}, progress={'på' if SHOW_PROGRESS else 'av'}]")
+			print(f"[3] Inställningar (workers/progress)  [pages={MAX_PAGE_WORKERS}, issues={MAX_ISSUE_WORKERS}, progress={'på' if SHOW_PROGRESS else 'av'}, rps={RATE_LIMIT_RPS}, timeout={REQUEST_TIMEOUT_SECS}s]")
 			print("[0] Avsluta")
 			root = input("Ditt val: ").strip()
 			if root in ("0",""):
@@ -1094,12 +1111,14 @@ def main():
 				continue
 			if root == "3":
 				def interactive_settings():
-					global MAX_PAGE_WORKERS, MAX_ISSUE_WORKERS, SHOW_PROGRESS
+					global MAX_PAGE_WORKERS, MAX_ISSUE_WORKERS, SHOW_PROGRESS, RATE_LIMIT_RPS, REQUEST_TIMEOUT_SECS
 					while True:
 						print("\n--- Inställningar ---")
 						print(f"[1] Sätt workers för sidor (nu: {MAX_PAGE_WORKERS})")
 						print(f"[2] Sätt workers för nummer (nu: {MAX_ISSUE_WORKERS})")
 						print(f"[3] Växla progress bars (nu: {'på' if SHOW_PROGRESS else 'av'})")
+						print(f"[4] Sätt rate-limit RPS (nu: {RATE_LIMIT_RPS}, 0=av)")
+						print(f"[5] Sätt HTTP-timeout (nu: {REQUEST_TIMEOUT_SECS}s)")
 						print("[0] Tillbaka")
 						opt = input("Ditt val: ").strip()
 						if opt in ("0",""):
@@ -1120,7 +1139,6 @@ def main():
 							try:
 								n = int(val)
 								if n >= 1:
-                                    # även vid interaktivt läge
 									MAX_ISSUE_WORKERS = n
 									print(f"Satte nummer-workers till {n}.")
 								else:
@@ -1130,6 +1148,28 @@ def main():
 						elif opt == "3":
 							SHOW_PROGRESS = not SHOW_PROGRESS
 							print(f"Progress bars är nu {'på' if SHOW_PROGRESS else 'av'}.")
+						elif opt == "4":
+							val = input("Nytt värde (>=0, 0=av): ").strip()
+							try:
+								n = int(val)
+								if n >= 0:
+									RATE_LIMIT_RPS = n
+									print(f"Satte rate-limit till {n} rps.")
+								else:
+									print("Ange ett tal >= 0.")
+							except Exception:
+								print("Ogiltigt tal.")
+						elif opt == "5":
+							val = input("Nytt timeout (sek, >0): ").strip()
+							try:
+								n = int(val)
+								if n > 0:
+									REQUEST_TIMEOUT_SECS = n
+									print(f"Satte timeout till {n}s.")
+								else:
+									print("Ange ett tal > 0.")
+							except Exception:
+								print("Ogiltigt tal.")
 						else:
 							print("Ogiltigt val.")
 				interactive_settings()
