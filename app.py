@@ -11,6 +11,8 @@ import sys
 import json
 import threading
 import re
+import time
+import logging
 
 
 # Steg 1 : Logga in
@@ -34,6 +36,10 @@ DB_TIMEOUT_SECS = 30
 
 progress_lock = threading.Lock()
 db_write_lock = threading.Lock()
+http_lock = threading.Lock()
+last_request_ts = 0.0
+RATE_LIMIT_RPS = 5  # 0 = av
+http_session = None
 
 def print_header():
 	print("\n==========================================================")
@@ -41,17 +47,68 @@ def print_header():
 	print("        Människohuggen grund • Finjusterad med vibbkodning")
 	print("==========================================================\n")
 
-def render_progress(prefix, current, total, *, width=PROGRESS_BAR_WIDTH):
+def render_progress(prefix, current, total, *, width=PROGRESS_BAR_WIDTH, start_ts=None, bytes_done=None):
 	if not SHOW_PROGRESS or total <= 0:
 		return
 	current = min(current, total)
 	filled = int(width * (current / float(total)))
 	bar = "█" * filled + "-" * (width - filled)
+	suffix = f"{current}/{total}"
+	if start_ts:
+		elapsed = max(0.0, time.time() - start_ts)
+		if elapsed > 0:
+			items_per_s = current / elapsed
+			suffix += f" • {items_per_s:.2f}/s"
+			if bytes_done is not None and bytes_done > 0:
+				mbps = (bytes_done / 1048576.0) / elapsed
+				suffix += f" {mbps:.2f} MB/s"
 	with progress_lock:
-		print(f"\r{prefix} |{bar}| {current}/{total}", end="", flush=True)
+		print(f"\r{prefix} |{bar}| {suffix}", end="", flush=True)
 	if current >= total:
 		with progress_lock:
 			print()
+
+def setup_http_session():
+	global http_session
+	from requests.adapters import HTTPAdapter
+	from urllib3.util.retry import Retry
+	session = requests.Session()
+	retry = Retry(
+		total=5,
+		connect=5,
+		read=5,
+		status=5,
+		backoff_factor=0.5,
+		status_forcelist=[429, 500, 502, 503, 504],
+		allowed_methods=["GET", "POST"]
+	)
+	adapter = HTTPAdapter(max_retries=retry, pool_connections=20, pool_maxsize=50)
+	session.mount("http://", adapter)
+	session.mount("https://", adapter)
+	http_session = session
+
+def rate_limited_sleep():
+	if RATE_LIMIT_RPS and RATE_LIMIT_RPS > 0:
+		global last_request_ts
+		now = time.time()
+		with http_lock:
+			min_interval = 1.0 / float(RATE_LIMIT_RPS)
+			delay = last_request_ts + min_interval - now
+			if delay > 0:
+				time.sleep(delay)
+			last_request_ts = time.time()
+
+def http_get_json(url):
+	rate_limited_sleep()
+	resp = http_session.get(url, timeout=REQUEST_TIMEOUT_SECS)
+	resp.raise_for_status()
+	return resp.json()
+
+def http_post_json(url, payload, headers):
+	rate_limited_sleep()
+	resp = http_session.post(url, json=payload, headers=headers, timeout=REQUEST_TIMEOUT_SECS)
+	resp.raise_for_status()
+	return resp.json()
 
 def init_db():
 	# Skapar tabell för att hålla koll på redan nedladdade nummer
@@ -269,7 +326,7 @@ def getPublicationsJSON(token, useruuid="dummy"): #Turns out user uuid isn't nee
 		"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0"
 	}
 
-	response = requests.post(url, json=payload, headers=headers, timeout=REQUEST_TIMEOUT_SECS).json()
+	response = http_post_json(url, payload, headers)
 	return response
 
 
@@ -477,13 +534,14 @@ def parse_index_spec(spec, max_index):
 def getIssuePDFs(publicationId, issueId):
 	url = f"https://reader.flipp.se/html5/reader/get_page_groups_from_eid.aspx?pubid={publicationId}&eid={issueId}"
 	# No auth! :)
-	response = requests.get(url, timeout=REQUEST_TIMEOUT_SECS).json()
+	response = http_get_json(url)
 	pdf_urls = [page["pdf"] for group in response["pageGroups"] for page in group["pages"]]
 	return pdf_urls
 
 
 def readPdf(pdf):
-	req = requests.get(url=pdf, timeout=REQUEST_TIMEOUT_SECS)
+	rate_limited_sleep()
+	req = http_session.get(url=pdf, timeout=REQUEST_TIMEOUT_SECS)
 	if req.ok:
 		return io.BytesIO(req.content)
 	raise Exception(f"Error Code:  {req.status_code}")
@@ -493,24 +551,29 @@ def download_pdfs_concurrently(urls, max_workers, progress_prefix=None):
 	if not urls:
 		return []
 	from concurrent.futures import ThreadPoolExecutor, as_completed
-	results = [None] * len(urls)
+	results = [None] * len(urls)  # (BytesIO, size_bytes)
 	def fetch(idx, url):
-		resp = requests.get(url=url, timeout=REQUEST_TIMEOUT_SECS)
+		rate_limited_sleep()
+		resp = http_session.get(url=url, timeout=REQUEST_TIMEOUT_SECS)
 		if not resp.ok:
 			raise Exception(f"HTTP {resp.status_code} for {url}")
-		return idx, io.BytesIO(resp.content)
+		content = resp.content
+		return idx, (io.BytesIO(content), len(content))
 	with ThreadPoolExecutor(max_workers=max_workers) as executor:
 		fut_to_idx = {executor.submit(fetch, i, url): i for i, url in enumerate(urls)}
 		completed = 0
 		total = len(urls)
+		start_ts = time.time()
+		total_bytes = 0
 		if progress_prefix:
-			render_progress(progress_prefix, 0, total)
+			render_progress(progress_prefix, 0, total, start_ts=start_ts, bytes_done=0)
 		for fut in as_completed(fut_to_idx):
-			i, bio = fut.result()
-			results[i] = bio
+			i, pair = fut.result()
+			results[i] = pair
+			total_bytes += pair[1]
 			if progress_prefix:
 				completed += 1
-				render_progress(progress_prefix, completed, total)
+				render_progress(progress_prefix, completed, total, start_ts=start_ts, bytes_done=total_bytes)
 	return results
 
 def safeName(s):
@@ -528,25 +591,46 @@ def writePdf(pdfs, publicationFolder, issueName):
 
 	if os.path.isfile(outputFile):
 		print("File already exists")
-		return False
+		return (False, 0)
 	
 	merger = PdfMerger()
 	if MAX_PAGE_WORKERS and MAX_PAGE_WORKERS > 1:
 		# Visa sid-progress endast när vi inte kör flera nummer parallellt för att undvika bar-krockar
 		progress_prefix = f"Sidor: {issueName}" if SHOW_PROGRESS and (MAX_ISSUE_WORKERS <= 1) else None
 		buffers = download_pdfs_concurrently(pdfs, MAX_PAGE_WORKERS, progress_prefix=progress_prefix)
-		for bio in buffers:
+		total_bytes = 0
+		for bio, size in buffers:
+			total_bytes += size
 			merger.append(PdfReader(bio))
 	else:
-		for pdf in pdfs:
-			merger.append(PdfReader(readPdf(pdf)))
+		total_bytes = 0
+	for pdf in pdfs:
+			bio = readPdf(pdf)
+			total_bytes += len(bio.getbuffer())
+			merger.append(PdfReader(bio))
 
 	if not os.path.exists(outputFolder):
 		os.makedirs(outputFolder, exist_ok=True)
 	
-	merger.write(outputFile)
+	# Skriv atomiskt via tempfil
+	temp_dir = os.path.join(outputFolder, ".tmp")
+	if not os.path.exists(temp_dir):
+		os.makedirs(temp_dir, exist_ok=True)
+	temp_file = os.path.join(temp_dir, issueName + ".part")
+	merger.write(temp_file)
 	merger.close()
-	return True
+	# Verifiera
+	try:
+		_ = PdfReader(temp_file)
+	except Exception:
+		try:
+			os.remove(temp_file)
+		except Exception:
+			pass
+		raise Exception("Verifiering av PDF misslyckades")
+	# Atomiskt byte
+	os.replace(temp_file, outputFile)
+	return (True, total_bytes)
 
 
 def downloadAllIssues(publicationId, publications, *, skip_if_in_db=True, force=False):
@@ -571,7 +655,7 @@ def downloadAllIssues(publicationId, publications, *, skip_if_in_db=True, force=
 			if skip_if_in_db and not is_downloaded(publicationId, issue):
 				mark_downloaded(publicationId, issue, issueInfo[0], issueInfo[1], filename)
 		else:
-			ok = writePdf(getIssuePDFs(publicationId, issue), name, filename)
+			ok, _bytes = writePdf(getIssuePDFs(publicationId, issue), name, filename)
 			if ok:
 				mark_downloaded(publicationId, issue, issueInfo[0], issueInfo[1], filename)
 				print(f"Written file: {filename}")
@@ -604,7 +688,7 @@ def downloadLatestNIssues(publicationId, publications, n, *, skip_if_in_db=True,
 			if skip_if_in_db and not is_downloaded(publicationId, issueId):
 				mark_downloaded(publicationId, issueId, issueDate, issueName, filename)
 			continue
-		ok = writePdf(getIssuePDFs(publicationId, issueId), name, filename)
+		ok, _bytes = writePdf(getIssuePDFs(publicationId, issueId), name, filename)
 		if ok:
 			mark_downloaded(publicationId, issueId, issueDate, issueName, filename)
 			print(f"Written file: {filename}")
@@ -626,7 +710,7 @@ def downloadIssuesSubset(publicationId, publications, issues_info_subset, *, ski
 			if skip_if_in_db and not is_downloaded(publicationId, issueId):
 				mark_downloaded(publicationId, issueId, issueDate, issueName, filename)
 			continue
-		ok = writePdf(getIssuePDFs(publicationId, issueId), name, filename)
+		ok, _bytes = writePdf(getIssuePDFs(publicationId, issueId), name, filename)
 		if ok:
 			mark_downloaded(publicationId, issueId, issueDate, issueName, filename)
 			print(f"Written file: {filename}")
@@ -649,7 +733,7 @@ def downloadIssuesSubsetConcurrent(publicationId, publications, issues_info_subs
 			if skip_if_in_db and not is_downloaded(publicationId, issueId):
 				mark_downloaded(publicationId, issueId, issueDate, issueName, filename)
 			return "\n".join(msgs + ["File already exists"])
-		ok = writePdf(getIssuePDFs(publicationId, issueId), name, filename)
+		ok, _bytes = writePdf(getIssuePDFs(publicationId, issueId), name, filename)
 		if ok:
 			mark_downloaded(publicationId, issueId, issueDate, issueName, filename)
 			return "\n".join(msgs + [f"Written file: {filename}"])
@@ -900,6 +984,16 @@ def main():
 		print("Error: Token saknas. Ange --token eller sätt FLIPP_TOKEN i miljön.")
 		sys.exit(1)
 
+	# Logging
+	log_dir = os.path.join(os.getcwd(), "logs")
+	try:
+		os.makedirs(log_dir, exist_ok=True)
+	except Exception:
+		pass
+	log_path = os.path.join(log_dir, "flipp-dl.log")
+	logging.basicConfig(filename=log_path, level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+	logging.info("Startar flipp-dl")
+
 	# Output path
 	if args.output:
 		OUTPUTPATH = args.output
@@ -918,6 +1012,9 @@ def main():
 
 	# Init DB
 	init_db()
+
+	# HTTP session
+	setup_http_session()
 
 	publicationJson = getPublicationsJSON(token)
 	plist = getPublicationsInfo(publicationJson)
@@ -938,7 +1035,7 @@ def main():
 			print(f"Fel vid import: {e}")
 		return
 
-	# Jobbkö-hantering (icke-interaktiv)
+	# Jobbkö-hantering (icke-interaktivt)
 	if args.list_jobs:
 		rows = list_jobs()
 		if not rows:
