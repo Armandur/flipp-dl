@@ -637,7 +637,7 @@ def readPdf(pdf):
 	record_http_result(False, time.time() - t0, req.status_code if req is not None else 0)
 	raise Exception(f"Error Code:  {req.status_code if req is not None else 'N/A'}")
 
-def download_pdfs_concurrently(urls, max_workers, progress_prefix=None, print_mode="inline"):
+def download_pdfs_concurrently(urls, max_workers, progress_prefix=None, print_mode="inline", log_prefix=None):
 	# Laddar ner alla urls parallellt och returnerar en lista av BytesIO i samma ordning
 	if not urls:
 		return []
@@ -652,6 +652,11 @@ def download_pdfs_concurrently(urls, max_workers, progress_prefix=None, print_mo
 			raise Exception(f"HTTP {resp.status_code} for {url}")
 		content = resp.content
 		record_http_result(True, time.time() - t0, resp.status_code)
+		if log_prefix is not None:
+			try:
+				logging.info(f"page: {log_prefix} idx={idx+1}/{total} bytes={len(content)} elapsed={time.time()-t0:.2f}s url={url}")
+			except Exception:
+				pass
 		return idx, (io.BytesIO(content), len(content))
 	with ThreadPoolExecutor(max_workers=max_workers) as executor:
 		fut_to_idx = {executor.submit(fetch, i, url): i for i, url in enumerate(urls)}
@@ -702,17 +707,22 @@ def writePdf(pdfs, publicationFolder, issueName):
 	if MAX_PAGE_WORKERS and MAX_PAGE_WORKERS > 1:
 		progress_prefix = f"Sidor: {issueName}"
 		print_mode = "inline" if (MAX_ISSUE_WORKERS <= 1) else "lines"
-		buffers = download_pdfs_concurrently(pdfs, MAX_PAGE_WORKERS, progress_prefix=progress_prefix, print_mode=print_mode)
+		buffers = download_pdfs_concurrently(pdfs, MAX_PAGE_WORKERS, progress_prefix=progress_prefix, print_mode=print_mode, log_prefix=f"{publicationFolder}/{issueName}")
 		total_bytes = 0
 		for bio, size in buffers:
 			total_bytes += size
 			merger.append(PdfReader(bio))
 	else:
 		total_bytes = 0
-	for pdf in pdfs:
+		for idx, pdf in enumerate(pdfs, start=1):
+			t0 = time.time()
 			bio = readPdf(pdf)
 			total_bytes += len(bio.getbuffer())
 			merger.append(PdfReader(bio))
+			try:
+				logging.info(f"page: {publicationFolder}/{issueName} idx={idx}/{len(pdfs)} bytes={len(bio.getbuffer())} elapsed={time.time()-t0:.2f}s url={pdf}")
+			except Exception:
+				pass
 
 	if not os.path.exists(outputFolder):
 		os.makedirs(outputFolder, exist_ok=True)
