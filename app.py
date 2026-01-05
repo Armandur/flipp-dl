@@ -28,9 +28,9 @@ from collections import deque
 
 OUTPUTPATH = os.path.join(os.getcwd(), "Output")
 DB_PATH = os.path.join(os.getcwd(), "downloads.db")
-REQUEST_TIMEOUT_SECS = 15
-MAX_PAGE_WORKERS = 6
-MAX_ISSUE_WORKERS = 3
+REQUEST_TIMEOUT_SECS = 3
+MAX_PAGE_WORKERS = 12
+MAX_ISSUE_WORKERS = 6
 SHOW_PROGRESS = True
 PROGRESS_BAR_WIDTH = 30
 DB_TIMEOUT_SECS = 30
@@ -39,13 +39,13 @@ progress_lock = threading.Lock()
 db_write_lock = threading.Lock()
 http_lock = threading.Lock()
 last_request_ts = 0.0
-RATE_LIMIT_RPS = 5  # 0 = av
+RATE_LIMIT_RPS = 0.5  # 0 = av
 http_session = None
 AUTO_TUNE = True
 _http_metrics = deque(maxlen=200)  # (ok:bool, elapsed:float, status:int)
 _autotune_lock = threading.Lock()
 BURST_RPS = 50
-BURST_WINDOW_SECS = 10
+BURST_WINDOW_SECS = 5
 _app_start_ts = time.time()
 
 def print_header():
@@ -617,6 +617,45 @@ def parse_index_spec(spec, max_index):
 		else:
 			indices.add(int(part))
 	return sorted(i for i in indices if 1 <= i <= max_index)
+
+def normalize_publication_filenames(publicationId, publications):
+	name = getPublicationNameFromId(publicationId, publications) or ""
+	pub_folder = os.path.join(OUTPUTPATH, safeName(name))
+	if not os.path.isdir(pub_folder):
+		print(f"Ingen output-mapp hittades för {name}: {pub_folder}")
+		return 0
+	pat = re.compile(r'^(?P<title>.+?)\s*-\s*(?P<date>\d{4}-\d{2}-\d{2})\s*-\s*(?:Nr|NR)\s*(?P<issue>\d{1,2}(?:-\d{1,2})?)\s*(?P<year>\d{4})\.pdf$', re.IGNORECASE)
+	renamed = 0
+	for fn in os.listdir(pub_folder):
+		if not fn.lower().endswith(".pdf"):
+			continue
+		m = pat.match(fn)
+		if not m:
+			continue
+		title = m.group("title").strip()
+		year = m.group("year")
+		issue_raw = m.group("issue")
+		# normalisera issue, ta bort ledande nollor per del
+		try:
+			parts = [str(int(p)) for p in issue_raw.split("-")]
+			issue_norm = "-".join(parts)
+		except Exception:
+			issue_norm = issue_raw
+		new_name = f"{safeName(title)} - {year}-{issue_norm}.pdf"
+		if fn != new_name:
+			src = os.path.join(pub_folder, fn)
+			dst = os.path.join(pub_folder, new_name)
+			if os.path.exists(dst):
+				print(f"SKIP (finns redan): {fn} -> {new_name}")
+				continue
+			try:
+				os.replace(src, dst)
+				print(f"Bytt namn: {fn} -> {new_name}")
+				logging.info(f"rename: {fn} -> {new_name}")
+				renamed += 1
+			except Exception as e:
+				print(f"Fel vid namnbyte {fn}: {e}")
+	return renamed
 
 def getIssuePDFs(publicationId, issueId):
 	url = f"https://reader.flipp.se/html5/reader/get_page_groups_from_eid.aspx?pubid={publicationId}&eid={issueId}"
@@ -1471,7 +1510,7 @@ def main():
 					# Åtgärder
 					if not multi_mode:
 						while True:
-							print("\nVälj åtgärd:\n[1] Lista nummer\n[2] Ladda ner senaste N\n[3] Lägg till i kö: senaste N\n[4] Lägg till i kö: indexintervall\n[5] Lägg till i kö: datumintervall\n[6] Hantera kö\n[9] Ladda ner alla nummer\n[10] Lägg till i kö: alla nummer\n[7] Till kategorier\n[8] Till huvudmeny\n[0] Till publikationer")
+							print("\nVälj åtgärd:\n[1] Lista nummer\n[2] Ladda ner senaste N\n[3] Lägg till i kö: senaste N\n[4] Lägg till i kö: indexintervall\n[5] Lägg till i kö: datumintervall\n[6] Hantera kö\n[9] Ladda ner alla nummer\n[10] Lägg till i kö: alla nummer\n[11] Normalisera filnamn i Output\n[7] Till kategorier\n[8] Till huvudmeny\n[0] Till publikationer")
 							act = input("Ditt val: ").strip()
 							# Snabbkommandon: d/a/c <indexspec>, l <indexspec>
 							if re.match(r"^[dac]\s+[\d,\-\s]+$", act, re.IGNORECASE):
@@ -1508,6 +1547,10 @@ def main():
 							if act == "8":
 								go_main = True
 								break
+							if act == "11":
+								nc = normalize_publication_filenames(selected_codes[0], publicationJson)
+								print(f"Normalisering klar. {nc} filer bytta.")
+								continue
 							if act == "1":
 								issues_info = getIssuesForPublication(selected_codes[0], publicationJson)
 								if not issues_info:
@@ -1614,7 +1657,7 @@ def main():
 							for code in selected_codes:
 								name = getPublicationNameFromId(code, publicationJson) or code
 								print(f"- {name} ({code})")
-							print("Välj åtgärd för ALLA valda:\n[1] Lägg i kö: senaste N\n[2] Lägg i kö: indexintervall\n[3] Lägg i kö: datumintervall\n[4] Hantera kö nu\n[5] Lägg i kö: alla nummer\n[6] Ladda ner alla nummer nu\n[7] Spara urval som preset\n[0] Till publikationer\n[H] Huvudmeny")
+							print("Välj åtgärd för ALLA valda:\n[1] Lägg i kö: senaste N\n[2] Lägg i kö: indexintervall\n[3] Lägg i kö: datumintervall\n[4] Hantera kö nu\n[5] Lägg i kö: alla nummer\n[6] Ladda ner alla nummer nu\n[7] Spara urval som preset\n[8] Normalisera filnamn i Output (alla valda)\n[0] Till publikationer\n[H] Huvudmeny")
 							act = input("Ditt val: ").strip()
 							if act in ("0",""): break
 							if act.lower() == "h": go_main = True; break
@@ -1688,6 +1731,12 @@ def main():
 									issues_info = getIssuesForPublication(code, publicationJson)
 									downloadIssuesSubsetConcurrent(code, publicationJson, issues_info, skip_if_in_db=True, force=False, max_workers=MAX_ISSUE_WORKERS)
 								print("Klart.")
+								continue
+							if act == "8":
+								total = 0
+								for code in selected_codes:
+									total += normalize_publication_filenames(code, publicationJson)
+								print(f"Normalisering klar. {total} filer bytta.")
 								continue
 							print("Ogiltigt val.")
 					if go_main: break
