@@ -134,6 +134,8 @@ def record_http_result(ok, elapsed, status):
 	try:
 		with _autotune_lock:
 			_http_metrics.append((ok, float(elapsed), int(status or 0)))
+			if (not ok) or status == 429 or status >= 500:
+				logging.warning(f"HTTP warn status={status} elapsed={elapsed:.2f}s")
 			# Tona endast vid jämna intervaller för låg overhead
 			if AUTO_TUNE and len(_http_metrics) % 25 == 0:
 				autotune_rate_limit()
@@ -159,32 +161,38 @@ def autotune_rate_limit():
 			RATE_LIMIT_RPS = new_rps
 			with progress_lock:
 				print(f"\n[auto] Sänker rate-limit till {RATE_LIMIT_RPS} rps (err={err_rate:.2f}, avg_lat={avg_lat:.2f}s)")
+			logging.info(f"autotune: lower rps -> {RATE_LIMIT_RPS} (err={err_rate:.2f}, lat={avg_lat:.2f}s, 429={has_429})")
 		# minska sid-workers något vid hög latens
 		if MAX_PAGE_WORKERS > 4:
 			MAX_PAGE_WORKERS = max(4, MAX_PAGE_WORKERS - 1)
 			with progress_lock:
 				print(f"[auto] Minskar sid-workers till {MAX_PAGE_WORKERS}")
+			logging.info(f"autotune: lower page-workers -> {MAX_PAGE_WORKERS}")
 		# minska nummer-workers om vi är högt
 		if MAX_ISSUE_WORKERS > 2:
 			MAX_ISSUE_WORKERS = max(2, MAX_ISSUE_WORKERS - 1)
 			with progress_lock:
 				print(f"[auto] Minskar nummer-workers till {MAX_ISSUE_WORKERS}")
+			logging.info(f"autotune: lower issue-workers -> {MAX_ISSUE_WORKERS}")
 	elif err_rate < 0.02 and avg_lat < 0.6:
 		new_rps = min(100, RATE_LIMIT_RPS + 5)
 		if new_rps != RATE_LIMIT_RPS:
 			RATE_LIMIT_RPS = new_rps
 			with progress_lock:
 				print(f"\n[auto] Höjer rate-limit till {RATE_LIMIT_RPS} rps (err={err_rate:.2f}, avg_lat={avg_lat:.2f}s)")
+			logging.info(f"autotune: raise rps -> {RATE_LIMIT_RPS} (err={err_rate:.2f}, lat={avg_lat:.2f}s)")
 		# öka sid-workers försiktigt
 		if MAX_PAGE_WORKERS < 16:
 			MAX_PAGE_WORKERS = min(16, MAX_PAGE_WORKERS + 1)
 			with progress_lock:
 				print(f"[auto] Ökar sid-workers till {MAX_PAGE_WORKERS}")
+			logging.info(f"autotune: raise page-workers -> {MAX_PAGE_WORKERS}")
 		# öka nummer-workers försiktigt
 		if MAX_ISSUE_WORKERS < 6:
 			MAX_ISSUE_WORKERS = min(6, MAX_ISSUE_WORKERS + 1)
 			with progress_lock:
 				print(f"[auto] Ökar nummer-workers till {MAX_ISSUE_WORKERS}")
+			logging.info(f"autotune: raise issue-workers -> {MAX_ISSUE_WORKERS}")
 
 def init_db():
 	# Skapar tabell för att hålla koll på redan nedladdade nummer
@@ -333,6 +341,7 @@ def run_jobs(publications, *, skip_if_in_db=True, force=False):
 		with db_write_lock, sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT_SECS) as conn_upd:
 			conn_upd.execute(f"PRAGMA busy_timeout={DB_TIMEOUT_SECS*1000};")
 			conn_upd.execute("""UPDATE download_jobs SET status='running', started_at=? WHERE id=?""", (started, job_id))
+		logging.info(f"job start id={job_id} type={job_type} pub={pub_code}")
 		try:
 			payload = json.loads(payload_json or "{}")
 			if job_type == "latest_n":
@@ -372,11 +381,13 @@ def run_jobs(publications, *, skip_if_in_db=True, force=False):
 			with db_write_lock, sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT_SECS) as conn_done:
 				conn_done.execute(f"PRAGMA busy_timeout={DB_TIMEOUT_SECS*1000};")
 				conn_done.execute("""UPDATE download_jobs SET status='done', finished_at=?, last_error=NULL WHERE id=?""", (finished, job_id))
+			logging.info(f"job done id={job_id} type={job_type} pub={pub_code}")
 		except Exception as e:
 			finished = datetime.datetime.utcnow().isoformat()
 			with db_write_lock, sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT_SECS) as conn_fail:
 				conn_fail.execute(f"PRAGMA busy_timeout={DB_TIMEOUT_SECS*1000};")
 				conn_fail.execute("""UPDATE download_jobs SET status='failed', finished_at=?, last_error=? WHERE id=?""", (finished, str(e), job_id))
+			logging.exception(f"job fail id={job_id} type={job_type} pub={pub_code}: {e}")
 
 def getPublicationsJSON(token, useruuid="dummy"): #Turns out user uuid isn't needed
 	url = "https://flippapi.egmontservice.com/api/refreshsignintoken"
@@ -738,9 +749,11 @@ def downloadAllIssues(publicationId, publications, *, skip_if_in_db=True, force=
 		issueInfo = getIssueInfoFromId(issue, publicationId, publications)
 		print(f"Downloading: {issue} - {name} - {issueInfo}")
 		filename = safeName(f"{name} - {issueInfo[0]} - {issueInfo[1]}.pdf")
+		t0 = time.time()
 		# DB-kontroll först (om inte force)
 		if skip_if_in_db and not force and is_downloaded(publicationId, issue):
 			print("Already downloaded (DB)")
+			logging.info(f"skip(db): {filename}")
 			continue
 		# Filsystemskoll (om inte force)
 		if not force and os.path.isfile(os.path.join(publicationFolder, filename)):
@@ -748,13 +761,16 @@ def downloadAllIssues(publicationId, publications, *, skip_if_in_db=True, force=
 			# Om fil finns men DB saknar rad, markera som nedladdad
 			if skip_if_in_db and not is_downloaded(publicationId, issue):
 				mark_downloaded(publicationId, issue, issueInfo[0], issueInfo[1], filename)
+			logging.info(f"skip(fs): {filename}")
 		else:
 			ok, _bytes = writePdf(getIssuePDFs(publicationId, issue), name, filename)
 			if ok:
 				mark_downloaded(publicationId, issue, issueInfo[0], issueInfo[1], filename)
 				print(f"Written file: {filename}")
+				logging.info(f"issue: done {filename} bytes={_bytes} elapsed={time.time()-t0:.2f}s")
 			else:
 				print("Skipped writing (already exists)")
+				logging.info(f"issue: skipped {filename}")
 		print()
 
 def downloadLatestNIssues(publicationId, publications, n, *, skip_if_in_db=True, force=False):
@@ -774,18 +790,22 @@ def downloadLatestNIssues(publicationId, publications, n, *, skip_if_in_db=True,
 		publicationFolder = os.path.join(OUTPUTPATH, safeName(name))
 		filename = safeName(f"{name} - {issueDate} - {issueName}.pdf")
 		print(f"Downloading: {issueId} - {name} - ({issueDate}, {issueName})")
+		t0 = time.time()
 		if skip_if_in_db and not force and is_downloaded(publicationId, issueId):
 			print("Already downloaded (DB)")
+			logging.info(f"skip(db): {filename}")
 			continue
 		if not force and os.path.isfile(os.path.join(publicationFolder, filename)):
 			print("File already exists")
 			if skip_if_in_db and not is_downloaded(publicationId, issueId):
 				mark_downloaded(publicationId, issueId, issueDate, issueName, filename)
+			logging.info(f"skip(fs): {filename}")
 			continue
 		ok, _bytes = writePdf(getIssuePDFs(publicationId, issueId), name, filename)
 		if ok:
 			mark_downloaded(publicationId, issueId, issueDate, issueName, filename)
 			print(f"Written file: {filename}")
+			logging.info(f"issue: done {filename} bytes={_bytes} elapsed={time.time()-t0:.2f}s")
 		print()
 
 def downloadIssuesSubset(publicationId, publications, issues_info_subset, *, skip_if_in_db=True, force=False):
@@ -796,18 +816,22 @@ def downloadIssuesSubset(publicationId, publications, issues_info_subset, *, ski
 	for issueId, issueDate, issueName in issues_info_subset:
 		filename = safeName(f"{name} - {issueDate} - {issueName}.pdf")
 		print(f"Downloading: {issueId} - {name} - ({issueDate}, {issueName})")
+		t0 = time.time()
 		if skip_if_in_db and not force and is_downloaded(publicationId, issueId):
 			print("Already downloaded (DB)")
+			logging.info(f"skip(db): {filename}")
 			continue
 		if not force and os.path.isfile(os.path.join(publicationFolder, filename)):
 			print("File already exists")
 			if skip_if_in_db and not is_downloaded(publicationId, issueId):
 				mark_downloaded(publicationId, issueId, issueDate, issueName, filename)
+			logging.info(f"skip(fs): {filename}")
 			continue
 		ok, _bytes = writePdf(getIssuePDFs(publicationId, issueId), name, filename)
 		if ok:
 			mark_downloaded(publicationId, issueId, issueDate, issueName, filename)
 			print(f"Written file: {filename}")
+			logging.info(f"issue: done {filename} bytes={_bytes} elapsed={time.time()-t0:.2f}s")
 		print()
 
 def downloadIssuesSubsetConcurrent(publicationId, publications, issues_info_subset, *, skip_if_in_db=True, force=False, max_workers=3):
@@ -821,6 +845,7 @@ def downloadIssuesSubsetConcurrent(publicationId, publications, issues_info_subs
 		filename = safeName(f"{name} - {issueDate} - {issueName}.pdf")
 		msgs = []
 		msgs.append(f"Downloading: {issueId} - {name} - ({issueDate}, {issueName})")
+		t0 = time.time()
 		if skip_if_in_db and not force and is_downloaded(publicationId, issueId):
 			return "\n".join(msgs + ["Already downloaded (DB)"])
 		if not force and os.path.isfile(os.path.join(publicationFolder, filename)):
@@ -830,6 +855,7 @@ def downloadIssuesSubsetConcurrent(publicationId, publications, issues_info_subs
 		ok, _bytes = writePdf(getIssuePDFs(publicationId, issueId), name, filename)
 		if ok:
 			mark_downloaded(publicationId, issueId, issueDate, issueName, filename)
+			logging.info(f"issue: done {filename} bytes={_bytes} elapsed={time.time()-t0:.2f}s")
 			return "\n".join(msgs + [f"Written file: {filename}"])
 		return "\n".join(msgs + ["Skipped writing (already exists)"])
 
@@ -849,6 +875,7 @@ def downloadIssuesSubsetConcurrent(publicationId, publications, issues_info_subs
 				with progress_lock:
 					print("\n" + msg)
 			except Exception as e:
+				logging.exception(f"issue: error {name}: {e}")
 				with progress_lock:
 					print(f"\nError in worker: {e}")
 
