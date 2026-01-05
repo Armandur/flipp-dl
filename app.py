@@ -39,7 +39,7 @@ progress_lock = threading.Lock()
 db_write_lock = threading.Lock()
 http_lock = threading.Lock()
 last_request_ts = 0.0
-RATE_LIMIT_RPS = 0.5  # 0 = av
+RATE_LIMIT_RPS = 0  # 0 = av
 http_session = None
 AUTO_TUNE = True
 _http_metrics = deque(maxlen=200)  # (ok:bool, elapsed:float, status:int)

@@ -1,0 +1,49 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "flipp-dl: Interaktivt läge",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/app.py",
+            "console": "integratedTerminal",
+            "args": ["--interactive"],
+            "env": {
+                "FLIPP_TOKEN": "${input:flippToken}"
+            },
+            "justMyCode": true
+        },
+        {
+            "name": "flipp-dl: Lista kategorier",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/app.py",
+            "console": "integratedTerminal",
+            "args": ["--list-categories"],
+            "env": {
+                "FLIPP_TOKEN": "${input:flippToken}"
+            },
+            "justMyCode": true
+        },
+        {
+            "name": "flipp-dl: Kör kö",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/app.py",
+            "console": "integratedTerminal",
+            "args": ["--run-queue"],
+            "env": {
+                "FLIPP_TOKEN": "${input:flippToken}"
+            },
+            "justMyCode": true
+        }
+    ],
+    "inputs": [
+        {
+            "id": "flippToken",
+            "type": "promptString",
+            "description": "Ange FLIPP-token (lagras ej på disk)",
+            "password": true
+        }
+    ]
+}
