@@ -60,6 +60,12 @@ class DbPublication(Base):
     # (``latestCoverImageUrl``). Nullable because older rows predate this
     # column and the API may omit it for some publications.
     cover_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # HTML blurb returned by Flipp in the ``description`` field. Kept raw
+    # so the detail page can render it – sanitised before output.
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Parsed release date of the next issue (YYYY-MM-DD) if the
+    # description contains the standard "Nästa nummer kommer …" line.
+    next_issue_date: Mapped[str | None] = mapped_column(String(20), nullable=True)
     watched: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     last_polled_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 

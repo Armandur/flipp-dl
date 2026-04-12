@@ -52,6 +52,17 @@ def _run_lightweight_migrations(engine: Engine) -> None:
                 conn.execute(
                     text("ALTER TABLE publications ADD COLUMN cover_url VARCHAR(500)")
                 )
+            if "description" not in existing:
+                conn.execute(
+                    text("ALTER TABLE publications ADD COLUMN description TEXT")
+                )
+            if "next_issue_date" not in existing:
+                conn.execute(
+                    text(
+                        "ALTER TABLE publications ADD COLUMN "
+                        "next_issue_date VARCHAR(20)"
+                    )
+                )
             # short_code was briefly introduced in a previous revision and
             # is no longer used; leave any existing column alone (SQLite
             # does not support DROP COLUMN cleanly without a rebuild).

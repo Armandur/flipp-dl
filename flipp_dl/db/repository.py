@@ -52,6 +52,8 @@ class DownloadRepository:
                 custom_code=pub.custom_code,
                 name=pub.name,
                 cover_url=pub.cover_url,
+                description=pub.description,
+                next_issue_date=pub.next_issue_date,
             )
             self.session.add(db_pub)
             self.session.flush()  # get id
@@ -59,6 +61,10 @@ class DownloadRepository:
             db_pub.name = pub.name
             if pub.cover_url:
                 db_pub.cover_url = pub.cover_url
+            # Description / next_issue_date are allowed to be cleared
+            # on a later poll so always assign.
+            db_pub.description = pub.description
+            db_pub.next_issue_date = pub.next_issue_date
 
         # Sync categories (replace all)
         for cat_row in db_pub.categories:

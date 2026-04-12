@@ -11,6 +11,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from ..db.session import make_session_factory
 from .auth import AuthMiddleware
+from .html_sanitize import sanitize_html
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 
@@ -44,6 +45,7 @@ def create_app(
     )
 
     templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
+    templates.env.filters["sanitize_html"] = sanitize_html
 
     app.state.session_factory = session_factory
     app.state.templates = templates

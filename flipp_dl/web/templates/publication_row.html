@@ -25,8 +25,8 @@
     <a class="pub-link" href="/publications/{{ publication.custom_code }}">
       <strong>{{ publication.name }}</strong>
     </a>
+    <div class="dim mono" style="font-size:11px;">{{ publication.custom_code }}</div>
   </td>
-  <td class="mono">{{ publication.custom_code }}</td>
   <td class="dim">
     {% if publication.categories %}
       {{ publication.categories | map(attribute="category_name") | join(", ") | truncate(40, True, "…") }}
@@ -35,6 +35,13 @@
     {% endif %}
   </td>
   <td style="text-align:center;" class="dim">{{ publication.num_issues }}</td>
+  <td class="dim">
+    {% if publication.next_issue_date %}
+      {{ publication.next_issue_date }}
+    {% else %}
+      —
+    {% endif %}
+  </td>
   <td style="text-align:center;">
     {% if publication.watched %}
       <span class="badge badge-done">Yes</span>

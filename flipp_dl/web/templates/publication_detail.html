@@ -19,6 +19,9 @@
     <div class="dim detail-meta">
       <span class="mono">{{ publication.custom_code }}</span>
       · {{ issues | length }} issue{{ "s" if issues | length != 1 else "" }}
+      {% if publication.next_issue_date %}
+        · Next issue: <strong>{{ publication.next_issue_date }}</strong>
+      {% endif %}
       {% if publication.watched %}
         · <span class="badge badge-done">Watched</span>
       {% endif %}
@@ -30,6 +33,12 @@
     {% endif %}
   </div>
 </div>
+
+{% if publication.description %}
+<div class="card description-card">
+  {{ publication.description | sanitize_html | safe }}
+</div>
+{% endif %}
 
 <div class="filter-bar">
   <input
