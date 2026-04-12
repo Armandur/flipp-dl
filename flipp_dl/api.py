@@ -161,9 +161,7 @@ class FlippClient:
             status = response.status_code
             # Surface a short body snippet to help diagnose why Flipp is unhappy.
             body_snippet = (response.text or "")[:300].replace("\n", " ")
-            logger.error(
-                "Flipp API %s response: %s", status, body_snippet or "<empty>"
-            )
+            logger.error("Flipp API %s response: %s", status, body_snippet or "<empty>")
             if status == 403:
                 raise FlippError(
                     "Flipp API returned 403 Forbidden. This usually means the "
