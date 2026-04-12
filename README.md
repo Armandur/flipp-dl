@@ -115,6 +115,42 @@ Volymer:
 | `FLIPP_SECRET_KEY`  | –           | Hemlighet för sessions (byt i produktion).     |
 | `FLIPP_PASSWORD`    | –           | Lösenord för inloggning. Tom = auth inaktiv.   |
 
+### Unraid
+
+Installera via **Settings → Docker → Add Container** (eller Community
+Applications om du hellre söker på "flipp-dl").
+
+| Fält | Värde |
+|---|---|
+| **Name** | `flipp-dl` |
+| **Repository** | `ghcr.io/armandur/flipp-dl:latest` |
+| **Network type** | Bridge |
+| **Port** | Host `8000` → Container `8000` (TCP) |
+| **Path 1** | Host `/mnt/user/appdata/flipp-dl` → Container `/data` (Read/Write) |
+| **Path 2** | Host `/mnt/user/Downloads/Flipp` → Container `/output` (Read/Write) |
+
+Miljövariabler att fylla i under **"Add another Path / Port / Variable"**:
+
+| Nyckel | Värde | Obligatorisk |
+|---|---|---|
+| `FLIPP_TOKEN` | Din Flipp-token (se "Skaffa en token" ovan) | Ja |
+| `FLIPP_SECRET_KEY` | Lång slumpmässig sträng | Ja |
+| `FLIPP_PASSWORD` | Valfritt lösenord för webbgränssnittet | Nej |
+| `FLIPP_POLL_INTERVAL` | `360` | Nej |
+| `FLIPP_WORKERS` | `4` | Nej |
+
+> **Behörighetsproblem?** Containern kör som en icke-root-användare.
+> Om Unraid klagar på skrivrättigheter, öppna Unraid-terminalen och kör:
+> ```bash
+> chmod -R 777 /mnt/user/appdata/flipp-dl
+> chmod -R 777 /mnt/user/Downloads/Flipp
+> ```
+> Alternativt: sätt **Extra Parameters** till `--user 99:100` i
+> containerinställningarna (99:100 är Unraids inbyggda
+> `nobody`/`users`-konto).
+
+Webbgränssnittet nås sedan på `http://<unraid-ip>:8000`.
+
 ## Webbgränssnitt
 
 | Sida              | URL              | Beskrivning                           |
@@ -134,7 +170,7 @@ black --check .
 pytest
 ```
 
-CI kör samma kommandon på Python 3.9–3.12 via GitHub Actions.
+CI kör samma kommandon på Python 3.11 och 3.12 via GitHub Actions.
 
 ## Roadmap
 
