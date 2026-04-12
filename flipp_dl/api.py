@@ -135,15 +135,41 @@ class FlippClient:
             "uuid": self.user_uuid,
             "os": "Firefox / Windows",
         }
-        response = self.session.post(self.API_URL, json=payload, timeout=self.timeout)
+        # Pass headers per-request so we override any session defaults
+        # (requests.Session pre-populates User-Agent, Accept, etc.).
+        # Egmont appears to require a browser-like request signature.
+        headers = {
+            "User-Agent": DEFAULT_USER_AGENT,
+            "Accept": "application/json, text/plain, */*",
+            "Accept-Language": "sv-SE,sv;q=0.9,en;q=0.8",
+            "Content-Type": "application/json",
+            "Origin": "https://tidningar.flipp.se",
+            "Referer": "https://tidningar.flipp.se/",
+        }
+        logger.debug(
+            "POST %s (token len=%d, uuid=%s)",
+            self.API_URL,
+            len(self.token) if self.token else 0,
+            self.user_uuid,
+        )
+        response = self.session.post(
+            self.API_URL, json=payload, headers=headers, timeout=self.timeout
+        )
         try:
             response.raise_for_status()
         except requests.HTTPError as exc:
             status = response.status_code
+            # Surface a short body snippet to help diagnose why Flipp is unhappy.
+            body_snippet = (response.text or "")[:300].replace("\n", " ")
+            logger.error(
+                "Flipp API %s response: %s", status, body_snippet or "<empty>"
+            )
             if status == 403:
                 raise FlippError(
-                    "Flipp API returned 403 Forbidden – token is invalid or expired. "
-                    "Please obtain a new token and update FLIPP_TOKEN."
+                    "Flipp API returned 403 Forbidden. This usually means the "
+                    "token is invalid or expired – re-fetch it from the browser "
+                    "(Network tab → refreshsignintoken) and update FLIPP_TOKEN. "
+                    f"Response body: {body_snippet or '<empty>'}"
                 ) from exc
             raise FlippError(f"Flipp API HTTP error {status}: {exc}") from exc
         return response.json()
