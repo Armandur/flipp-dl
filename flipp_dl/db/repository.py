@@ -9,9 +9,9 @@ boundaries.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session, selectinload
 
 from ..models import Issue as DomainIssue
@@ -272,3 +272,44 @@ class DownloadRepository:
     def list_jobs(self, limit: int = 50) -> list[DbJob]:
         q = select(DbJob).order_by(DbJob.created_at.desc()).limit(limit)
         return list(self.session.scalars(q))
+
+    def purge_old_jobs(
+        self,
+        *,
+        max_age_days: int = 30,
+        keep_min: int = 500,
+    ) -> int:
+        """Delete finished jobs older than *max_age_days*.
+
+        The newest *keep_min* finished jobs are always retained so a
+        busy instance still has recent history for the Jobs page even
+        if it just finished a big bulk-download. Running or queued
+        jobs are never purged – they either finish and become eligible
+        later, or they stay forever if the process crashed with stuck
+        rows (which is the user's cue to investigate).
+
+        Returns the number of rows removed.
+        """
+        terminal = (JobStatus.DONE, JobStatus.ERROR)
+        cutoff = _now() - timedelta(days=max_age_days)
+
+        keep_ids: set[int] = set()
+        if keep_min > 0:
+            keep_ids = set(
+                self.session.scalars(
+                    select(DbJob.id)
+                    .where(DbJob.status.in_(terminal))
+                    .order_by(DbJob.created_at.desc())
+                    .limit(keep_min)
+                )
+            )
+
+        stmt = delete(DbJob).where(
+            DbJob.status.in_(terminal),
+            DbJob.created_at < cutoff,
+        )
+        if keep_ids:
+            stmt = stmt.where(~DbJob.id.in_(keep_ids))
+
+        result = self.session.execute(stmt)
+        return int(result.rowcount or 0)

@@ -1,6 +1,7 @@
 """Tests for DownloadRepository using an in-memory SQLite database."""
 
 import pytest
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from flipp_dl.db.models import IssueStatus, JobStatus
@@ -250,3 +251,88 @@ def test_list_jobs_ordered_newest_first(repo):
     jobs = repo.list_jobs()
     assert jobs[0].job_type == "download"
     assert jobs[1].job_type == "poll"
+
+
+def test_purge_old_jobs_respects_keep_min(repo):
+    # Seed 10 finished jobs and ask to keep at least 5 – nothing should
+    # be deleted even if they're "old" because keep_min wins.
+    from datetime import datetime, timedelta
+
+    from flipp_dl.db.models import DbJob, JobStatus
+
+    old = datetime.utcnow() - timedelta(days=365)
+    for i in range(10):
+        repo.session.add(
+            DbJob(
+                job_type="poll",
+                payload="{}",
+                status=JobStatus.DONE,
+                created_at=old + timedelta(seconds=i),
+            )
+        )
+    repo.session.commit()
+
+    removed = repo.purge_old_jobs(max_age_days=1, keep_min=5)
+    repo.session.commit()
+    assert removed == 5
+    assert repo.session.query(DbJob).count() == 5
+
+
+def test_purge_old_jobs_keeps_recent(repo):
+    # Recent jobs (within max_age_days) are preserved even when
+    # keep_min is tiny.
+    from datetime import datetime, timedelta
+
+    from flipp_dl.db.models import DbJob, JobStatus
+
+    now = datetime.utcnow()
+    for i in range(3):
+        repo.session.add(
+            DbJob(
+                job_type="poll",
+                payload="{}",
+                status=JobStatus.DONE,
+                created_at=now - timedelta(minutes=i),
+            )
+        )
+    repo.session.commit()
+
+    removed = repo.purge_old_jobs(max_age_days=30, keep_min=1)
+    repo.session.commit()
+    assert removed == 0
+    assert repo.session.query(DbJob).count() == 3
+
+
+def test_purge_old_jobs_never_deletes_running(repo):
+    # Stuck RUNNING jobs must survive even if they predate the cutoff.
+    from datetime import datetime, timedelta
+
+    from flipp_dl.db.models import DbJob, JobStatus
+
+    old = datetime.utcnow() - timedelta(days=365)
+    repo.session.add(
+        DbJob(
+            job_type="download",
+            payload="{}",
+            status=JobStatus.RUNNING,
+            created_at=old,
+        )
+    )
+    # Add enough finished jobs that keep_min doesn't save them.
+    for i in range(5):
+        repo.session.add(
+            DbJob(
+                job_type="poll",
+                payload="{}",
+                status=JobStatus.DONE,
+                created_at=old + timedelta(seconds=i),
+            )
+        )
+    repo.session.commit()
+
+    removed = repo.purge_old_jobs(max_age_days=1, keep_min=0)
+    repo.session.commit()
+    assert removed == 5
+    remaining = list(repo.session.scalars(select(DbJob)))
+    assert len(remaining) == 1
+    assert remaining[0].status == JobStatus.RUNNING

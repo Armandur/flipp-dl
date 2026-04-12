@@ -77,6 +77,12 @@ def poll_publications(
 
             repo.finish_job(job.id)
             logger.info("Poll: queued %d new download jobs", queued)
+
+            # Opportunistic retention sweep – cheap and keeps the Jobs
+            # page from growing without bound on long-lived instances.
+            purged = repo.purge_old_jobs()
+            if purged:
+                logger.info("Poll: purged %d old job rows", purged)
         except FlippError as exc:
             repo.finish_job(job.id, error=str(exc))
             logger.error("Poll failed: %s", exc)
