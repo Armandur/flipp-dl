@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 # Candidate keys where Egmont's API *might* expose the short publication
-# code (the 2–5 letter acronym like "HBR" / "UVH" that the CDN uses for
+# code (the acronym like "HBR" / "UVH" / "NO-DON" that the CDN uses for
 # cover art URLs). We try these in order, then fall back to a heuristic.
 _SHORT_CODE_KEYS = (
     "publicationCode",
@@ -18,7 +18,9 @@ _SHORT_CODE_KEYS = (
     "acronym",
     "pubCode",
 )
-_SHORT_CODE_RE = re.compile(r"^[A-Z]{2,6}$")
+# Matches "HBR", "UVH", "KA" plus country-prefixed variants like "NO-DON"
+# used for Norwegian titles. Up to 8 letters each side to stay loose.
+_SHORT_CODE_RE = re.compile(r"^(?:[A-Z]{2}-)?[A-Z]{2,8}$")
 
 
 def _extract_short_code(data: dict[str, Any]) -> str | None:
