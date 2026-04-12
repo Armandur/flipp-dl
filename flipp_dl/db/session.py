@@ -47,11 +47,14 @@ def _run_lightweight_migrations(engine: Engine) -> None:
     inspector = inspect(engine)
     if "publications" in inspector.get_table_names():
         existing = {col["name"] for col in inspector.get_columns("publications")}
-        if "short_code" not in existing:
-            with engine.begin() as conn:
+        with engine.begin() as conn:
+            if "cover_url" not in existing:
                 conn.execute(
-                    text("ALTER TABLE publications ADD COLUMN short_code VARCHAR(20)")
+                    text("ALTER TABLE publications ADD COLUMN cover_url VARCHAR(500)")
                 )
+            # short_code was briefly introduced in a previous revision and
+            # is no longer used; leave any existing column alone (SQLite
+            # does not support DROP COLUMN cleanly without a rebuild).
 
 
 def make_session_factory(db_path: Path | str = ":memory:") -> sessionmaker[Session]:

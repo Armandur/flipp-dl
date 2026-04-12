@@ -7,10 +7,10 @@
   data-watched="{{ '1' if publication.watched else '0' }}"
 >
   <td class="cover-cell">
-    {% if publication.short_code %}
+    {% if publication.cover_url %}
     <img
       class="pub-cover"
-      src="https://cdn.egmontservice.com/Publication/Cover/{{ publication.short_code }}__b100m.jpg"
+      src="{{ publication.cover_url | replace('__b600m.', '__b100m.') }}"
       alt=""
       loading="lazy"
       decoding="async"

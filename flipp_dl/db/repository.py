@@ -51,14 +51,14 @@ class DownloadRepository:
             db_pub = DbPublication(
                 custom_code=pub.custom_code,
                 name=pub.name,
-                short_code=pub.short_code,
+                cover_url=pub.cover_url,
             )
             self.session.add(db_pub)
             self.session.flush()  # get id
         else:
             db_pub.name = pub.name
-            if pub.short_code:
-                db_pub.short_code = pub.short_code
+            if pub.cover_url:
+                db_pub.cover_url = pub.cover_url
 
         # Sync categories (replace all)
         for cat_row in db_pub.categories:
