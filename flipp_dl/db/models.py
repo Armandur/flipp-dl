@@ -115,13 +115,16 @@ class DbIssue(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     publication_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("publications.id"), nullable=False
+        Integer,
+        ForeignKey("publications.id"),
+        nullable=False,
+        index=True,
     )
     custom_code: Mapped[str] = mapped_column(String(100), nullable=False)
     issue_name: Mapped[str] = mapped_column(String(255), nullable=False)
     issue_date: Mapped[str] = mapped_column(String(20), nullable=False)
     status: Mapped[str] = mapped_column(
-        String(20), default=IssueStatus.NEW, nullable=False
+        String(20), default=IssueStatus.NEW, nullable=False, index=True
     )
     discovered_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
     downloaded_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
