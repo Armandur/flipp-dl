@@ -82,17 +82,20 @@ def poll_publications(
             logger.error("Poll failed: %s", exc)
 
 
-def run_download_queue(
-    client: FlippClient,
+def _claim_next_download_job(
     session_factory,
-    output_root: Path,
-    workers: int = DEFAULT_WORKERS,
-) -> None:
-    """Pick up one queued download job and execute it."""
+) -> tuple[int, DomainPublication, DomainIssue] | None:
+    """Atomically mark the oldest queued download job as RUNNING.
+
+    Returns ``(job_id, publication, issue)`` for the claimed job, or
+    ``None`` when there is nothing to do. All ORM attribute access
+    happens inside the single session so callers only ever see plain
+    primitives / frozen dataclasses.
+    """
+    import json as _json
+
     with get_session(session_factory) as session:
         repo = DownloadRepository(session)
-
-        # Find the oldest queued download job.
         jobs = repo.list_jobs(limit=200)
         job = next(
             (
@@ -103,25 +106,23 @@ def run_download_queue(
             None,
         )
         if job is None:
-            return
+            return None
 
-        import json
-
-        payload = json.loads(job.payload)
-        issue_id: int = payload.get("issue_id")
-        if issue_id is None:
-            repo.finish_job(job.id, error="Missing issue_id in payload")
-            return
-
-        # Capture primitive identifiers now: once the session closes, the ORM
-        # instances become detached and any attribute access (even ``.id``) can
-        # trigger a lazy refresh against an expired session.
         job_id: int = job.id
+        try:
+            payload = _json.loads(job.payload)
+        except (TypeError, ValueError):
+            repo.finish_job(job_id, error="Invalid JSON payload")
+            return None
+        issue_id = payload.get("issue_id")
+        if issue_id is None:
+            repo.finish_job(job_id, error="Missing issue_id in payload")
+            return None
 
-        db_issue: DbIssue | None = repo.get_issue(issue_id)
+        db_issue: DbIssue | None = repo.get_issue(int(issue_id))
         if db_issue is None:
             repo.finish_job(job_id, error=f"Issue {issue_id} not found")
-            return
+            return None
 
         db_pub = db_issue.publication
         domain_pub = DomainPublication(
@@ -135,21 +136,53 @@ def run_download_queue(
         )
 
         repo.start_job(job_id)
+        return job_id, domain_pub, domain_issue
 
-    # Download outside the first session so status commits are visible.
-    with get_session(session_factory) as session:
-        repo = DownloadRepository(session)
-        downloader = IssueDownloader(
-            client, output_root, workers=workers, repository=repo
-        )
-        try:
-            downloader.download_issue(domain_pub, domain_issue, skip_existing=True)
-            with get_session(session_factory) as s2:
-                DownloadRepository(s2).finish_job(job_id)
-        except Exception as exc:  # noqa: BLE001
-            with get_session(session_factory) as s2:
-                DownloadRepository(s2).finish_job(job_id, error=str(exc))
-            logger.error("Download job %d failed: %s", job_id, exc)
+
+def run_download_queue(
+    client: FlippClient,
+    session_factory,
+    output_root: Path,
+    workers: int = DEFAULT_WORKERS,
+    *,
+    max_jobs: int | None = None,
+) -> int:
+    """Drain the queued download jobs and execute each in turn.
+
+    The loop keeps pulling jobs until the queue is empty (or *max_jobs* has
+    been reached), so one scheduler tick is enough to catch up after a
+    manual bulk-queue or a long poll. Set ``max_jobs`` to cap throughput if
+    you want to yield back to the scheduler more frequently. Returns the
+    number of jobs that were actually executed.
+    """
+    processed = 0
+    while max_jobs is None or processed < max_jobs:
+        claimed = _claim_next_download_job(session_factory)
+        if claimed is None:
+            break
+        job_id, domain_pub, domain_issue = claimed
+
+        # Run the download in its own session so status commits are
+        # immediately visible to the web UI between jobs.
+        with get_session(session_factory) as session:
+            repo = DownloadRepository(session)
+            downloader = IssueDownloader(
+                client, output_root, workers=workers, repository=repo
+            )
+            try:
+                downloader.download_issue(domain_pub, domain_issue, skip_existing=True)
+            except Exception as exc:  # noqa: BLE001
+                with get_session(session_factory) as s2:
+                    DownloadRepository(s2).finish_job(job_id, error=str(exc))
+                logger.error("Download job %d failed: %s", job_id, exc)
+                processed += 1
+                continue
+
+        with get_session(session_factory) as s2:
+            DownloadRepository(s2).finish_job(job_id)
+        processed += 1
+
+    return processed
 
 
 # ---------------------------------------------------------------------------
