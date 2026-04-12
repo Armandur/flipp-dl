@@ -71,6 +71,15 @@ class FlippClient:
     # Public API
     # ------------------------------------------------------------------
 
+    def fetch_raw_sign_in(self) -> dict:
+        """Return the raw ``refreshsignintoken`` response as a dict.
+
+        Useful for debugging: exposes the full API payload (including
+        metadata fields flipp-dl does not yet read) so callers can
+        inspect it from the web UI.
+        """
+        return self._refresh_sign_in_token()
+
     def fetch_publications(self) -> list[Publication]:
         """Return the publications the current token has access to."""
         data = self._refresh_sign_in_token()

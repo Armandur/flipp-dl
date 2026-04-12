@@ -73,6 +73,42 @@
     .detail-meta .mono { font-family: "SFMono-Regular", Consolas, monospace; }
     .btn[disabled] { opacity: .4; cursor: not-allowed; background: #45475a; color: #a6adc8; }
 
+    /* debug poll + JSON viewer (Settings) */
+    .htmx-indicator { display: none; }
+    .htmx-request .htmx-indicator { display: inline; }
+    .htmx-request.htmx-indicator { display: inline; }
+    .debug-error { background: #3a1a1a; border: 1px solid #5a2a2a; color: #f38ba8;
+                   border-radius: 6px; padding: 12px 14px; margin-bottom: 12px; }
+    .debug-error pre { white-space: pre-wrap; word-break: break-word;
+                       font-family: "SFMono-Regular", Consolas, monospace;
+                       font-size: 12px; margin-top: 6px; }
+    .debug-summary { font-size: 13px; color: #a6adc8; margin-bottom: 12px;
+                     display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .debug-summary .btn { font-weight: 500; }
+
+    .json-viewer { background: #11111b; border: 1px solid #313244;
+                   border-radius: 8px; padding: 14px 16px;
+                   font-family: "SFMono-Regular", Consolas, monospace;
+                   font-size: 12px; line-height: 1.55; color: #cdd6f4;
+                   max-height: 600px; overflow: auto; }
+    .json-viewer details { margin: 0; }
+    .json-viewer summary { cursor: pointer; user-select: none;
+                           list-style: none; display: inline; }
+    .json-viewer summary::-webkit-details-marker { display: none; }
+    .json-viewer summary::before { content: "▸"; display: inline-block;
+                                   width: 12px; color: #6c7086;
+                                   transition: transform .1s; }
+    .json-viewer details[open] > summary::before { content: "▾"; }
+    .json-viewer .json-row { padding-left: 18px; }
+    .json-viewer .json-key { color: #cba6f7; }
+    .json-viewer .json-index { color: #6c7086; }
+    .json-viewer .json-string { color: #a6e3a1; word-break: break-all; }
+    .json-viewer .json-number { color: #fab387; }
+    .json-viewer .json-bool   { color: #89b4fa; }
+    .json-viewer .json-null   { color: #6c7086; font-style: italic; }
+    .json-viewer .json-meta    { color: #6c7086; }
+    .json-viewer .json-preview { color: #585b70; }
+
     /* badges */
     .badge { display: inline-block; padding: 2px 8px; border-radius: 4px;
              font-size: 11px; font-weight: 600; letter-spacing: .04em; }

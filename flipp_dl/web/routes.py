@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import json
 import os
 from datetime import datetime
 
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
-from ..api import FlippClient
+from ..api import FlippClient, FlippError
 from ..config import load_token
 from ..db.models import IssueStatus
 from ..db.repository import DownloadRepository
@@ -332,5 +333,70 @@ def register(app: FastAPI) -> None:
                 },
                 "csrf_token": csrf,
                 "saved": True,
+            },
+        )
+
+    # ------------------------------------------------------------------
+    # Debug – manual API poll with raw response viewer
+    # ------------------------------------------------------------------
+
+    _SENSITIVE_KEYS = frozenset({"token", "password", "email"})
+
+    def _scrub(data):
+        """Recursively mask sensitive keys before sending to the browser."""
+        if isinstance(data, dict):
+            return {
+                k: ("***REDACTED***" if k in _SENSITIVE_KEYS and v else _scrub(v))
+                for k, v in data.items()
+            }
+        if isinstance(data, list):
+            return [_scrub(item) for item in data]
+        return data
+
+    @app.post("/settings/debug-poll", response_class=HTMLResponse)
+    async def debug_poll(request: Request):
+        if not await check_csrf_form(request):
+            return HTMLResponse("CSRF validation failed", status_code=400)
+
+        token = load_token()
+        if not token:
+            return _templates(request).TemplateResponse(
+                request,
+                "debug_poll_result.html",
+                {"error": "FLIPP_TOKEN is not set", "data_json": None},
+            )
+
+        try:
+            client = FlippClient(token)
+            raw = client.fetch_raw_sign_in()
+        except FlippError as exc:
+            return _templates(request).TemplateResponse(
+                request,
+                "debug_poll_result.html",
+                {"error": str(exc), "data_json": None},
+            )
+        except Exception as exc:  # noqa: BLE001
+            return _templates(request).TemplateResponse(
+                request,
+                "debug_poll_result.html",
+                {"error": f"Unexpected error: {exc}", "data_json": None},
+            )
+
+        scrubbed = _scrub(raw)
+        # ensure_ascii=False keeps å/ä/ö readable. The replace guards
+        # against </script> ever appearing inside a string value and
+        # prematurely closing the embedding <script> tag.
+        data_json = json.dumps(scrubbed, ensure_ascii=False, indent=2).replace(
+            "</", "<\\/"
+        )
+        num_pubs = len(raw.get("publications", []))
+        return _templates(request).TemplateResponse(
+            request,
+            "debug_poll_result.html",
+            {
+                "error": None,
+                "num_pubs": num_pubs,
+                "byte_size": len(data_json),
+                "data_json": data_json,
             },
         )

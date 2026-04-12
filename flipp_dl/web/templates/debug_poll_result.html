@@ -1,0 +1,141 @@
+{% if error %}
+<div class="debug-error">
+  <strong>Poll failed:</strong>
+  <pre>{{ error }}</pre>
+</div>
+{% else %}
+<div class="debug-summary">
+  Fetched <strong>{{ num_pubs }}</strong> publication{{ "s" if num_pubs != 1 else "" }}
+  · {{ byte_size }} bytes (redacted)
+  <button type="button" class="btn btn-watch" id="json-copy-btn">Copy JSON</button>
+  <button type="button" class="btn" id="json-expand-btn">Expand all</button>
+  <button type="button" class="btn" id="json-collapse-btn">Collapse all</button>
+</div>
+
+<div id="json-tree" class="json-viewer"></div>
+
+<script type="application/json" id="poll-data">{{ data_json | safe }}</script>
+<script>
+(function () {
+  const raw = document.getElementById("poll-data").textContent;
+  let data;
+  try { data = JSON.parse(raw); }
+  catch (e) {
+    document.getElementById("json-tree").textContent =
+      "Failed to parse response JSON: " + e;
+    return;
+  }
+  const root = document.getElementById("json-tree");
+  root.innerHTML = "";
+
+  function preview(node) {
+    if (Array.isArray(node)) return "Array(" + node.length + ")";
+    if (node && typeof node === "object") {
+      const keys = Object.keys(node);
+      return "{" + keys.slice(0, 3).join(", ") +
+             (keys.length > 3 ? ", …" : "") + "}";
+    }
+    return "";
+  }
+
+  function render(node, target, depth) {
+    if (node === null) {
+      const s = document.createElement("span");
+      s.className = "json-null";
+      s.textContent = "null";
+      target.appendChild(s);
+      return;
+    }
+    const t = typeof node;
+    if (t === "string") {
+      const s = document.createElement("span");
+      s.className = "json-string";
+      s.textContent = JSON.stringify(node);
+      target.appendChild(s);
+      return;
+    }
+    if (t === "number" || t === "bigint") {
+      const s = document.createElement("span");
+      s.className = "json-number";
+      s.textContent = String(node);
+      target.appendChild(s);
+      return;
+    }
+    if (t === "boolean") {
+      const s = document.createElement("span");
+      s.className = "json-bool";
+      s.textContent = String(node);
+      target.appendChild(s);
+      return;
+    }
+    if (Array.isArray(node)) {
+      if (node.length === 0) {
+        target.appendChild(document.createTextNode("[]"));
+        return;
+      }
+      const details = document.createElement("details");
+      if (depth < 1) details.open = true;
+      const summary = document.createElement("summary");
+      summary.innerHTML =
+        '<span class="json-meta">[' + node.length + "]</span>" +
+        ' <span class="json-preview">' + preview(node) + "</span>";
+      details.appendChild(summary);
+      node.forEach((item, i) => {
+        const row = document.createElement("div");
+        row.className = "json-row";
+        const key = document.createElement("span");
+        key.className = "json-index";
+        key.textContent = i;
+        row.appendChild(key);
+        row.appendChild(document.createTextNode(": "));
+        render(item, row, depth + 1);
+        details.appendChild(row);
+      });
+      target.appendChild(details);
+      return;
+    }
+    if (t === "object") {
+      const keys = Object.keys(node);
+      if (keys.length === 0) {
+        target.appendChild(document.createTextNode("{}"));
+        return;
+      }
+      const details = document.createElement("details");
+      if (depth < 1) details.open = true;
+      const summary = document.createElement("summary");
+      summary.innerHTML =
+        '<span class="json-meta">{' + keys.length + "}</span>" +
+        ' <span class="json-preview">' + preview(node) + "</span>";
+      details.appendChild(summary);
+      keys.forEach((k) => {
+        const row = document.createElement("div");
+        row.className = "json-row";
+        const key = document.createElement("span");
+        key.className = "json-key";
+        key.textContent = '"' + k + '"';
+        row.appendChild(key);
+        row.appendChild(document.createTextNode(": "));
+        render(node[k], row, depth + 1);
+        details.appendChild(row);
+      });
+      target.appendChild(details);
+    }
+  }
+
+  render(data, root, 0);
+
+  document.getElementById("json-copy-btn").addEventListener("click", () => {
+    navigator.clipboard.writeText(raw).then(
+      () => { /* no-op */ },
+      () => { alert("Copy failed"); }
+    );
+  });
+  document.getElementById("json-expand-btn").addEventListener("click", () => {
+    root.querySelectorAll("details").forEach((d) => { d.open = true; });
+  });
+  document.getElementById("json-collapse-btn").addEventListener("click", () => {
+    root.querySelectorAll("details").forEach((d) => { d.open = false; });
+  });
+})();
+</script>
+{% endif %}
