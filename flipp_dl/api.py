@@ -79,7 +79,18 @@ class FlippClient:
                 "Flipp API response missing 'publications'. Is the token "
                 "valid? Got keys: " + ", ".join(data.keys())
             )
-        publications = [Publication.from_api(p) for p in data["publications"]]
+        raw = data["publications"]
+        # Log the shape of the first publication once per process so we
+        # can spot new/renamed fields (e.g. the short publication code
+        # used by the CDN for cover art).
+        if raw and not getattr(self, "_logged_schema", False):
+            sample = raw[0]
+            logger.info(
+                "Flipp publication schema (first row) keys: %s",
+                sorted(sample.keys()) if isinstance(sample, dict) else type(sample),
+            )
+            self._logged_schema = True
+        publications = [Publication.from_api(p) for p in raw]
         logger.info("Fetched %d publications", len(publications))
         return publications
 

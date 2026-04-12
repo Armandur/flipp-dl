@@ -7,15 +7,19 @@
   data-watched="{{ '1' if publication.watched else '0' }}"
 >
   <td class="cover-cell">
+    {% if publication.short_code %}
     <img
       class="pub-cover"
-      src="https://cdn.egmontservice.com/Publication/Cover/{{ publication.custom_code }}__b100m.jpg?d={{ cover_date }}"
+      src="https://cdn.egmontservice.com/Publication/Cover/{{ publication.short_code }}__b100m.jpg"
       alt=""
       loading="lazy"
       decoding="async"
       referrerpolicy="no-referrer"
       onerror="this.style.visibility='hidden';"
     >
+    {% else %}
+    <div class="pub-cover pub-cover-missing" aria-hidden="true"></div>
+    {% endif %}
   </td>
   <td><strong>{{ publication.name }}</strong></td>
   <td class="mono">{{ publication.custom_code }}</td>

@@ -48,11 +48,17 @@ class DownloadRepository:
             select(DbPublication).where(DbPublication.custom_code == pub.custom_code)
         )
         if db_pub is None:
-            db_pub = DbPublication(custom_code=pub.custom_code, name=pub.name)
+            db_pub = DbPublication(
+                custom_code=pub.custom_code,
+                name=pub.name,
+                short_code=pub.short_code,
+            )
             self.session.add(db_pub)
             self.session.flush()  # get id
         else:
             db_pub.name = pub.name
+            if pub.short_code:
+                db_pub.short_code = pub.short_code
 
         # Sync categories (replace all)
         for cat_row in db_pub.categories:

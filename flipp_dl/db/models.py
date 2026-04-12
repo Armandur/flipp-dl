@@ -56,6 +56,10 @@ class DbPublication(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     custom_code: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
+    # Short publication acronym used by Egmont's cover CDN (e.g. "HBR").
+    # Nullable because older rows may predate this column and because the
+    # API may not expose it for every publication.
+    short_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
     watched: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     last_polled_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 

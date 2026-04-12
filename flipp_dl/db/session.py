@@ -6,7 +6,7 @@ from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
 
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -32,7 +32,26 @@ def make_engine(db_path: Path | str = ":memory:") -> Engine:
         conn.execute("PRAGMA foreign_keys=ON")
 
     Base.metadata.create_all(engine)
+    _run_lightweight_migrations(engine)
     return engine
+
+
+def _run_lightweight_migrations(engine: Engine) -> None:
+    """Add columns that were introduced after a DB may have been created.
+
+    SQLAlchemy's ``create_all`` only creates missing tables; it does not
+    add new columns to existing ones. For this app we can get away with
+    a tiny hand-rolled migration because we only ever add nullable
+    columns. For anything more involved, switch to Alembic.
+    """
+    inspector = inspect(engine)
+    if "publications" in inspector.get_table_names():
+        existing = {col["name"] for col in inspector.get_columns("publications")}
+        if "short_code" not in existing:
+            with engine.begin() as conn:
+                conn.execute(
+                    text("ALTER TABLE publications ADD COLUMN short_code VARCHAR(20)")
+                )
 
 
 def make_session_factory(db_path: Path | str = ":memory:") -> sessionmaker[Session]:
