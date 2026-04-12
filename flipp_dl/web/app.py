@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from pathlib import Path
 
@@ -13,7 +14,14 @@ from ..db.session import make_session_factory
 from .auth import AuthMiddleware
 from .html_sanitize import sanitize_html
 
+logger = logging.getLogger(__name__)
+
 TEMPLATES_DIR = Path(__file__).parent / "templates"
+
+# Sentinel for the development default secret key. Any deployment that
+# ships this value is vulnerable to session forgery because anyone who
+# can read the source can sign a valid session cookie.
+_DEFAULT_SECRET_KEY = "dev-secret-change-me"
 
 
 def _human_size(num_bytes: int | None) -> str:
@@ -32,7 +40,7 @@ def _human_size(num_bytes: int | None) -> str:
 
 # Secret key for signing session cookies.
 # Override with a long random string in production via FLIPP_SECRET_KEY.
-_SECRET_KEY = os.environ.get("FLIPP_SECRET_KEY", "dev-secret-change-me")
+_SECRET_KEY = os.environ.get("FLIPP_SECRET_KEY", _DEFAULT_SECRET_KEY)
 
 
 def create_app(
@@ -42,6 +50,15 @@ def create_app(
 ) -> FastAPI:
     db = db_path or Path(os.environ.get("FLIPP_DB", "flipp.db"))
     output = output_root or Path(os.environ.get("FLIPP_OUTPUT", "Output"))
+
+    if _SECRET_KEY == _DEFAULT_SECRET_KEY:
+        logger.warning(
+            "FLIPP_SECRET_KEY is not set – falling back to the public "
+            "development default. Session cookies can be forged by "
+            "anyone with access to the source. Set FLIPP_SECRET_KEY to "
+            "a long random string (e.g. `python -c 'import secrets; "
+            "print(secrets.token_hex(32))'`) before exposing the UI."
+        )
 
     session_factory = make_session_factory(db)
 
