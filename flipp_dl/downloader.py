@@ -6,6 +6,7 @@ import io
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from pypdf import PdfReader, PdfWriter
 
@@ -13,13 +14,21 @@ from .api import FlippClient
 from .models import Issue, Publication
 from .storage import issue_path, publication_folder
 
+if TYPE_CHECKING:
+    from .db.repository import DownloadRepository
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_WORKERS = 4
 
 
 class IssueDownloader:
-    """Download and persist whole issues as merged PDF files."""
+    """Download and persist whole issues as merged PDF files.
+
+    Pass a :class:`~flipp_dl.db.repository.DownloadRepository` to have
+    the downloader record status (downloading / done / error) in the
+    database as it works.
+    """
 
     def __init__(
         self,
@@ -27,10 +36,12 @@ class IssueDownloader:
         output_root: Path,
         *,
         workers: int = DEFAULT_WORKERS,
+        repository: DownloadRepository | None = None,
     ) -> None:
         self.client = client
         self.output_root = Path(output_root)
         self.workers = max(1, workers)
+        self.repository = repository
 
     # ------------------------------------------------------------------
 
@@ -40,9 +51,13 @@ class IssueDownloader:
         """Download *issue* and return the resulting file path.
 
         Pages are fetched in parallel (up to ``self.workers`` at a time)
-        but written to the final PDF in their original order.
+        but written to the final PDF in their original page order.
+
+        If a :class:`~flipp_dl.db.repository.DownloadRepository` was
+        supplied, the issue's DB status is kept up-to-date throughout.
         """
         target = issue_path(self.output_root, publication, issue)
+        db_issue_id = self._resolve_db_id(publication, issue)
 
         if skip_existing and target.is_file():
             logger.info("Skipping existing file: %s", target)
@@ -61,16 +76,31 @@ class IssueDownloader:
             self.workers,
         )
 
-        pages = self._fetch_pages_parallel(pdf_urls)
+        if db_issue_id is not None and self.repository is not None:
+            self.repository.mark_issue_downloading(db_issue_id)
+            self.repository.session.commit()
 
-        writer = PdfWriter()
         try:
-            for data in pages:
-                writer.append(PdfReader(io.BytesIO(data)))
-            with target.open("wb") as fh:
-                writer.write(fh)
-        finally:
-            writer.close()
+            pages = self._fetch_pages_parallel(pdf_urls)
+
+            writer = PdfWriter()
+            try:
+                for data in pages:
+                    writer.append(PdfReader(io.BytesIO(data)))
+                with target.open("wb") as fh:
+                    writer.write(fh)
+            finally:
+                writer.close()
+
+        except Exception as exc:
+            if db_issue_id is not None and self.repository is not None:
+                self.repository.mark_issue_error(db_issue_id, str(exc))
+                self.repository.session.commit()
+            raise
+
+        if db_issue_id is not None and self.repository is not None:
+            self.repository.mark_issue_done(db_issue_id, str(target))
+            self.repository.session.commit()
 
         logger.info("Wrote %s", target)
         return target
@@ -98,6 +128,16 @@ class IssueDownloader:
         return written
 
     # ------------------------------------------------------------------
+
+    def _resolve_db_id(self, publication: Publication, issue: Issue) -> int | None:
+        """Return the DB id for *issue* if a repository is wired up."""
+        if self.repository is None:
+            return None
+        db_pub = self.repository.get_publication(publication.custom_code)
+        if db_pub is None:
+            return None
+        db_issue = self.repository.get_issue_by_code(issue.custom_code, db_pub.id)
+        return db_issue.id if db_issue else None
 
     def _fetch_pages_parallel(self, pdf_urls: list[str]) -> list[bytes]:
         """Fetch all page URLs concurrently, preserving order."""

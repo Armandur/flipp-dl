@@ -123,18 +123,26 @@ flipp_dl/
 
 ## P7 – Databas
 
-- [ ] Välj databas. Förslag: **SQLite** för enkelhet (en fil i volymen),
-      med möjlighet att byta till Postgres senare via SQLAlchemy.
-- [ ] Schema (första utkast):
-  - `publications` (id, custom_code, name, categories, last_checked_at)
+- [x] Välj databas: **SQLite** via SQLAlchemy 2.0 (WAL-mode + foreign
+      keys enabled). Schema kan byta till Postgres utan kodändringar.
+- [x] Schema implementerat i `flipp_dl/db/models.py`:
+  - `publications` (id, custom_code, name, watched, last_polled_at)
+  - `publication_categories` (denormaliserat, publication_id, category_id,
+    category_name)
   - `issues` (id, publication_id, custom_code, issue_name, issue_date,
-    discovered_at, downloaded_at, file_path, status)
-  - `watchlist` (publication_id, enabled, schedule)
-  - `settings` (token, output_path, poll_interval, …)
-  - `jobs` (id, type, payload, status, started_at, finished_at, error)
-- [ ] Lägg till **Alembic**-migrationer.
-- [ ] Avdubblera nedladdningskontrollen via DB i stället för
-      `os.path.isfile`.
+    status, discovered_at, downloaded_at, file_path, error_message)
+  - `settings` (key, value) – enkelt nyckel-värde-lager
+  - `jobs` (id, job_type, payload, status, created_at, started_at,
+    finished_at, error_message)
+- [x] `flipp_dl/db/session.py` – `make_engine()`, `make_session_factory()`,
+      `get_session()`-kontexthanterare; `create_all` vid uppstart.
+- [x] `flipp_dl/db/repository.py` – `DownloadRepository` med metoder för
+      upsert/query av publications, issues, settings och jobs, plus
+      `sync_publications()` som returnerar nyupptäckta utgåvor.
+- [x] `IssueDownloader` accepterar valfri `repository=` och uppdaterar
+      issue-status (downloading → done | error) under nedladdningen.
+- [x] 36 tester (varav 18 nya för repository med in-memory SQLite).
+- [ ] Lägg till **Alembic**-migrationer när schemat stabiliserat sig.
 
 ## P8 – Schemaläggning / bakgrundsjobb
 
