@@ -91,7 +91,7 @@ Förvandla `flipp-dl` från ett engångsskript till en självhostad tjänst:
   - Hur man skaffar en token (flödet som commit `6dbfb6d` antyder).
   - CLI-exempel.
   - Docker-/web-instruktioner när de finns på plats.
-- [ ] Lägg till `LICENSE`.
+- [x] Lägg till `LICENSE` (MIT).
 
 ---
 
@@ -141,8 +141,12 @@ flipp_dl/
       `sync_publications()` som returnerar nyupptäckta utgåvor.
 - [x] `IssueDownloader` accepterar valfri `repository=` och uppdaterar
       issue-status (downloading → done | error) under nedladdningen.
-- [x] 36 tester (varav 18 nya för repository med in-memory SQLite).
-- [ ] Lägg till **Alembic**-migrationer när schemat stabiliserat sig.
+- [x] 50 tester (repository, storage, modeller, CLI och web-routes med
+      traversal-skydd).
+- [x] **Alembic**-migrationer på plats – baseline i
+      `flipp_dl/db/migrations/versions/0001_baseline.py`,
+      `_ensure_schema()` i `db/session.py` stämplar pre-Alembic-DB:er
+      automatiskt eller kör `upgrade head` vid uppstart.
 
 ## P8 – Schemaläggning / bakgrundsjobb
 
@@ -151,6 +155,8 @@ flipp_dl/
       för bevakade publikationer.
 - [x] Köa nedladdningar som jobb via **APScheduler** (BackgroundScheduler
       i web-processen, BlockingScheduler i CLI-scheduler-läget).
+- [x] `run_download_queue()` dränerar hela kön per tick i stället för
+      ett jobb åt gången, så manuella bulk-köer plockas upp direkt.
 - [ ] Stöd för per-publikation-schema (t.ex. "kolla varje natt kl 03").
 - [x] Retry-logik inbyggd via `build_session()` (HTTPAdapter + Retry).
 - [x] Jobbhistorik loggas till `jobs`-tabellen och visas i webgränssnittet.
@@ -160,10 +166,21 @@ flipp_dl/
 - [x] **FastAPI** + **Jinja2/HTMX** – ingen tung JS-frontend.
 - [x] Sidor / vyer implementerade:
   - `GET /` Dashboard: stats-kort, senaste nedladdningar, senaste jobb.
-  - `GET /publications` Publikationer: lista med HTMX watch/unwatch-toggle.
+  - `GET /publications` Publikationer: lista med HTMX watch/unwatch,
+    live-sök, kategori-filter och cover-thumbnails.
+  - `GET /publications/{code}` Detaljsida: beskrivning, nästa nummer,
+    issue-tabell med manuella downloads, re-download och delete.
+  - `GET /library` Library: listar alla PDF:er som ligger under
+    `output_root`, grupperat per katalog med totalstorlek och
+    live-sök.
+  - `GET /publications/{code}/issues/{issue_code}/file` +
+    `GET /library/file/{rel_path:path}` – serverar nedladdade PDF:er
+    inline till webbläsarens inbyggda viewer (traversal-skyddat via
+    `_safe_output_file`).
   - `GET /jobs` Jobblogg: alla jobb med statusfärger.
   - `GET /settings`, `POST /settings` Inställningar: poll-intervall,
     antal workers; token läses från env/fil av säkerhetsskäl.
+  - `POST /settings/debug-poll` Manuell poll + inbäddad JSON-viewer.
   - `GET /healthz` Healthcheck.
 - [x] Autentisering: `FLIPP_PASSWORD` env aktiverar loginskärm;
       inaktivt som default (trusted-network-läge). Timeout-säkra
@@ -171,7 +188,9 @@ flipp_dl/
 - [x] CSRF-skydd: `SameSite=strict` cookie + per-sessions-token
       validerat på alla state-mutating POST-anrop. HTMX-knappar
       skickar token via `hx-vals`.
-- [ ] Fler REST API-endpoints – återstår.
+- [x] HTML-sanering av tredjeparts-blurb via `flipp_dl/web/html_sanitize.py`
+      innan Jinja renderar den som `| safe`.
+- [ ] Fler REST/JSON API-endpoints utöver HTML-sidorna – återstår.
 
 ## P10 – Docker och deploy
 
@@ -197,3 +216,13 @@ flipp_dl/
 - [ ] Metrics-endpoint (Prometheus) för antal nedladdningar, fel,
       köstorlek m.m.
 - [ ] i18n – åtminstone svenska och engelska i UI:t.
+- [ ] Storleksuppskattning per issue/publication: spara `file_size`
+      efter nedladdning och visa median/p90 som estimat för ännu inte
+      nedladdade nummer (utforskat men avbokat).
+- [ ] Realtidsprogress under download (SSE eller HTMX-polling) i
+      stället för bara `queued → downloading → done` vid reload.
+- [ ] Rensning/retention av `jobs`-tabellen (den växer obegränsat idag).
+- [ ] Index på `issues.status` och `issues.publication_id` – listor
+      filtrerar på båda men saknar index.
+- [ ] Logga varning vid uppstart om `FLIPP_SECRET_KEY` fortfarande är
+      default (`dev-secret-change-me`).
