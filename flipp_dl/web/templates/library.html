@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}Library – Flipp-DL{% endblock %}
+
+{% block content %}
+<h1>Library</h1>
+
+<div class="note">
+  Listing every PDF currently on disk under
+  <code>{{ output_root }}</code>. Files deleted outside flipp-dl won't show up
+  here but may still appear as "Downloaded" on the publication pages until the
+  next poll.
+</div>
+
+<div class="stats">
+  <div class="stat-card">
+    <div class="label">Files</div>
+    <div class="value">{{ total_files }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="label">Total size</div>
+    <div class="value">{{ total_bytes | human_size }}</div>
+  </div>
+</div>
+
+{% if groups %}
+<div class="filter-bar">
+  <input
+    id="lib-search"
+    type="search"
+    placeholder="Search filename or folder…"
+    autocomplete="off"
+    spellcheck="false"
+  >
+  <span id="lib-count" class="dim"></span>
+</div>
+
+{% for folder, files in groups %}
+<h2>{{ folder or "(root)" }}</h2>
+<div class="card">
+  <table class="lib-table">
+    <thead>
+      <tr>
+        <th>File</th>
+        <th style="width:140px;">Modified</th>
+        <th style="width:100px; text-align:right;">Size</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for f in files %}
+      <tr class="lib-row" data-haystack="{{ (folder ~ '/' ~ f.name) | lower }}">
+        <td>
+          <a
+            class="pub-link"
+            href="/library/file/{{ f.rel_path }}"
+            target="_blank"
+            rel="noopener"
+          ><strong>{{ f.name }}</strong></a>
+        </td>
+        <td class="dim">{{ f.mtime.strftime("%Y-%m-%d %H:%M") }}</td>
+        <td class="dim mono" style="text-align:right;">{{ f.size | human_size }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endfor %}
+{% else %}
+<div class="card">
+  <div class="empty">
+    No PDFs found under <code>{{ output_root }}</code>.
+  </div>
+</div>
+{% endif %}
+
+<script>
+(function () {
+  const search = document.getElementById("lib-search");
+  const counter = document.getElementById("lib-count");
+  if (!search) return;
+
+  function applyFilter() {
+    const q = (search.value || "").trim().toLowerCase();
+    let visible = 0;
+    let total = 0;
+    document.querySelectorAll("tr.lib-row").forEach((row) => {
+      total += 1;
+      const hay = row.dataset.haystack || "";
+      const show = !q || hay.includes(q);
+      row.style.display = show ? "" : "none";
+      if (show) visible += 1;
+    });
+    if (counter) counter.textContent = visible + " / " + total;
+  }
+
+  search.addEventListener("input", applyFilter);
+  applyFilter();
+})();
+</script>
+{% endblock %}

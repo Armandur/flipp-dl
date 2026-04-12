@@ -36,6 +36,14 @@
     {% if issue.status in ("queued", "downloading") %}
       <button class="btn" disabled>…</button>
     {% elif issue.status == "done" %}
+      {% if issue.file_exists %}
+      <a
+        class="btn btn-primary-soft"
+        href="/publications/{{ publication.custom_code }}/issues/{{ issue.custom_code }}/file"
+        target="_blank"
+        rel="noopener"
+      >Open</a>
+      {% endif %}
       <button
         class="btn btn-watch"
         hx-post="/publications/{{ publication.custom_code }}/issues/{{ issue.custom_code }}/download"

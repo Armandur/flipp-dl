@@ -130,6 +130,8 @@
     .btn-watch   { background: #1e4a7d; color: #89b4fa; }
     .btn-unwatch { background: #4a1e1e; color: #f38ba8; }
     .btn-primary { background: #7c3aed; color: #fff; padding: 8px 20px; font-size: 13px; }
+    .btn-primary-soft { background: #3a2a5a; color: #cba6f7; text-decoration: none;
+                         margin-right: 6px; }
 
     /* forms */
     .form-card { background: #1e1e2e; border: 1px solid #313244; border-radius: 10px;
@@ -173,6 +175,7 @@
     <a class="brand" href="/">Flipp-DL</a>
     <a href="/" {% if request.url.path == "/" %}class="active"{% endif %}>Dashboard</a>
     <a href="/publications" {% if request.url.path.startswith("/publications") %}class="active"{% endif %}>Publications</a>
+    <a href="/library" {% if request.url.path.startswith("/library") %}class="active"{% endif %}>Library</a>
     <a href="/jobs" {% if request.url.path.startswith("/jobs") %}class="active"{% endif %}>Jobs</a>
     <a href="/settings" {% if request.url.path.startswith("/settings") %}class="active"{% endif %}>Settings</a>
     <span class="spacer"></span>

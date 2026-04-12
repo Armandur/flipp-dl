@@ -5,9 +5,10 @@ from __future__ import annotations
 import json
 import os
 from datetime import datetime
+from pathlib import Path
 
 from fastapi import FastAPI, Form, Request
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 
 from ..api import FlippClient, FlippError
 from ..config import load_token
@@ -25,6 +26,39 @@ def _repo(request: Request) -> DownloadRepository:
 
 def _templates(request: Request):
     return request.app.state.templates
+
+
+def _safe_output_file(output_root: Path, candidate: str | None) -> Path | None:
+    """Resolve *candidate* relative to *output_root* and confirm containment.
+
+    Accepts either an absolute path (e.g. the ``file_path`` stored in the DB)
+    or a relative path (e.g. a library URL segment). Returns the resolved
+    :class:`Path` only if it points to an existing regular file that lives
+    under *output_root* – otherwise ``None``. This guards against
+    path-traversal (``../../etc/passwd``) and stale DB entries pointing at
+    files that have been removed from disk.
+    """
+    if not candidate:
+        return None
+    try:
+        root = output_root.resolve()
+        raw = Path(candidate)
+        resolved = (raw if raw.is_absolute() else (root / raw)).resolve()
+    except (OSError, RuntimeError):
+        return None
+    if not resolved.is_file():
+        return None
+    try:
+        resolved.relative_to(root)
+    except ValueError:
+        return None
+    return resolved
+
+
+def _annotate_file_exists(issues, output_root: Path) -> None:
+    """Attach a ``file_exists`` boolean to each ORM issue for the template."""
+    for issue in issues:
+        issue.file_exists = _safe_output_file(output_root, issue.file_path) is not None
 
 
 def register(app: FastAPI) -> None:
@@ -106,6 +140,7 @@ def register(app: FastAPI) -> None:
                 key=lambda i: i.downloaded_at or datetime.min,
                 reverse=True,
             )[:10]
+            _annotate_file_exists(recent_issues, request.app.state.output_root)
             recent_jobs = repo.list_jobs(limit=10)
             stats = {
                 "total_pubs": len(pubs),
@@ -204,6 +239,7 @@ def register(app: FastAPI) -> None:
             # Newest issues first – issue_date is a YYYY-MM-DD string so
             # lexicographic sort matches chronological order.
             issues = sorted(pub.issues, key=lambda i: i.issue_date or "", reverse=True)
+            _annotate_file_exists(issues, request.app.state.output_root)
             return _templates(request).TemplateResponse(
                 request,
                 "publication_detail.html",
@@ -246,6 +282,7 @@ def register(app: FastAPI) -> None:
             issue = repo.get_issue_by_code(issue_code, pub.id)
             if issue is None:
                 return HTMLResponse("Issue not found", status_code=404)
+            _annotate_file_exists([issue], request.app.state.output_root)
             return _templates(request).TemplateResponse(
                 request,
                 "issue_row.html",
@@ -257,6 +294,89 @@ def register(app: FastAPI) -> None:
             )
         finally:
             repo.session.close()
+
+    @app.get("/publications/{code}/issues/{issue_code}/file")
+    async def serve_issue_file(request: Request, code: str, issue_code: str):
+        """Stream the merged issue PDF back to the browser for inline view."""
+        repo = _repo(request)
+        try:
+            pub = repo.get_publication(code)
+            if pub is None:
+                return HTMLResponse("Publication not found", status_code=404)
+            issue = repo.get_issue_by_code(issue_code, pub.id)
+            if issue is None or not issue.file_path:
+                return HTMLResponse("File not available", status_code=404)
+            resolved = _safe_output_file(request.app.state.output_root, issue.file_path)
+            if resolved is None:
+                return HTMLResponse("File not available", status_code=404)
+            return FileResponse(
+                resolved,
+                media_type="application/pdf",
+                filename=resolved.name,
+                content_disposition_type="inline",
+            )
+        finally:
+            repo.session.close()
+
+    # ------------------------------------------------------------------
+    # Library – browse everything currently on disk under output_root
+    # ------------------------------------------------------------------
+
+    @app.get("/library", response_class=HTMLResponse)
+    async def library_index(request: Request):
+        output_root: Path = request.app.state.output_root
+        groups: list[tuple[str, list[dict]]] = []
+        total_bytes = 0
+        total_files = 0
+        if output_root.is_dir():
+            buckets: dict[str, list[dict]] = {}
+            for pdf in output_root.rglob("*.pdf"):
+                if not pdf.is_file():
+                    continue
+                try:
+                    rel = pdf.relative_to(output_root)
+                except ValueError:
+                    continue
+                try:
+                    stat = pdf.stat()
+                except OSError:
+                    continue
+                folder = str(rel.parent) if str(rel.parent) != "." else ""
+                buckets.setdefault(folder, []).append(
+                    {
+                        "name": pdf.name,
+                        "rel_path": str(rel).replace(os.sep, "/"),
+                        "size": stat.st_size,
+                        "mtime": datetime.fromtimestamp(stat.st_mtime),
+                    }
+                )
+                total_bytes += stat.st_size
+                total_files += 1
+            for folder in sorted(buckets.keys(), key=str.lower):
+                buckets[folder].sort(key=lambda f: f["name"].lower())
+                groups.append((folder, buckets[folder]))
+        return _templates(request).TemplateResponse(
+            request,
+            "library.html",
+            {
+                "groups": groups,
+                "total_files": total_files,
+                "total_bytes": total_bytes,
+                "output_root": str(output_root),
+            },
+        )
+
+    @app.get("/library/file/{rel_path:path}")
+    async def serve_library_file(request: Request, rel_path: str):
+        resolved = _safe_output_file(request.app.state.output_root, rel_path)
+        if resolved is None:
+            return HTMLResponse("File not available", status_code=404)
+        return FileResponse(
+            resolved,
+            media_type="application/pdf",
+            filename=resolved.name,
+            content_disposition_type="inline",
+        )
 
     @app.post("/publications/{code}/poll", response_class=HTMLResponse)
     async def poll_single(request: Request, code: str):

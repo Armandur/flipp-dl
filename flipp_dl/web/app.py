@@ -15,6 +15,21 @@ from .html_sanitize import sanitize_html
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 
+
+def _human_size(num_bytes: int | None) -> str:
+    """Format a byte count as a short human-readable string (KB / MB / GB)."""
+    if num_bytes is None or num_bytes < 0:
+        return "—"
+    size = float(num_bytes)
+    for unit in ("B", "KB", "MB", "GB", "TB"):
+        if size < 1024 or unit == "TB":
+            if unit == "B":
+                return f"{int(size)} {unit}"
+            return f"{size:.1f} {unit}"
+        size /= 1024
+    return f"{size:.1f} TB"
+
+
 # Secret key for signing session cookies.
 # Override with a long random string in production via FLIPP_SECRET_KEY.
 _SECRET_KEY = os.environ.get("FLIPP_SECRET_KEY", "dev-secret-change-me")
@@ -46,6 +61,7 @@ def create_app(
 
     templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
     templates.env.filters["sanitize_html"] = sanitize_html
+    templates.env.filters["human_size"] = _human_size
 
     app.state.session_factory = session_factory
     app.state.templates = templates
