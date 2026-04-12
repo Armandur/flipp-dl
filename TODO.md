@@ -147,6 +147,13 @@ flipp_dl/
       `flipp_dl/db/migrations/versions/0001_baseline.py`,
       `_ensure_schema()` i `db/session.py` stämplar pre-Alembic-DB:er
       automatiskt eller kör `upgrade head` vid uppstart.
+- [x] Index på `issues.status` och `issues.publication_id` via
+      `0002_issue_indexes`; båda används av repository-listor och
+      scheduler-kön.
+- [x] Retention av `jobs`-tabellen via
+      `DownloadRepository.purge_old_jobs` – körs opportunistiskt efter
+      varje poll (30 dagar max, minst 500 rader bevaras, running/queued
+      rörs aldrig).
 
 ## P8 – Schemaläggning / bakgrundsjobb
 
@@ -190,6 +197,14 @@ flipp_dl/
       skickar token via `hx-vals`.
 - [x] HTML-sanering av tredjeparts-blurb via `flipp_dl/web/html_sanitize.py`
       innan Jinja renderar den som `| safe`.
+- [x] Loggad varning vid uppstart om `FLIPP_SECRET_KEY` fortfarande är
+      default (`dev-secret-change-me`) så sessionsforgery inte smyger sig
+      in i produktion.
+- [x] Realtidsprogress under download via HTMX-polling: downloadern
+      skriver `progress_current/progress_total` per sida (Alembic
+      `0003_issue_progress`), och `issue_row.html` pollar
+      `/publications/{code}/issues/{code}/row` var 2:a sekund så länge
+      status är `queued`/`downloading` och renderar `Downloading 3/12`.
 - [ ] Fler REST/JSON API-endpoints utöver HTML-sidorna – återstår.
 
 ## P10 – Docker och deploy
@@ -219,10 +234,3 @@ flipp_dl/
 - [ ] Storleksuppskattning per issue/publication: spara `file_size`
       efter nedladdning och visa median/p90 som estimat för ännu inte
       nedladdade nummer (utforskat men avbokat).
-- [ ] Realtidsprogress under download (SSE eller HTMX-polling) i
-      stället för bara `queued → downloading → done` vid reload.
-- [ ] Rensning/retention av `jobs`-tabellen (den växer obegränsat idag).
-- [ ] Index på `issues.status` och `issues.publication_id` – listor
-      filtrerar på båda men saknar index.
-- [ ] Logga varning vid uppstart om `FLIPP_SECRET_KEY` fortfarande är
-      default (`dev-secret-change-me`).
