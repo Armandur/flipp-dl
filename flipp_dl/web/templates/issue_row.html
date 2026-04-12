@@ -1,4 +1,15 @@
 <tr id="issue-row-{{ issue.custom_code }}">
+  <td class="cover-cell">
+    <img
+      class="pub-cover"
+      src="https://edition.pagesuite-professional.co.uk/get_image.aspx?w=100&eid={{ issue.custom_code }}"
+      alt=""
+      loading="lazy"
+      decoding="async"
+      referrerpolicy="no-referrer"
+      onerror="this.style.visibility='hidden';"
+    >
+  </td>
   <td><strong>{{ issue.issue_name or "—" }}</strong></td>
   <td class="dim">{{ issue.issue_date or "—" }}</td>
   <td>
