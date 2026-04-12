@@ -10,12 +10,14 @@ from pathlib import Path
 
 from .api import FlippClient, FlippError
 from .config import default_output_path, load_token
+from .db.session import make_session_factory
 from .downloader import DEFAULT_WORKERS, IssueDownloader
 from .models import Category, Publication
 
 # Serietidningar – kept as the default so existing users get the same
 # behaviour if they run `python app.py` without arguments.
 DEFAULT_CATEGORY_ID = 52
+DEFAULT_DB_PATH = Path("flipp.db")
 
 logger = logging.getLogger("flipp_dl")
 
@@ -41,6 +43,13 @@ def build_parser() -> argparse.ArgumentParser:
         "--output",
         type=Path,
         help="Output directory (default: ./Output).",
+    )
+    parser.add_argument(
+        "--db",
+        type=Path,
+        default=DEFAULT_DB_PATH,
+        metavar="PATH",
+        help=f"SQLite database file (default: {DEFAULT_DB_PATH}).",
     )
     parser.add_argument(
         "--category",
@@ -85,6 +94,32 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Re-download issues even if the target file already exists.",
     )
+
+    # Scheduler mode
+    scheduler_group = parser.add_argument_group("scheduler mode")
+    scheduler_group.add_argument(
+        "--scheduler",
+        action="store_true",
+        help=(
+            "Run as a long-lived scheduler: poll Flipp for new issues "
+            "and download watched publications automatically."
+        ),
+    )
+    scheduler_group.add_argument(
+        "--poll-interval",
+        type=int,
+        default=360,
+        metavar="MINUTES",
+        help="How often to poll for new issues (default: 360 min = 6 h).",
+    )
+    scheduler_group.add_argument(
+        "--download-interval",
+        type=int,
+        default=30,
+        metavar="SECONDS",
+        help="How often to check the download queue (default: 30 s).",
+    )
+
     parser.add_argument(
         "-v",
         "--verbose",
@@ -168,6 +203,37 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     _configure_logging(args.verbose)
 
+    # ------------------------------------------------------------------
+    # Scheduler mode – hand off and block
+    # ------------------------------------------------------------------
+    if args.scheduler:
+        from .scheduler import run_scheduler
+
+        token = args.token or load_token()
+        if not token:
+            logger.error(
+                "No Flipp token found. Pass --token, set FLIPP_TOKEN or "
+                "create a `token` file. See README.md for details."
+            )
+            return 2
+        # Temporarily inject token override into env so scheduler picks it up.
+        if args.token:
+            import os
+
+            os.environ["FLIPP_TOKEN"] = args.token
+
+        run_scheduler(
+            args.db,
+            poll_interval_minutes=args.poll_interval,
+            download_interval_seconds=args.download_interval,
+            workers=args.workers,
+            output_root=args.output,
+        )
+        return 0  # only reached on clean shutdown
+
+    # ------------------------------------------------------------------
+    # One-shot download mode
+    # ------------------------------------------------------------------
     token = args.token or load_token()
     if not token:
         logger.error(
@@ -221,7 +287,20 @@ def main(argv: list[str] | None = None) -> int:
     logger.info("Selected %d publications", len(selected))
 
     output_root = args.output or default_output_path()
-    downloader = IssueDownloader(client, output_root, workers=args.workers)
+    session_factory = make_session_factory(args.db)
+    from .db.repository import DownloadRepository
+    from .db.session import get_session
+
+    with get_session(session_factory) as session:
+        repo = DownloadRepository(session)
+        repo.sync_publications(selected)
+
+    downloader = IssueDownloader(
+        client,
+        output_root,
+        workers=args.workers,
+        repository=DownloadRepository(session_factory()),
+    )
     for publication in selected:
         downloader.download_publication(
             publication, skip_existing=not args.no_skip_existing
