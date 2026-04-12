@@ -12,7 +12,7 @@ import json
 from datetime import datetime, timezone
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from ..models import Issue as DomainIssue
 from ..models import Publication as DomainPublication
@@ -70,11 +70,19 @@ class DownloadRepository:
 
     def get_publication(self, custom_code: str) -> DbPublication | None:
         return self.session.scalar(
-            select(DbPublication).where(DbPublication.custom_code == custom_code)
+            select(DbPublication)
+            .options(
+                selectinload(DbPublication.categories),
+                selectinload(DbPublication.issues),
+            )
+            .where(DbPublication.custom_code == custom_code)
         )
 
     def list_publications(self, watched_only: bool = False) -> list[DbPublication]:
-        q = select(DbPublication)
+        q = select(DbPublication).options(
+            selectinload(DbPublication.categories),
+            selectinload(DbPublication.issues),
+        )
         if watched_only:
             q = q.where(DbPublication.watched == True)  # noqa: E712
         return list(self.session.scalars(q))
@@ -141,7 +149,7 @@ class DownloadRepository:
         publication_id: int | None = None,
         status: str | None = None,
     ) -> list[DbIssue]:
-        q = select(DbIssue)
+        q = select(DbIssue).options(selectinload(DbIssue.publication))
         if publication_id is not None:
             q = q.where(DbIssue.publication_id == publication_id)
         if status is not None:

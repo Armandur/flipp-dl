@@ -112,19 +112,20 @@ def register(app: FastAPI) -> None:
                 "total_issues": len(all_issues),
                 "downloaded_issues": len(done_issues),
             }
+            # Render inside the try-block so the session is still open while
+            # Jinja resolves any lazy-loaded attributes on ORM instances.
+            return _templates(request).TemplateResponse(
+                request,
+                "dashboard.html",
+                {
+                    "stats": stats,
+                    "recent_issues": recent_issues,
+                    "recent_jobs": recent_jobs,
+                    "auth_enabled": auth_enabled(),
+                },
+            )
         finally:
             repo.session.close()
-
-        return _templates(request).TemplateResponse(
-            request,
-            "dashboard.html",
-            {
-                "stats": stats,
-                "recent_issues": recent_issues,
-                "recent_jobs": recent_jobs,
-                "auth_enabled": auth_enabled(),
-            },
-        )
 
     # ------------------------------------------------------------------
     # Publications
@@ -136,15 +137,14 @@ def register(app: FastAPI) -> None:
         try:
             pubs = repo.list_publications()
             pubs.sort(key=lambda p: p.name)
+            csrf = generate_csrf_token(request)
+            return _templates(request).TemplateResponse(
+                request,
+                "publications.html",
+                {"publications": pubs, "csrf_token": csrf},
+            )
         finally:
             repo.session.close()
-
-        csrf = generate_csrf_token(request)
-        return _templates(request).TemplateResponse(
-            request,
-            "publications.html",
-            {"publications": pubs, "csrf_token": csrf},
-        )
 
     @app.post("/publications/{code}/watch", response_class=HTMLResponse)
     async def watch_publication(request: Request, code: str):
@@ -166,13 +166,13 @@ def register(app: FastAPI) -> None:
         repo = _repo(request)
         try:
             pub = repo.get_publication(code)
+            return _templates(request).TemplateResponse(
+                request,
+                "publication_row.html",
+                {"publication": pub, "csrf_token": generate_csrf_token(request)},
+            )
         finally:
             repo.session.close()
-        return _templates(request).TemplateResponse(
-            request,
-            "publication_row.html",
-            {"publication": pub, "csrf_token": generate_csrf_token(request)},
-        )
 
     @app.post("/publications/{code}/poll", response_class=HTMLResponse)
     async def poll_single(request: Request, code: str):
@@ -200,12 +200,11 @@ def register(app: FastAPI) -> None:
         repo = _repo(request)
         try:
             jobs = repo.list_jobs(limit=100)
+            return _templates(request).TemplateResponse(
+                request, "jobs.html", {"jobs": jobs}
+            )
         finally:
             repo.session.close()
-
-        return _templates(request).TemplateResponse(
-            request, "jobs.html", {"jobs": jobs}
-        )
 
     # ------------------------------------------------------------------
     # Settings
@@ -219,13 +218,12 @@ def register(app: FastAPI) -> None:
                 "poll_interval": repo.get_setting("poll_interval", "360"),
                 "workers": repo.get_setting("workers", "4"),
             }
+            csrf = generate_csrf_token(request)
+            return _templates(request).TemplateResponse(
+                request, "settings.html", {"settings": settings, "csrf_token": csrf}
+            )
         finally:
             repo.session.close()
-
-        csrf = generate_csrf_token(request)
-        return _templates(request).TemplateResponse(
-            request, "settings.html", {"settings": settings, "csrf_token": csrf}
-        )
 
     @app.post("/settings", response_class=HTMLResponse)
     async def settings_post(
