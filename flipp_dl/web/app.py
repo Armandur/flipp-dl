@@ -31,8 +31,10 @@ def create_app(
 
     app = FastAPI(title="flipp-dl", version="0.3.0", docs_url=None, redoc_url=None)
 
-    # Session middleware must be added before AuthMiddleware so the session
-    # is available when AuthMiddleware runs.
+    # Starlette executes middleware in reverse addition order (last added = outermost).
+    # AuthMiddleware must be added FIRST so SessionMiddleware runs before it,
+    # ensuring request.session is populated when AuthMiddleware inspects it.
+    app.add_middleware(AuthMiddleware)
     app.add_middleware(
         SessionMiddleware,
         secret_key=_SECRET_KEY,
@@ -40,7 +42,6 @@ def create_app(
         https_only=False,  # set True behind TLS in production
         session_cookie="flipp_session",
     )
-    app.add_middleware(AuthMiddleware)
 
     templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
