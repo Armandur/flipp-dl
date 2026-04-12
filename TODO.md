@@ -47,22 +47,23 @@ Förvandla `flipp-dl` från ett engångsskript till en självhostad tjänst:
 
 - [x] Läs token från miljövariabel (`FLIPP_TOKEN`) eller från `token`-filen
       som redan finns i `.gitignore` – inte hårdkodad i källkoden.
-- [ ] Gör kategori-ID konfigurerbart; magisk `52` ska bort från koden
-      (`flipp_dl/cli.py`).
-- [ ] Lägg till `argparse` med flaggor som `--token`, `--output`,
+- [x] Gör kategori-ID konfigurerbart; magisk `52` är nu bara default i
+      `flipp_dl/cli.py` och kan överskridas med `--category`.
+- [x] Lägg till `argparse` med flaggor som `--token`, `--output`,
       `--category`, `--publication`, `--list-categories`,
-      `--list-publications`.
+      `--list-publications`, `--workers`, `--no-skip-existing`, `-v`.
 - [x] Ersätt `print` med `logging` så att nivåer kan styras.
 
 ## P3 – Robusthet
 
 - [x] Lägg till `timeout` på alla `requests`-anrop.
-- [ ] Använd `requests.Session` + `HTTPAdapter` med `Retry` för 5xx och
-      anslutningsfel.
-- [ ] Streama större nedladdningar (`stream=True` + tempfil) i stället för
-      att läsa hela PDF:en i minnet via `io.BytesIO`.
-- [ ] Parallellisera sid-nedladdningar med
-      `concurrent.futures.ThreadPoolExecutor` (I/O-bundet).
+- [x] Använd `requests.Session` + `HTTPAdapter` med `Retry` för 5xx och
+      anslutningsfel (se `build_session()` i `flipp_dl/api.py`).
+- [x] Streama större nedladdningar via `stream=True` + `iter_content`
+      i stället för att läsa hela PDF:en i minnet i ett svep.
+- [x] Parallellisera sid-nedladdningar med
+      `concurrent.futures.ThreadPoolExecutor` (konfigurerbart via
+      `--workers`, default 4).
 
 ## P4 – Kodkvalitet
 
@@ -76,10 +77,11 @@ Förvandla `flipp-dl` från ett engångsskript till en självhostad tjänst:
       av dataklassmetoder på `Publication`.
 - [x] Plocka bort den globala `OUTPUTPATH`; skickas nu som argument till
       `IssueDownloader`.
-- [ ] Lägg till grundläggande tester (åtminstone `safe_name`, filtrering,
-      parsing av API-svar med fixtures).
-- [ ] Sätt upp linting/formatering (`ruff` + `black`) och eventuellt en
-      enkel GitHub Actions-workflow.
+- [x] Lägg till grundläggande tester (`tests/test_storage.py`,
+      `tests/test_models.py`, `tests/test_cli.py`). 18 tester i nuläget.
+- [x] Sätt upp linting/formatering (`ruff` + `black`) via `pyproject.toml`
+      och en GitHub Actions-workflow (`.github/workflows/ci.yml`) som kör
+      ruff, black och pytest på py3.9–3.12.
 
 ## P5 – Dokumentation
 

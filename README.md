@@ -54,15 +54,42 @@ listad i `.gitignore` så den checkas inte in av misstag.
 ## Användning
 
 ```bash
-python app.py
+# Standardbeteende: ladda ner allt i kategori 52 (Serietidningar)
+python -m flipp_dl
+
+# Specifika kategorier (kan upprepas)
+python -m flipp_dl --category 52 --category 7
+
+# En eller flera specifika publikationer via customPublicationCode
+python -m flipp_dl --publication KA --publication FAN
+
+# Bara lista vad som finns tillgängligt
+python -m flipp_dl --list-categories
+python -m flipp_dl --list-publications --category 52
+
+# Kontroll över utdata, parallellism och verbositet
+python -m flipp_dl --output ~/flipp --workers 8 -v
+
+# Tvinga om-nedladdning av redan hämtade utgåvor
+python -m flipp_dl --no-skip-existing
 ```
 
-Nedladdade PDF:er hamnar i `Output/<Publikationens namn>/`.
+`python app.py` funkar också som en bakåtkompatibel shim som anropar
+samma `main()`.
 
-För närvarande är kategori-ID hårdkodat till `52` (Serietidningar). Vill
-du ladda ner en annan kategori eller specifik publikation får du tills
-vidare ändra i slutet av `app.py`. En riktig CLI med argument är på
-[TODO-listan](TODO.md).
+Nedladdade PDF:er hamnar i `Output/<Publikationens namn>/` som default,
+eller i katalogen som anges med `--output`.
+
+## Utveckling
+
+```bash
+pip install -r requirements-dev.txt
+ruff check .
+black --check .
+pytest
+```
+
+CI kör samma kommandon på Python 3.9–3.12 via GitHub Actions.
 
 ## Roadmap
 

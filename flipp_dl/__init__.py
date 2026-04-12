@@ -1,16 +1,8 @@
-"""flipp-dl – download publications from Flipp as PDF."""
+"""flipp-dl – download publications from Flipp as PDF.
 
-from .api import FlippClient, FlippError
-from .downloader import IssueDownloader
-from .models import Category, Issue, Publication
+Submodules are imported lazily so that e.g. pulling in
+:mod:`flipp_dl.models` does not drag in optional dependencies like
+``pypdf``.
+"""
 
-__all__ = [
-    "Category",
-    "FlippClient",
-    "FlippError",
-    "Issue",
-    "IssueDownloader",
-    "Publication",
-]
-
-__version__ = "0.2.0"
+__version__ = "0.3.0"

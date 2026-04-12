@@ -7,9 +7,7 @@ from pathlib import Path
 
 from .models import Issue, Publication
 
-_VALID_CHARS = frozenset(
-    "-_.()åäöÅÄÖ " + string.ascii_letters + string.digits
-)
+_VALID_CHARS = frozenset("-_.()åäöÅÄÖ " + string.ascii_letters + string.digits)
 
 
 def safe_name(value: str) -> str:

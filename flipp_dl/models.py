@@ -19,7 +19,7 @@ class Issue:
     issue_date: str
 
     @classmethod
-    def from_api(cls, data: dict[str, Any]) -> "Issue":
+    def from_api(cls, data: dict[str, Any]) -> Issue:
         return cls(
             custom_code=data["customIssueCode"],
             issue_name=data.get("issueName", ""),
@@ -42,13 +42,12 @@ class Publication:
         return any(c.id == category_id for c in self.categories)
 
     @classmethod
-    def from_api(cls, data: dict[str, Any]) -> "Publication":
+    def from_api(cls, data: dict[str, Any]) -> Publication:
         return cls(
             custom_code=data["customPublicationCode"],
             name=data["name"],
             categories=[
-                Category(id=c["id"], name=c["name"])
-                for c in data.get("categories", [])
+                Category(id=c["id"], name=c["name"]) for c in data.get("categories", [])
             ],
             issues=[Issue.from_api(i) for i in data.get("issues", [])],
         )
