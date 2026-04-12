@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block title %}{{ publication.name }} – Flipp-DL{% endblock %}
+
+{% block content %}
+<a class="back-link" href="/publications">← All publications</a>
+
+<div class="detail-header">
+  {% if publication.cover_url %}
+    <img
+      class="detail-cover"
+      src="{{ publication.cover_url | replace('__b600m.', '__b300m.') }}"
+      alt=""
+      referrerpolicy="no-referrer"
+      onerror="this.style.display='none';"
+    >
+  {% endif %}
+  <div class="detail-info">
+    <h1>{{ publication.name }}</h1>
+    <div class="dim detail-meta">
+      <span class="mono">{{ publication.custom_code }}</span>
+      · {{ issues | length }} issue{{ "s" if issues | length != 1 else "" }}
+      {% if publication.watched %}
+        · <span class="badge badge-done">Watched</span>
+      {% endif %}
+    </div>
+    {% if publication.categories %}
+    <div class="dim" style="margin-top:6px;">
+      {{ publication.categories | map(attribute="category_name") | join(", ") }}
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="filter-bar">
+  <input
+    id="issue-search"
+    type="search"
+    placeholder="Search issues…"
+    autocomplete="off"
+    spellcheck="false"
+  >
+  <select id="issue-status">
+    <option value="">All statuses</option>
+    <option value="new">Not downloaded</option>
+    <option value="queued">Queued</option>
+    <option value="downloading">Downloading</option>
+    <option value="done">Downloaded</option>
+    <option value="error">Error</option>
+  </select>
+  <span id="issue-count" class="dim"></span>
+</div>
+
+<div class="card">
+  {% if issues %}
+  <table>
+    <thead>
+      <tr>
+        <th>Issue</th>
+        <th>Date</th>
+        <th>Status</th>
+        <th>File</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody id="issue-tbody">
+      {% for issue in issues %}
+      {% include "issue_row.html" %}
+      {% endfor %}
+    </tbody>
+  </table>
+  <div id="issue-empty" class="empty" style="display:none;">
+    No issues match the current filters.
+  </div>
+  {% else %}
+  <div class="empty">
+    No issues for this publication yet. Run a poll to refresh.
+  </div>
+  {% endif %}
+</div>
+
+<script>
+(function () {
+  const search = document.getElementById("issue-search");
+  const statusSel = document.getElementById("issue-status");
+  const tbody = document.getElementById("issue-tbody");
+  const empty = document.getElementById("issue-empty");
+  const counter = document.getElementById("issue-count");
+  if (!tbody) return;
+
+  function rowStatus(row) {
+    const badge = row.querySelector(".badge");
+    if (!badge) return "new";
+    const txt = badge.textContent.trim().toLowerCase();
+    if (txt.startsWith("downloaded")) return "done";
+    if (txt.startsWith("downloading")) return "downloading";
+    if (txt.startsWith("queued")) return "queued";
+    if (txt.startsWith("error")) return "error";
+    return "new";
+  }
+
+  function applyFilter() {
+    const q = (search.value || "").trim().toLowerCase();
+    const st = statusSel.value;
+    let visible = 0;
+    let total = 0;
+    tbody.querySelectorAll("tr").forEach((row) => {
+      total += 1;
+      const text = row.textContent.toLowerCase();
+      const matchesText = !q || text.includes(q);
+      const matchesStatus = !st || rowStatus(row) === st;
+      const show = matchesText && matchesStatus;
+      row.style.display = show ? "" : "none";
+      if (show) visible += 1;
+    });
+    if (empty) empty.style.display = visible === 0 && total > 0 ? "" : "none";
+    if (counter) counter.textContent = visible + " / " + total;
+  }
+
+  search.addEventListener("input", applyFilter);
+  statusSel.addEventListener("change", applyFilter);
+  document.body.addEventListener("htmx:afterSwap", (evt) => {
+    if (evt.target && evt.target.closest && evt.target.closest("#issue-tbody")) {
+      applyFilter();
+    }
+  });
+  applyFilter();
+})();
+</script>
+{% endblock %}

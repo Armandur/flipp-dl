@@ -189,6 +189,74 @@ def register(app: FastAPI) -> None:
         finally:
             repo.session.close()
 
+    # ------------------------------------------------------------------
+    # Publication detail – per-issue list and manual downloads
+    # ------------------------------------------------------------------
+
+    @app.get("/publications/{code}", response_class=HTMLResponse)
+    async def publication_detail(request: Request, code: str):
+        repo = _repo(request)
+        try:
+            pub = repo.get_publication(code)
+            if pub is None:
+                return HTMLResponse("Publication not found", status_code=404)
+            # Newest issues first – issue_date is a YYYY-MM-DD string so
+            # lexicographic sort matches chronological order.
+            issues = sorted(pub.issues, key=lambda i: i.issue_date or "", reverse=True)
+            return _templates(request).TemplateResponse(
+                request,
+                "publication_detail.html",
+                {
+                    "publication": pub,
+                    "issues": issues,
+                    "csrf_token": generate_csrf_token(request),
+                },
+            )
+        finally:
+            repo.session.close()
+
+    @app.post(
+        "/publications/{code}/issues/{issue_code}/download",
+        response_class=HTMLResponse,
+    )
+    async def download_issue_manual(request: Request, code: str, issue_code: str):
+        if not await check_csrf_form(request):
+            return HTMLResponse("CSRF validation failed", status_code=400)
+        with get_session(request.app.state.session_factory) as session:
+            repo = DownloadRepository(session)
+            pub = repo.get_publication(code)
+            if pub is None:
+                return HTMLResponse("Publication not found", status_code=404)
+            issue = repo.get_issue_by_code(issue_code, pub.id)
+            if issue is None:
+                return HTMLResponse("Issue not found", status_code=404)
+            # Don't create duplicate jobs while one is already in flight.
+            if issue.status not in (IssueStatus.QUEUED, IssueStatus.DOWNLOADING):
+                repo.mark_issue_queued(issue.id)
+                repo.create_job("download", {"issue_id": issue.id})
+        return await _issue_row(request, code, issue_code)
+
+    async def _issue_row(request: Request, code: str, issue_code: str) -> HTMLResponse:
+        repo = _repo(request)
+        try:
+            pub = repo.get_publication(code)
+            if pub is None:
+                return HTMLResponse("Publication not found", status_code=404)
+            issue = repo.get_issue_by_code(issue_code, pub.id)
+            if issue is None:
+                return HTMLResponse("Issue not found", status_code=404)
+            return _templates(request).TemplateResponse(
+                request,
+                "issue_row.html",
+                {
+                    "publication": pub,
+                    "issue": issue,
+                    "csrf_token": generate_csrf_token(request),
+                },
+            )
+        finally:
+            repo.session.close()
+
     @app.post("/publications/{code}/poll", response_class=HTMLResponse)
     async def poll_single(request: Request, code: str):
         if not await check_csrf_form(request):

@@ -21,7 +21,11 @@
     <div class="pub-cover pub-cover-missing" aria-hidden="true"></div>
     {% endif %}
   </td>
-  <td><strong>{{ publication.name }}</strong></td>
+  <td>
+    <a class="pub-link" href="/publications/{{ publication.custom_code }}">
+      <strong>{{ publication.name }}</strong>
+    </a>
+  </td>
   <td class="mono">{{ publication.custom_code }}</td>
   <td class="dim">
     {% if publication.categories %}

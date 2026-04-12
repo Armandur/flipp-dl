@@ -1,0 +1,54 @@
+<tr id="issue-row-{{ issue.custom_code }}">
+  <td><strong>{{ issue.issue_name or "—" }}</strong></td>
+  <td class="dim">{{ issue.issue_date or "—" }}</td>
+  <td>
+    {% if issue.status == "done" %}
+      <span class="badge badge-done">Downloaded</span>
+    {% elif issue.status == "downloading" %}
+      <span class="badge badge-running">Downloading…</span>
+    {% elif issue.status == "queued" %}
+      <span class="badge badge-queued">Queued</span>
+    {% elif issue.status == "error" %}
+      <span class="badge badge-error" title="{{ issue.error_message or '' }}">Error</span>
+    {% else %}
+      <span class="badge badge-queued">Not downloaded</span>
+    {% endif %}
+  </td>
+  <td class="mono dim">
+    {% if issue.file_path %}
+      {{ issue.file_path | truncate(50, True, "…") }}
+    {% else %}
+      —
+    {% endif %}
+  </td>
+  <td>
+    {% if issue.status in ("queued", "downloading") %}
+      <button class="btn" disabled>…</button>
+    {% elif issue.status == "done" %}
+      <button
+        class="btn btn-watch"
+        hx-post="/publications/{{ publication.custom_code }}/issues/{{ issue.custom_code }}/download"
+        hx-target="closest tr"
+        hx-swap="outerHTML"
+        hx-vals='{"_csrf_token": "{{ csrf_token }}"}'
+        hx-confirm="Re-download this issue?"
+      >Re-download</button>
+    {% elif issue.status == "error" %}
+      <button
+        class="btn btn-unwatch"
+        hx-post="/publications/{{ publication.custom_code }}/issues/{{ issue.custom_code }}/download"
+        hx-target="closest tr"
+        hx-swap="outerHTML"
+        hx-vals='{"_csrf_token": "{{ csrf_token }}"}'
+      >Retry</button>
+    {% else %}
+      <button
+        class="btn btn-watch"
+        hx-post="/publications/{{ publication.custom_code }}/issues/{{ issue.custom_code }}/download"
+        hx-target="closest tr"
+        hx-swap="outerHTML"
+        hx-vals='{"_csrf_token": "{{ csrf_token }}"}'
+      >Download</button>
+    {% endif %}
+  </td>
+</tr>

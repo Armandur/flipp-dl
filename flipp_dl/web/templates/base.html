@@ -55,6 +55,23 @@
                  background: #181825; display: block;
                  box-shadow: 0 1px 3px rgba(0,0,0,.4); }
     .pub-cover-missing { border: 1px dashed #313244; box-shadow: none; }
+    a.pub-link { color: inherit; text-decoration: none; }
+    a.pub-link:hover strong { color: #cba6f7; }
+
+    /* publication detail page */
+    a.back-link { display: inline-block; color: #6c7086; font-size: 12px;
+                  text-decoration: none; margin-bottom: 16px; }
+    a.back-link:hover { color: #cba6f7; }
+    .detail-header { display: flex; gap: 20px; align-items: flex-start;
+                     margin-bottom: 24px; }
+    .detail-cover { width: 110px; height: 150px; object-fit: cover;
+                    border-radius: 6px; background: #181825;
+                    box-shadow: 0 2px 8px rgba(0,0,0,.5); flex-shrink: 0; }
+    .detail-info { flex: 1; }
+    .detail-info h1 { margin-bottom: 6px; }
+    .detail-meta { font-size: 12px; }
+    .detail-meta .mono { font-family: "SFMono-Regular", Consolas, monospace; }
+    .btn[disabled] { opacity: .4; cursor: not-allowed; background: #45475a; color: #a6adc8; }
 
     /* badges */
     .badge { display: inline-block; padding: 2px 8px; border-radius: 4px;
