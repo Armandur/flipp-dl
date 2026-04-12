@@ -1,9 +1,9 @@
-import requests
-from pprint import pprint
-from PyPDF2 import PdfReader, PdfMerger
 import io
-import string
 import os
+import string
+
+import requests
+from pypdf import PdfReader, PdfWriter
 
 
 # Steg 1 : Logga in
@@ -17,6 +17,12 @@ import os
 
 
 OUTPUTPATH = os.path.join(os.getcwd(), "Output")
+REQUEST_TIMEOUT = 30
+
+
+class FlippError(Exception):
+	"""Raised when the Flipp API returns an unexpected response."""
+
 
 def getPublicationsJSON(token, useruuid="dummy"): #Turns out user uuid isn't needed
 	url = "https://flippapi.egmontservice.com/api/refreshsignintoken"
@@ -33,17 +39,18 @@ def getPublicationsJSON(token, useruuid="dummy"): #Turns out user uuid isn't nee
 	}
 	headers = \
 	{
-		#"Accept": "application/json",
-		#"Content-Type": "application/json",
-		#"Host": "flippapi.egmontservice.com",
-		#"Origin": "http://tidningar.flipp.se",
-		#"Referer": "http://tidningar.flipp.se",
-		# Lol, above not needed???
 		"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0"
 	}
 
-	response = requests.post(url, json=payload, headers=headers).json()
-	return response
+	response = requests.post(url, json=payload, headers=headers, timeout=REQUEST_TIMEOUT)
+	response.raise_for_status()
+	data = response.json()
+	if "publications" not in data:
+		raise FlippError(
+			"Flipp API response missing 'publications'. "
+			"Is the token valid? Got keys: " + ", ".join(data.keys())
+		)
+	return data
 
 
 def getPublicationsInfo(publications):
@@ -51,7 +58,7 @@ def getPublicationsInfo(publications):
 	for publication in publications["publications"]:
 		publication_name = publication["name"]
 		custom_publication_code = publication["customPublicationCode"]
-		num_issues = len(getIssuesIds(custom_publication_code, publications))
+		num_issues = len(publication.get("issues", []))
 		categories = [(category["id"], category["name"]) for category in publication.get("categories", [])]
 		publication_info.append((publication_name, custom_publication_code, num_issues, categories))
 	publication_info.sort(key = lambda x: x[2], reverse=True) #Publications with most issues first
@@ -62,6 +69,7 @@ def getIssuesIds(publicationId, publications):
 	for publication in publications["publications"]:
 		if publication["customPublicationCode"] == publicationId:
 			return [issue["customIssueCode"] for issue in publication["issues"]]
+	return []
 
 
 def filterbyCategory(publicationsInfo, categoryId):
@@ -79,6 +87,7 @@ def getPublicationNameFromId(publicationId, publications):
 	for publication in publications["publications"]:
 		if publication["customPublicationCode"] == publicationId:
 			return publication["name"]
+	return None
 
 
 def getIssueInfoFromId(issueId, publicationId, publications):
@@ -87,21 +96,28 @@ def getIssueInfoFromId(issueId, publicationId, publications):
 			for issue in publication["issues"]:
 				if issue["customIssueCode"] == issueId:
 					return issue["issueDate"], issue["issueName"]
+	return None
 
 
 def getIssuePDFs(publicationId, issueId):
 	url = f"https://reader.flipp.se/html5/reader/get_page_groups_from_eid.aspx?pubid={publicationId}&eid={issueId}"
 	# No auth! :)
-	response = requests.get(url).json()
-	pdf_urls = [page["pdf"] for group in response["pageGroups"] for page in group["pages"]]
-	return pdf_urls
+	response = requests.get(url, timeout=REQUEST_TIMEOUT)
+	response.raise_for_status()
+	data = response.json()
+	if "pageGroups" not in data:
+		raise FlippError(
+			f"Unexpected response for publication={publicationId} issue={issueId}: "
+			f"missing 'pageGroups'"
+		)
+	return [page["pdf"] for group in data["pageGroups"] for page in group["pages"]]
 
 
 def readPdf(pdf):
-	req = requests.get(url=pdf)
-	if req.ok:
-		return io.BytesIO(req.content)
-	raise Exception(f"Error Code:  {req.status_code}")
+	response = requests.get(url=pdf, timeout=REQUEST_TIMEOUT)
+	response.raise_for_status()
+	return io.BytesIO(response.content)
+
 
 def safeName(s):
 	s = s.replace("/", "-")
@@ -109,52 +125,77 @@ def safeName(s):
 	valid_chars = "-_.()åäöÅÄÖ %s%s" % (string.ascii_letters, string.digits)
 	return ''.join(c for c in s if c in valid_chars)
 
-def writePdf(pdfs, publicationFolder, issueName):
-	publicationFolder = safeName(publicationFolder)
-	issueName = safeName(issueName)
 
+def writePdf(pdfs, publicationFolder, issueName):
 	outputFolder = os.path.join(OUTPUTPATH, publicationFolder)
 	outputFile = os.path.join(outputFolder, issueName)
 
-	if os.path.isfile(outputFile):
-		print("File already exists")
-		return
-	
-	merger = PdfMerger()
-	for pdf in pdfs:
-		merger.append(PdfReader(readPdf(pdf)))
+	os.makedirs(outputFolder, exist_ok=True)
 
-	if not os.path.exists(outputFolder):
-		os.mkdir(outputFolder)
-	
-	merger.write(outputFile)
-	merger.close
+	writer = PdfWriter()
+	try:
+		for pdf in pdfs:
+			writer.append(PdfReader(readPdf(pdf)))
+		with open(outputFile, "wb") as fh:
+			writer.write(fh)
+	finally:
+		writer.close()
 
 
 def downloadAllIssues(publicationId, publications):
 	name = getPublicationNameFromId(publicationId, publications)
+	if name is None:
+		print(f"Unknown publication id: {publicationId}")
+		return
+
 	publicationFolder = safeName(name)
-	publicationFolder = os.path.join(OUTPUTPATH, publicationFolder)
+	publicationFolderPath = os.path.join(OUTPUTPATH, publicationFolder)
 
 	issues = getIssuesIds(publicationId, publications)
 
 	for issue in issues:
 		issueInfo = getIssueInfoFromId(issue, publicationId, publications)
+		if issueInfo is None:
+			print(f"Skipping unknown issue: {issue}")
+			continue
 		print(f"Downloading: {issue} - {name} - {issueInfo}")
 		filename = safeName(f"{name} - {issueInfo[0]} - {issueInfo[1]}.pdf")
-		if os.path.isfile(os.path.join(publicationFolder, filename)):
+		if os.path.isfile(os.path.join(publicationFolderPath, filename)):
 			print("File already exists")
 		else:
-			writePdf(getIssuePDFs(publicationId, issue), name, filename)
+			writePdf(getIssuePDFs(publicationId, issue), publicationFolder, filename)
 			print(f"Written file: {filename}")
 		print()
 
 
-token = ""
-publicationJson = getPublicationsJSON(token)
+def loadToken():
+	"""Load the Flipp token from FLIPP_TOKEN env var or a local `token` file."""
+	token = os.environ.get("FLIPP_TOKEN")
+	if token:
+		return token.strip()
+	token_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "token")
+	if os.path.isfile(token_file):
+		with open(token_file, "r", encoding="utf-8") as fh:
+			return fh.read().strip()
+	return ""
 
-plist = getPublicationsInfo(publicationJson)
-plist = filterbyCategory(plist, 52) #52 : Serietidningar
 
-for publication in plist:
-	downloadAllIssues(publication[1], publicationJson)
+def main():
+	token = loadToken()
+	if not token:
+		raise SystemExit(
+			"No Flipp token found. Set FLIPP_TOKEN or create a `token` file "
+			"next to app.py. See README.md for details."
+		)
+
+	publicationJson = getPublicationsJSON(token)
+
+	plist = getPublicationsInfo(publicationJson)
+	plist = filterbyCategory(plist, 52) #52 : Serietidningar
+
+	for publication in plist:
+		downloadAllIssues(publication[1], publicationJson)
+
+
+if __name__ == "__main__":
+	main()

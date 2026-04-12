@@ -1,3 +1,7 @@
 *.pdf
 Output
 token
+__pycache__/
+*.py[cod]
+.venv/
+venv/
