@@ -41,7 +41,10 @@ def build_session() -> requests.Session:
     adapter = HTTPAdapter(max_retries=retries)
     session.mount("http://", adapter)
     session.mount("https://", adapter)
-    session.headers.setdefault("User-Agent", DEFAULT_USER_AGENT)
+    # NOTE: requests.Session() pre-populates headers with its own default
+    # User-Agent ("python-requests/X.Y.Z"), which Flipp's API rejects with
+    # 403 Forbidden. Assign (not setdefault) so our browser UA wins.
+    session.headers["User-Agent"] = DEFAULT_USER_AGENT
     return session
 
 
