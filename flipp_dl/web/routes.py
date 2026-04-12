@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from datetime import datetime
+from datetime import date, datetime
 
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
@@ -146,6 +146,9 @@ def register(app: FastAPI) -> None:
             categories = sorted(seen.items(), key=lambda kv: kv[1].lower())
 
             csrf = generate_csrf_token(request)
+            # Cache-busting date for cover thumbnails (matches what the
+            # tidningar.flipp.se webapp appends as ?d=YYYYMMDD).
+            cover_date = date.today().strftime("%Y%m%d")
             return _templates(request).TemplateResponse(
                 request,
                 "publications.html",
@@ -153,6 +156,7 @@ def register(app: FastAPI) -> None:
                     "publications": pubs,
                     "categories": categories,
                     "csrf_token": csrf,
+                    "cover_date": cover_date,
                 },
             )
         finally:
@@ -181,7 +185,11 @@ def register(app: FastAPI) -> None:
             return _templates(request).TemplateResponse(
                 request,
                 "publication_row.html",
-                {"publication": pub, "csrf_token": generate_csrf_token(request)},
+                {
+                    "publication": pub,
+                    "csrf_token": generate_csrf_token(request),
+                    "cover_date": date.today().strftime("%Y%m%d"),
+                },
             )
         finally:
             repo.session.close()

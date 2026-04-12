@@ -6,6 +6,17 @@
   data-categories="{% for c in publication.categories %}{{ c.category_id }}{% if not loop.last %},{% endif %}{% endfor %}"
   data-watched="{{ '1' if publication.watched else '0' }}"
 >
+  <td class="cover-cell">
+    <img
+      class="pub-cover"
+      src="https://cdn.egmontservice.com/Publication/Cover/{{ publication.custom_code }}__b100m.jpg?d={{ cover_date }}"
+      alt=""
+      loading="lazy"
+      decoding="async"
+      referrerpolicy="no-referrer"
+      onerror="this.style.visibility='hidden';"
+    >
+  </td>
   <td><strong>{{ publication.name }}</strong></td>
   <td class="mono">{{ publication.custom_code }}</td>
   <td class="dim">
