@@ -18,6 +18,11 @@
     nav a { color: #a6adc8; text-decoration: none; padding: 6px 12px;
             border-radius: 6px; transition: background .15s, color .15s; }
     nav a:hover, nav a.active { background: #313244; color: #cdd6f4; }
+    nav .spacer { flex: 1; }
+    nav .logout { color: #6c7086; font-size: 12px; }
+    .flash { background: #1a3a2a; border: 1px solid #2a5a3a; color: #a6e3a1;
+             border-radius: 6px; padding: 10px 14px; margin-bottom: 20px;
+             font-size: 13px; }
 
     /* layout */
     main { max-width: 960px; margin: 32px auto; padding: 0 16px; }
@@ -86,6 +91,10 @@
     <a href="/publications" {% if request.url.path.startswith("/publications") %}class="active"{% endif %}>Publications</a>
     <a href="/jobs" {% if request.url.path.startswith("/jobs") %}class="active"{% endif %}>Jobs</a>
     <a href="/settings" {% if request.url.path.startswith("/settings") %}class="active"{% endif %}>Settings</a>
+    <span class="spacer"></span>
+    {% if request.session.get("authenticated") %}
+    <a class="logout" href="/logout">Sign out</a>
+    {% endif %}
   </nav>
   <main>
     {% block content %}{% endblock %}

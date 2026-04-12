@@ -4,6 +4,10 @@
 {% block content %}
 <h1>Settings</h1>
 
+{% if saved %}
+<div class="flash">Settings saved successfully.</div>
+{% endif %}
+
 <div class="note">
   <strong>Flipp token</strong> — The API token is read at startup from the
   <code>FLIPP_TOKEN</code> environment variable or a local <code>token</code> file.
@@ -12,6 +16,7 @@
 
 <div class="form-card">
   <form method="post" action="/settings">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
     <div class="field">
       <label for="poll_interval">Poll interval (minutes)</label>
       <input

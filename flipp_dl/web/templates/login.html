@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login – Flipp-DL</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      font-size: 14px;
+      background: #13131f;
+      color: #cdd6f4;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .card {
+      background: #1e1e2e;
+      border: 1px solid #313244;
+      border-radius: 12px;
+      padding: 36px 40px;
+      width: 100%;
+      max-width: 360px;
+    }
+    .brand {
+      font-size: 20px;
+      font-weight: 700;
+      color: #cba6f7;
+      text-align: center;
+      margin-bottom: 28px;
+      letter-spacing: .03em;
+    }
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: #a6adc8;
+      margin-bottom: 6px;
+    }
+    input[type="password"] {
+      width: 100%;
+      background: #181825;
+      border: 1px solid #45475a;
+      border-radius: 6px;
+      color: #cdd6f4;
+      padding: 10px 12px;
+      font-size: 14px;
+      outline: none;
+      transition: border-color .15s;
+      margin-bottom: 20px;
+    }
+    input[type="password"]:focus { border-color: #7c3aed; }
+    .error {
+      background: #3a1a1a;
+      border: 1px solid #5a2020;
+      color: #f38ba8;
+      border-radius: 6px;
+      padding: 10px 12px;
+      font-size: 13px;
+      margin-bottom: 16px;
+    }
+    button[type="submit"] {
+      width: 100%;
+      background: #7c3aed;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity .15s;
+    }
+    button[type="submit"]:hover { opacity: .85; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="brand">🗂 Flipp-DL</div>
+
+    {% if error %}
+    <div class="error">{{ error }}</div>
+    {% endif %}
+
+    <form method="post" action="/login">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+      {% if next %}
+      <input type="hidden" name="next" value="{{ next }}">
+      {% endif %}
+
+      <label for="password">Password</label>
+      <input type="password" id="password" name="password"
+             autofocus autocomplete="current-password" required>
+
+      <button type="submit">Sign in</button>
+    </form>
+  </div>
+</body>
+</html>

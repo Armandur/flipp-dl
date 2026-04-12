@@ -165,9 +165,13 @@ flipp_dl/
   - `GET /settings`, `POST /settings` Inställningar: poll-intervall,
     antal workers; token läses från env/fil av säkerhetsskäl.
   - `GET /healthz` Healthcheck.
-- [ ] Autentisering (enkelt lösenord) – återstår.
-- [ ] CSRF-skydd – återstår.
-- [ ] Fler API-endpoints (REST) – återstår.
+- [x] Autentisering: `FLIPP_PASSWORD` env aktiverar loginskärm;
+      inaktivt som default (trusted-network-läge). Timeout-säkra
+      lösenordsjämförelser via `hmac.compare_digest`.
+- [x] CSRF-skydd: `SameSite=strict` cookie + per-sessions-token
+      validerat på alla state-mutating POST-anrop. HTMX-knappar
+      skickar token via `hx-vals`.
+- [ ] Fler REST API-endpoints – återstår.
 
 ## P10 – Docker och deploy
 
@@ -178,8 +182,10 @@ flipp_dl/
 - [x] `.env.example` med alla konfigurerbara variabler dokumenterade.
 - [x] `flipp_dl/web/main.py` startar Uvicorn + APScheduler (BackgroundScheduler)
       i en process; `python -m flipp_dl.web.main` är Docker-entrypoint.
-- [ ] GitHub Actions som bygger och publicerar image till GHCR vid tag.
-- [ ] Multi-arch-build (amd64 + arm64) för Raspberry Pi / Synology.
+- [x] GitHub Actions `.github/workflows/docker.yml`: bygger och
+      publicerar till `ghcr.io/armandur/flipp-dl` vid `v*`-taggar,
+      multi-arch (linux/amd64 + linux/arm64) via QEMU + Buildx,
+      GHA cache för snabbare builds.
 
 ## P11 – Trevligt att ha
 

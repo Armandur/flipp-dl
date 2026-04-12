@@ -23,6 +23,7 @@
         hx-post="/publications/{{ publication.custom_code }}/unwatch"
         hx-target="closest tr"
         hx-swap="outerHTML"
+        hx-vals='{"_csrf_token": "{{ csrf_token }}"}'
       >Unwatch</button>
     {% else %}
       <button
@@ -30,6 +31,7 @@
         hx-post="/publications/{{ publication.custom_code }}/watch"
         hx-target="closest tr"
         hx-swap="outerHTML"
+        hx-vals='{"_csrf_token": "{{ csrf_token }}"}'
       >Watch</button>
     {% endif %}
   </td>

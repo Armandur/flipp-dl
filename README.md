@@ -113,6 +113,7 @@ Volymer:
 | `FLIPP_POLL_INTERVAL` | `360`     | Minuter mellan API-polls (default 6 h).        |
 | `FLIPP_WORKERS`     | `4`         | Parallella sidnedladdningar per utgåva.        |
 | `FLIPP_SECRET_KEY`  | –           | Hemlighet för sessions (byt i produktion).     |
+| `FLIPP_PASSWORD`    | –           | Lösenord för inloggning. Tom = auth inaktiv.   |
 
 ## Webbgränssnitt
 

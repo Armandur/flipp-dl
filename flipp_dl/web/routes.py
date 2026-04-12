@@ -6,7 +6,7 @@ import os
 from datetime import datetime
 
 from fastapi import FastAPI, Form, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
 from ..api import FlippClient
 from ..config import load_token
@@ -14,6 +14,7 @@ from ..db.models import IssueStatus
 from ..db.repository import DownloadRepository
 from ..db.session import get_session
 from ..scheduler import poll_publications
+from .auth import auth_enabled, check_csrf_form, generate_csrf_token, verify_password
 
 
 def _repo(request: Request) -> DownloadRepository:
@@ -33,6 +34,59 @@ def register(app: FastAPI) -> None:
     @app.get("/healthz", include_in_schema=False)
     async def healthz():
         return JSONResponse({"status": "ok"})
+
+    # ------------------------------------------------------------------
+    # Auth – login / logout
+    # ------------------------------------------------------------------
+
+    @app.get("/login", response_class=HTMLResponse)
+    async def login_get(request: Request, next: str = "/"):
+        csrf = generate_csrf_token(request)
+        return _templates(request).TemplateResponse(
+            request,
+            "login.html",
+            {"csrf_token": csrf, "next": next, "error": None},
+        )
+
+    @app.post("/login", response_class=HTMLResponse)
+    async def login_post(
+        request: Request,
+        password: str = Form(""),
+        next: str = Form("/"),
+    ):
+        if not await check_csrf_form(request):
+            return _templates(request).TemplateResponse(
+                request,
+                "login.html",
+                {
+                    "csrf_token": generate_csrf_token(request),
+                    "next": next,
+                    "error": "Invalid request. Please try again.",
+                },
+                status_code=400,
+            )
+
+        if verify_password(password):
+            request.session["authenticated"] = True
+            # Redirect to the original destination, but only to local paths
+            safe_next = next if next.startswith("/") else "/"
+            return RedirectResponse(url=safe_next, status_code=302)
+
+        return _templates(request).TemplateResponse(
+            request,
+            "login.html",
+            {
+                "csrf_token": generate_csrf_token(request),
+                "next": next,
+                "error": "Incorrect password.",
+            },
+            status_code=401,
+        )
+
+    @app.get("/logout")
+    async def logout(request: Request):
+        request.session.clear()
+        return RedirectResponse(url="/login", status_code=302)
 
     # ------------------------------------------------------------------
     # Dashboard
@@ -68,6 +122,7 @@ def register(app: FastAPI) -> None:
                 "stats": stats,
                 "recent_issues": recent_issues,
                 "recent_jobs": recent_jobs,
+                "auth_enabled": auth_enabled(),
             },
         )
 
@@ -84,22 +139,27 @@ def register(app: FastAPI) -> None:
         finally:
             repo.session.close()
 
+        csrf = generate_csrf_token(request)
         return _templates(request).TemplateResponse(
-            request, "publications.html", {"publications": pubs}
+            request,
+            "publications.html",
+            {"publications": pubs, "csrf_token": csrf},
         )
 
     @app.post("/publications/{code}/watch", response_class=HTMLResponse)
     async def watch_publication(request: Request, code: str):
+        if not await check_csrf_form(request):
+            return HTMLResponse("CSRF validation failed", status_code=400)
         with get_session(request.app.state.session_factory) as session:
-            repo = DownloadRepository(session)
-            repo.set_watched(code, True)
+            DownloadRepository(session).set_watched(code, True)
         return await _publication_row(request, code)
 
     @app.post("/publications/{code}/unwatch", response_class=HTMLResponse)
     async def unwatch_publication(request: Request, code: str):
+        if not await check_csrf_form(request):
+            return HTMLResponse("CSRF validation failed", status_code=400)
         with get_session(request.app.state.session_factory) as session:
-            repo = DownloadRepository(session)
-            repo.set_watched(code, False)
+            DownloadRepository(session).set_watched(code, False)
         return await _publication_row(request, code)
 
     async def _publication_row(request: Request, code: str) -> HTMLResponse:
@@ -109,24 +169,26 @@ def register(app: FastAPI) -> None:
         finally:
             repo.session.close()
         return _templates(request).TemplateResponse(
-            request, "publication_row.html", {"publication": pub}
+            request,
+            "publication_row.html",
+            {"publication": pub, "csrf_token": generate_csrf_token(request)},
         )
 
     @app.post("/publications/{code}/poll", response_class=HTMLResponse)
     async def poll_single(request: Request, code: str):
-        """Immediately trigger a poll for new issues on one publication."""
+        if not await check_csrf_form(request):
+            return HTMLResponse("CSRF validation failed", status_code=400)
         token = load_token()
         if not token:
             return JSONResponse({"error": "No token configured"}, status_code=400)
-
         client = FlippClient(token)
         workers = int(os.environ.get("FLIPP_WORKERS", "4"))
-        output = request.app.state.output_root
-        factory = request.app.state.session_factory
-
-        # Run synchronously in request handler (acceptable for one-off trigger)
-        poll_publications(client, factory, output, workers)
-
+        poll_publications(
+            client,
+            request.app.state.session_factory,
+            request.app.state.output_root,
+            workers,
+        )
         return HTMLResponse("<span>Polled ✓</span>")
 
     # ------------------------------------------------------------------
@@ -160,8 +222,9 @@ def register(app: FastAPI) -> None:
         finally:
             repo.session.close()
 
+        csrf = generate_csrf_token(request)
         return _templates(request).TemplateResponse(
-            request, "settings.html", {"settings": settings}
+            request, "settings.html", {"settings": settings, "csrf_token": csrf}
         )
 
     @app.post("/settings", response_class=HTMLResponse)
@@ -170,11 +233,14 @@ def register(app: FastAPI) -> None:
         poll_interval: int = Form(360),
         workers: int = Form(4),
     ):
+        if not await check_csrf_form(request):
+            return HTMLResponse("CSRF validation failed", status_code=400)
         with get_session(request.app.state.session_factory) as session:
             repo = DownloadRepository(session)
             repo.set_setting("poll_interval", str(poll_interval))
             repo.set_setting("workers", str(workers))
 
+        csrf = generate_csrf_token(request)
         return _templates(request).TemplateResponse(
             request,
             "settings.html",
@@ -183,6 +249,7 @@ def register(app: FastAPI) -> None:
                     "poll_interval": str(poll_interval),
                     "workers": str(workers),
                 },
+                "csrf_token": csrf,
                 "saved": True,
             },
         )
