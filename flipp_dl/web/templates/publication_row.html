@@ -1,4 +1,11 @@
-<tr id="pub-row-{{ publication.custom_code }}">
+<tr
+  id="pub-row-{{ publication.custom_code }}"
+  class="pub-row"
+  data-name="{{ publication.name | lower }}"
+  data-code="{{ publication.custom_code | lower }}"
+  data-categories="{% for c in publication.categories %}{{ c.category_id }}{% if not loop.last %},{% endif %}{% endfor %}"
+  data-watched="{{ '1' if publication.watched else '0' }}"
+>
   <td><strong>{{ publication.name }}</strong></td>
   <td class="mono">{{ publication.custom_code }}</td>
   <td class="dim">

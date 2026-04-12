@@ -78,6 +78,27 @@
                            color: #cdd6f4; padding: 8px 10px; width: 100%; font-size: 14px;
                            outline: none; transition: border-color .15s; }
     input[type="number"]:focus { border-color: #7c3aed; }
+
+    /* filter bar (publications) */
+    .filter-bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+                  margin-bottom: 16px; }
+    .filter-bar input[type="search"],
+    .filter-bar select {
+      background: #181825; border: 1px solid #45475a; border-radius: 6px;
+      color: #cdd6f4; padding: 8px 12px; font-size: 13px; font-family: inherit;
+      outline: none; transition: border-color .15s;
+    }
+    .filter-bar input[type="search"] { flex: 1 1 240px; min-width: 200px; }
+    .filter-bar input[type="search"]::placeholder { color: #6c7086; }
+    .filter-bar input[type="search"]:focus,
+    .filter-bar select:focus { border-color: #7c3aed; }
+    .filter-bar select { min-width: 160px; cursor: pointer; }
+    .filter-bar .watch-filter {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 13px; color: #a6adc8; margin: 0; cursor: pointer;
+    }
+    .filter-bar .watch-filter input { accent-color: #7c3aed; cursor: pointer; }
+    .filter-bar #pub-count { font-size: 12px; margin-left: auto; color: #6c7086; }
     .note { font-size: 12px; color: #6c7086; background: #181825; border: 1px solid #313244;
             border-radius: 6px; padding: 10px 14px; margin-bottom: 20px; line-height: 1.6; }
     .note code { color: #a6e3a1; font-family: monospace; }

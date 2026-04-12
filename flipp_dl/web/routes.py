@@ -136,12 +136,24 @@ def register(app: FastAPI) -> None:
         repo = _repo(request)
         try:
             pubs = repo.list_publications()
-            pubs.sort(key=lambda p: p.name)
+            pubs.sort(key=lambda p: p.name.lower())
+
+            # Collect unique categories across all publications for the filter.
+            seen: dict[int, str] = {}
+            for p in pubs:
+                for cat in p.categories:
+                    seen.setdefault(cat.category_id, cat.category_name)
+            categories = sorted(seen.items(), key=lambda kv: kv[1].lower())
+
             csrf = generate_csrf_token(request)
             return _templates(request).TemplateResponse(
                 request,
                 "publications.html",
-                {"publications": pubs, "csrf_token": csrf},
+                {
+                    "publications": pubs,
+                    "categories": categories,
+                    "csrf_token": csrf,
+                },
             )
         finally:
             repo.session.close()
