@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Settings – Flipp-DL{% endblock %}
+
+{% block content %}
+<h1>Settings</h1>
+
+<div class="note">
+  <strong>Flipp token</strong> — The API token is read at startup from the
+  <code>FLIPP_TOKEN</code> environment variable or a local <code>token</code> file.
+  It cannot be changed here for security reasons.
+</div>
+
+<div class="form-card">
+  <form method="post" action="/settings">
+    <div class="field">
+      <label for="poll_interval">Poll interval (minutes)</label>
+      <input
+        type="number"
+        id="poll_interval"
+        name="poll_interval"
+        min="1"
+        max="10080"
+        value="{{ settings.poll_interval | default(360) }}"
+        required
+      >
+    </div>
+
+    <div class="field">
+      <label for="workers">Download workers</label>
+      <input
+        type="number"
+        id="workers"
+        name="workers"
+        min="1"
+        max="16"
+        value="{{ settings.workers | default(4) }}"
+        required
+      >
+    </div>
+
+    <button type="submit" class="btn btn-primary">Save Settings</button>
+  </form>
+</div>
+{% endblock %}

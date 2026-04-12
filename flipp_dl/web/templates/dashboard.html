@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}Dashboard – Flipp-DL{% endblock %}
+
+{% block content %}
+<h1>Dashboard</h1>
+
+{# ── Stats ── #}
+<div class="stats">
+  <div class="stat-card">
+    <div class="label">Publications</div>
+    <div class="value">{{ stats.total_pubs }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="label">Watched</div>
+    <div class="value">{{ stats.watched_pubs }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="label">Total Issues</div>
+    <div class="value">{{ stats.total_issues }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="label">Downloaded</div>
+    <div class="value">{{ stats.downloaded_issues }}</div>
+  </div>
+</div>
+
+{# ── Recent Downloads ── #}
+<h2>Recent Downloads</h2>
+<div class="card">
+  {% if recent_issues %}
+  <table>
+    <thead>
+      <tr>
+        <th>Issue</th>
+        <th>Publication</th>
+        <th>Downloaded At</th>
+        <th>File</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for issue in recent_issues %}
+      <tr>
+        <td>{{ issue.issue_name }}</td>
+        <td>{{ issue.publication.name }}</td>
+        <td class="dim">
+          {% if issue.downloaded_at %}
+            {{ issue.downloaded_at.strftime("%Y-%m-%d %H:%M") }}
+          {% else %}
+            —
+          {% endif %}
+        </td>
+        <td class="mono">
+          {% if issue.file_path %}
+            {{ issue.file_path | truncate(60, True, "…") }}
+          {% else %}
+            —
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">No downloads yet.</div>
+  {% endif %}
+</div>
+
+{# ── Recent Jobs ── #}
+<h2>Recent Jobs</h2>
+<div class="card">
+  {% if recent_jobs %}
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Type</th>
+        <th>Status</th>
+        <th>Created</th>
+        <th>Finished</th>
+        <th>Error</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for job in recent_jobs %}
+      <tr>
+        <td class="dim">{{ job.id }}</td>
+        <td>{{ job.job_type }}</td>
+        <td>
+          <span class="badge badge-{{ job.status }}">{{ job.status }}</span>
+        </td>
+        <td class="dim">{{ job.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
+        <td class="dim">
+          {% if job.finished_at %}
+            {{ job.finished_at.strftime("%Y-%m-%d %H:%M") }}
+          {% else %}
+            —
+          {% endif %}
+        </td>
+        <td class="mono" style="color:#f38ba8; font-size:12px;">
+          {% if job.error_message %}
+            {{ job.error_message | truncate(60, True, "…") }}
+          {% else %}
+            —
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">No jobs recorded yet.</div>
+  {% endif %}
+</div>
+{% endblock %}

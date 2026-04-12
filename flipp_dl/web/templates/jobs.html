@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Jobs – Flipp-DL{% endblock %}
+
+{% block content %}
+<h1>Jobs</h1>
+
+<div class="card">
+  {% if jobs %}
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Type</th>
+        <th>Status</th>
+        <th>Created</th>
+        <th>Started</th>
+        <th>Finished</th>
+        <th>Error</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for job in jobs %}
+      <tr>
+        <td class="dim">{{ job.id }}</td>
+        <td>{{ job.job_type }}</td>
+        <td>
+          {# status values: queued | running | done | error #}
+          <span class="badge badge-{{ job.status }}">{{ job.status }}</span>
+        </td>
+        <td class="dim">{{ job.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
+        <td class="dim">
+          {% if job.started_at %}
+            {{ job.started_at.strftime("%Y-%m-%d %H:%M") }}
+          {% else %}
+            —
+          {% endif %}
+        </td>
+        <td class="dim">
+          {% if job.finished_at %}
+            {{ job.finished_at.strftime("%Y-%m-%d %H:%M") }}
+          {% else %}
+            —
+          {% endif %}
+        </td>
+        <td class="mono" style="color:#f38ba8; max-width:260px; word-break:break-all;">
+          {% if job.error_message %}
+            {{ job.error_message[:80] }}{% if job.error_message | length > 80 %}…{% endif %}
+          {% else %}
+            —
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">No jobs yet.</div>
+  {% endif %}
+</div>
+{% endblock %}

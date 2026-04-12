@@ -74,11 +74,55 @@ python -m flipp_dl --output ~/flipp --workers 8 -v
 python -m flipp_dl --no-skip-existing
 ```
 
-`python app.py` funkar också som en bakåtkompatibel shim som anropar
-samma `main()`.
+`python app.py` fungerar också som bakåtkompatibel shim.
 
 Nedladdade PDF:er hamnar i `Output/<Publikationens namn>/` som default,
 eller i katalogen som anges med `--output`.
+
+### Schedulerläge
+
+```bash
+# Kör som långkörande tjänst (pollar var 6:e timme, laddar ner automatiskt)
+python -m flipp_dl --scheduler --db flipp.db --poll-interval 360
+```
+
+Markera publkationer som bevakade via webbgränssnittet (se nedan) så
+laddas nya utgåvor ner automatiskt.
+
+## Docker (rekommenderat för självhosting)
+
+```bash
+cp .env.example .env
+# Fyll i FLIPP_TOKEN i .env
+docker compose up -d
+```
+
+Webbgränssnittet nås på `http://localhost:8000`.
+
+Volymer:
+- `./data/` – SQLite-databas (`flipp.db`)
+- `./output/` – nedladdade PDF:er
+
+### Miljövariabler
+
+| Variabel            | Default     | Beskrivning                                    |
+|---------------------|-------------|------------------------------------------------|
+| `FLIPP_TOKEN`       | –           | **Krävs.** Din Flipp API-token.                |
+| `FLIPP_DB`          | `flipp.db`  | Sökväg till SQLite-filen.                      |
+| `FLIPP_OUTPUT`      | `Output`    | Katalog där PDF:er sparas.                     |
+| `FLIPP_POLL_INTERVAL` | `360`     | Minuter mellan API-polls (default 6 h).        |
+| `FLIPP_WORKERS`     | `4`         | Parallella sidnedladdningar per utgåva.        |
+| `FLIPP_SECRET_KEY`  | –           | Hemlighet för sessions (byt i produktion).     |
+
+## Webbgränssnitt
+
+| Sida              | URL              | Beskrivning                           |
+|-------------------|------------------|---------------------------------------|
+| Dashboard         | `/`              | Stats, senaste nedladdningar och jobb |
+| Publikationer     | `/publications`  | Lista, watch/unwatch per publikation  |
+| Jobb              | `/jobs`          | Jobblogg med statusfärger             |
+| Inställningar     | `/settings`      | Poll-intervall, workers               |
+| Healthcheck       | `/healthz`       | `{"status":"ok"}` för Docker          |
 
 ## Utveckling
 

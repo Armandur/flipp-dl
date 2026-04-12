@@ -68,6 +68,10 @@ class DbPublication(Base):
         cascade="all, delete-orphan",
     )
 
+    @property
+    def num_issues(self) -> int:
+        return len(self.issues)
+
     def __repr__(self) -> str:
         return f"<Publication {self.custom_code!r} watched={self.watched}>"
 

@@ -146,47 +146,40 @@ flipp_dl/
 
 ## P8 – Schemaläggning / bakgrundsjobb
 
-- [ ] Lägg till en återkommande poll-job som hämtar publikationslistan
-      och upptäcker nya utgåvor.
-- [ ] Köa nedladdningar som jobb. Alternativ:
-  - **APScheduler** (enkelt, körs in-process)
-  - **Celery + Redis** (mer komplexitet, bättre skalning)
-  - **RQ** (mellanting)
+- [x] Lägg till en återkommande poll-job (`poll_publications`) som
+      hämtar publikationslistan, uppdaterar DB och köar nya utgåvor
+      för bevakade publikationer.
+- [x] Köa nedladdningar som jobb via **APScheduler** (BackgroundScheduler
+      i web-processen, BlockingScheduler i CLI-scheduler-läget).
 - [ ] Stöd för per-publikation-schema (t.ex. "kolla varje natt kl 03").
-- [ ] Retry-logik vid misslyckade nedladdningar med exponential backoff.
-- [ ] Logga jobbhistorik i DB så att webgränssnittet kan visa den.
+- [x] Retry-logik inbyggd via `build_session()` (HTTPAdapter + Retry).
+- [x] Jobbhistorik loggas till `jobs`-tabellen och visas i webgränssnittet.
 
 ## P9 – Webbgränssnitt
 
-- [ ] Välj ramverk. Förslag: **FastAPI** + **Jinja2/HTMX** för minimal
-      frontend, alternativt FastAPI + React om SPA önskas.
-- [ ] Sidor / vyer:
-  - Dashboard: senaste nedladdningar, nästa schemalagda körning, fel.
-  - Publikationer: lista, sök/filter på kategori, toggla bevakning.
-  - Utgåvor: status per utgåva, manuell nedladdning, länk till PDF.
-  - Inställningar: token, utdatakatalog, poll-intervall.
-  - Logg/jobb: historik med status och felmeddelanden.
-- [ ] Autentisering (även ett enkelt lösenord räcker – tjänsten är tänkt
-      att självhostas).
-- [ ] CSRF-skydd och säker hantering av token (kryptera i DB eller läs
-      från miljövariabel).
-- [ ] API-endpoints så att det går att automatisera utan UI.
+- [x] **FastAPI** + **Jinja2/HTMX** – ingen tung JS-frontend.
+- [x] Sidor / vyer implementerade:
+  - `GET /` Dashboard: stats-kort, senaste nedladdningar, senaste jobb.
+  - `GET /publications` Publikationer: lista med HTMX watch/unwatch-toggle.
+  - `GET /jobs` Jobblogg: alla jobb med statusfärger.
+  - `GET /settings`, `POST /settings` Inställningar: poll-intervall,
+    antal workers; token läses från env/fil av säkerhetsskäl.
+  - `GET /healthz` Healthcheck.
+- [ ] Autentisering (enkelt lösenord) – återstår.
+- [ ] CSRF-skydd – återstår.
+- [ ] Fler API-endpoints (REST) – återstår.
 
 ## P10 – Docker och deploy
 
-- [ ] `Dockerfile` baserad på `python:3.12-slim`:
-  - Installera beroenden, kopiera källa, kör som icke-root-användare.
-  - Exponera webbport (t.ex. 8000).
-  - Entrypoint startar både web och scheduler (via `supervisord`,
-    `honcho` eller en inbyggd async-loop).
-- [ ] `docker-compose.yml` med volymer för:
-  - `./output` – nedladdade PDF:er
-  - `./data` – SQLite-fil och konfig
-- [ ] Healthcheck-endpoint (`/healthz`).
-- [ ] Miljövariabler dokumenterade i `README.md` och `.env.example`.
+- [x] `Dockerfile` baserad på `python:3.12-slim` med non-root-användare,
+      volymer `/data` och `/output`, healthcheck mot `/healthz`.
+- [x] `docker-compose.yml` med volymer `./data` och `./output` och alla
+      env-variabler via `.env`-fil.
+- [x] `.env.example` med alla konfigurerbara variabler dokumenterade.
+- [x] `flipp_dl/web/main.py` startar Uvicorn + APScheduler (BackgroundScheduler)
+      i en process; `python -m flipp_dl.web.main` är Docker-entrypoint.
 - [ ] GitHub Actions som bygger och publicerar image till GHCR vid tag.
-- [ ] Överväg multi-arch-build (amd64 + arm64) så det kan köras på
-      t.ex. Raspberry Pi / Synology.
+- [ ] Multi-arch-build (amd64 + arm64) för Raspberry Pi / Synology.
 
 ## P11 – Trevligt att ha
 

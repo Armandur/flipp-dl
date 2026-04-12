@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Publications – Flipp-DL{% endblock %}
+
+{% block content %}
+<h1>Publications</h1>
+
+<div class="card">
+  {% if publications %}
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Code</th>
+        <th>Categories</th>
+        <th style="text-align:center;">Issues</th>
+        <th style="text-align:center;">Watched</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for pub in publications %}
+      <tr id="pub-row-{{ pub.custom_code }}">
+        <td><strong>{{ pub.name }}</strong></td>
+        <td class="mono">{{ pub.custom_code }}</td>
+        <td class="dim">
+          {% if pub.categories %}
+            {{ pub.categories | map(attribute="category_name") | join(", ") | truncate(40, True, "…") }}
+          {% else %}
+            —
+          {% endif %}
+        </td>
+        <td style="text-align:center;" class="dim">{{ pub.num_issues }}</td>
+        <td style="text-align:center;">
+          {% if pub.watched %}
+            <span class="badge badge-done">Yes</span>
+          {% else %}
+            <span class="badge badge-queued">No</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if pub.watched %}
+            <button
+              class="btn btn-unwatch"
+              hx-post="/publications/{{ pub.custom_code }}/unwatch"
+              hx-target="closest tr"
+              hx-swap="outerHTML"
+            >Unwatch</button>
+          {% else %}
+            <button
+              class="btn btn-watch"
+              hx-post="/publications/{{ pub.custom_code }}/watch"
+              hx-target="closest tr"
+              hx-swap="outerHTML"
+            >Watch</button>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">
+    No publications found. Run a poll to discover publications from Flipp.
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
