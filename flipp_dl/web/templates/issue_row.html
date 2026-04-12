@@ -1,4 +1,10 @@
-<tr id="issue-row-{{ issue.custom_code }}">
+<tr id="issue-row-{{ issue.custom_code }}"
+  {% if issue.status in ("queued", "downloading") %}
+  hx-get="/publications/{{ publication.custom_code }}/issues/{{ issue.custom_code }}/row"
+  hx-trigger="every 2s"
+  hx-swap="outerHTML"
+  {% endif %}
+>
   <td class="cover-cell">
     <img
       class="pub-cover"
@@ -16,7 +22,11 @@
     {% if issue.status == "done" %}
       <span class="badge badge-done">Downloaded</span>
     {% elif issue.status == "downloading" %}
-      <span class="badge badge-running">Downloading…</span>
+      {% if issue.progress_total and issue.progress_total > 0 %}
+        <span class="badge badge-running">Downloading {{ issue.progress_current }}/{{ issue.progress_total }}</span>
+      {% else %}
+        <span class="badge badge-running">Downloading…</span>
+      {% endif %}
     {% elif issue.status == "queued" %}
       <span class="badge badge-queued">Queued</span>
     {% elif issue.status == "error" %}

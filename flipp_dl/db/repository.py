@@ -177,6 +177,20 @@ class DownloadRepository:
         issue = self.session.get(DbIssue, issue_id)
         if issue:
             issue.status = IssueStatus.DOWNLOADING
+            issue.progress_current = 0
+            issue.progress_total = 0
+
+    def update_issue_progress(self, issue_id: int, current: int, total: int) -> None:
+        """Record live page-download progress for *issue_id*.
+
+        Called by the downloader after each page completes so the UI can
+        poll and render ``current / total pages``. Safe to call with
+        ``total=0`` to clear the counters.
+        """
+        issue = self.session.get(DbIssue, issue_id)
+        if issue:
+            issue.progress_current = current
+            issue.progress_total = total
 
     def mark_issue_done(self, issue_id: int, file_path: str) -> None:
         issue = self.session.get(DbIssue, issue_id)
@@ -185,12 +199,16 @@ class DownloadRepository:
             issue.file_path = file_path
             issue.downloaded_at = _now()
             issue.error_message = None
+            issue.progress_current = 0
+            issue.progress_total = 0
 
     def mark_issue_error(self, issue_id: int, error: str) -> None:
         issue = self.session.get(DbIssue, issue_id)
         if issue:
             issue.status = IssueStatus.ERROR
             issue.error_message = error
+            issue.progress_current = 0
+            issue.progress_total = 0
 
     def reset_issue(self, issue_id: int) -> None:
         """Clear download metadata so the issue is treated as not downloaded.

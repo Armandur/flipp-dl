@@ -130,6 +130,11 @@ class DbIssue(Base):
     downloaded_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     file_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Live progress for the active download – updated after each page is
+    # fetched so the web UI can poll and render "3 / 12 pages". Both
+    # columns are 0 when no download is in flight.
+    progress_current: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    progress_total: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     publication: Mapped[DbPublication] = relationship(
         "DbPublication", back_populates="issues"

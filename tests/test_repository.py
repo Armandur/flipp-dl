@@ -172,6 +172,31 @@ def test_issue_status_transitions(repo):
     assert db.downloaded_at is not None
 
 
+def test_update_issue_progress(repo):
+    db_pub = repo.upsert_publication(_publication())
+    repo.session.commit()
+    issue = Issue(custom_code="KA-01", issue_name="Nr 1", issue_date="2024-01-01")
+    db_issue, _ = repo.upsert_issue(issue, db_pub.id)
+    repo.session.commit()
+
+    repo.mark_issue_downloading(db_issue.id)
+    repo.update_issue_progress(db_issue.id, 3, 10)
+    repo.session.commit()
+
+    db = repo.get_issue(db_issue.id)
+    assert db.status == IssueStatus.DOWNLOADING
+    assert db.progress_current == 3
+    assert db.progress_total == 10
+
+    # Completing the download should clear the counters so a later
+    # re-download starts from a clean slate.
+    repo.mark_issue_done(db_issue.id, "/output/KA/Nr1.pdf")
+    repo.session.commit()
+    db = repo.get_issue(db_issue.id)
+    assert db.progress_current == 0
+    assert db.progress_total == 0
+
+
 def test_mark_issue_error(repo):
     db_pub = repo.upsert_publication(_publication())
     repo.session.commit()

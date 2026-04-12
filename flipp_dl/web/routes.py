@@ -252,6 +252,16 @@ def register(app: FastAPI) -> None:
         finally:
             repo.session.close()
 
+    @app.get(
+        "/publications/{code}/issues/{issue_code}/row",
+        response_class=HTMLResponse,
+    )
+    async def issue_row_partial(request: Request, code: str, issue_code: str):
+        """Return the single issue row – used by HTMX polling to refresh
+        the status badge and progress counter while a download is live.
+        """
+        return await _issue_row(request, code, issue_code)
+
     @app.post(
         "/publications/{code}/issues/{issue_code}/download",
         response_class=HTMLResponse,

@@ -166,3 +166,33 @@ def test_library_file_rejects_traversal(client: TestClient):
 def test_library_file_rejects_missing(client: TestClient):
     resp = client.get("/library/file/does-not-exist.pdf")
     assert resp.status_code == 404
+
+
+def test_issue_row_partial_returns_row(client: TestClient):
+    # The row endpoint returns just the <tr>; the caller is HTMX swapping
+    # a single row out so a full HTML document would break the swap.
+    resp = client.get("/publications/KA/issues/ka01/row")
+    assert resp.status_code == 200
+    assert "<tr" in resp.text
+    assert "issue-row-ka01" in resp.text
+
+
+def test_issue_row_partial_shows_progress_while_downloading(
+    client: TestClient, tmp_path: Path
+):
+    # Put the issue into DOWNLOADING with 3/10 progress and verify the
+    # polling partial renders the counter so the user sees live updates.
+    app = client.app
+    with get_session(app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        pub = repo.get_publication("KA")
+        issue = repo.get_issue_by_code("ka01", pub.id)
+        repo.mark_issue_downloading(issue.id)
+        repo.update_issue_progress(issue.id, 3, 10)
+
+    resp = client.get("/publications/KA/issues/ka01/row")
+    assert resp.status_code == 200
+    assert "Downloading 3/10" in resp.text
+    # Polling attributes must be present so HTMX keeps refreshing.
+    assert "hx-trigger" in resp.text
+    assert "every 2s" in resp.text
