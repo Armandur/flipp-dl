@@ -192,6 +192,19 @@ class DownloadRepository:
             issue.status = IssueStatus.ERROR
             issue.error_message = error
 
+    def reset_issue(self, issue_id: int) -> None:
+        """Clear download metadata so the issue is treated as not downloaded.
+
+        Does not touch the file on disk – callers are expected to unlink
+        the file (if desired) before calling this.
+        """
+        issue = self.session.get(DbIssue, issue_id)
+        if issue:
+            issue.status = IssueStatus.NEW
+            issue.file_path = None
+            issue.downloaded_at = None
+            issue.error_message = None
+
     # ------------------------------------------------------------------
     # Sync helper – call after a fresh API fetch
     # ------------------------------------------------------------------

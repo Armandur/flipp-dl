@@ -295,6 +295,49 @@ def register(app: FastAPI) -> None:
         finally:
             repo.session.close()
 
+    @app.post(
+        "/publications/{code}/issues/{issue_code}/delete",
+        response_class=HTMLResponse,
+    )
+    async def delete_issue_file(request: Request, code: str, issue_code: str):
+        """Remove the downloaded PDF and reset the issue to NEW.
+
+        The file is only unlinked if it sits inside ``output_root`` – the
+        same traversal guard used when serving files – so a malicious or
+        stale ``file_path`` can't delete arbitrary files.
+        """
+        if not await check_csrf_form(request):
+            return HTMLResponse("CSRF validation failed", status_code=400)
+
+        with get_session(request.app.state.session_factory) as session:
+            repo = DownloadRepository(session)
+            pub = repo.get_publication(code)
+            if pub is None:
+                return HTMLResponse("Publication not found", status_code=404)
+            issue = repo.get_issue_by_code(issue_code, pub.id)
+            if issue is None:
+                return HTMLResponse("Issue not found", status_code=404)
+            if issue.status in (IssueStatus.QUEUED, IssueStatus.DOWNLOADING):
+                return HTMLResponse(
+                    "Cannot delete while a download is in progress",
+                    status_code=409,
+                )
+
+            resolved = _safe_output_file(request.app.state.output_root, issue.file_path)
+            if resolved is not None:
+                try:
+                    resolved.unlink()
+                except OSError:
+                    # Leave DB state alone if we can't remove the file – the
+                    # user will see the file still listed and can retry.
+                    return HTMLResponse(
+                        "Failed to delete file on disk", status_code=500
+                    )
+
+            repo.reset_issue(issue.id)
+
+        return await _issue_row(request, code, issue_code)
+
     @app.get("/publications/{code}/issues/{issue_code}/file")
     async def serve_issue_file(request: Request, code: str, issue_code: str):
         """Stream the merged issue PDF back to the browser for inline view."""

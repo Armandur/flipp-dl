@@ -52,6 +52,16 @@
         hx-vals='{"_csrf_token": "{{ csrf_token }}"}'
         hx-confirm="Re-download this issue?"
       >Re-download</button>
+      {% if issue.file_exists %}
+      <button
+        class="btn btn-unwatch"
+        hx-post="/publications/{{ publication.custom_code }}/issues/{{ issue.custom_code }}/delete"
+        hx-target="closest tr"
+        hx-swap="outerHTML"
+        hx-vals='{"_csrf_token": "{{ csrf_token }}"}'
+        hx-confirm="Delete the downloaded PDF from disk? The issue will be marked as not downloaded."
+      >Delete</button>
+      {% endif %}
     {% elif issue.status == "error" %}
       <button
         class="btn btn-unwatch"
