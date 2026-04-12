@@ -6,18 +6,23 @@ from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
 
-from sqlalchemy import create_engine, event, inspect, text
+from alembic import command as alembic_command
+from alembic.config import Config as AlembicConfig
+from sqlalchemy import create_engine, event, inspect
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from .models import Base
+_ALEMBIC_INI = Path(__file__).resolve().parent.parent.parent / "alembic.ini"
+_MIGRATIONS_DIR = Path(__file__).resolve().parent / "migrations"
 
 
 def make_engine(db_path: Path | str = ":memory:") -> Engine:
-    """Create a SQLite engine.
+    """Create a SQLite engine and bring the schema up to date.
 
     Enables WAL mode and foreign-key enforcement so the database is safe
     for concurrent readers + one writer (typical for a small service).
+    All schema management is delegated to Alembic – see
+    ``flipp_dl/db/migrations/``.
     """
     url = (
         "sqlite:///:memory:"
@@ -31,41 +36,52 @@ def make_engine(db_path: Path | str = ":memory:") -> Engine:
         conn.execute("PRAGMA journal_mode=WAL")
         conn.execute("PRAGMA foreign_keys=ON")
 
-    Base.metadata.create_all(engine)
-    _run_lightweight_migrations(engine)
+    _ensure_schema(engine)
     return engine
 
 
-def _run_lightweight_migrations(engine: Engine) -> None:
-    """Add columns that were introduced after a DB may have been created.
+def _alembic_config() -> AlembicConfig:
+    """Build an Alembic ``Config`` pointing at our migrations package.
 
-    SQLAlchemy's ``create_all`` only creates missing tables; it does not
-    add new columns to existing ones. For this app we can get away with
-    a tiny hand-rolled migration because we only ever add nullable
-    columns. For anything more involved, switch to Alembic.
+    We avoid relying on the on-disk ``alembic.ini`` at runtime so the
+    application keeps working inside wheels/zipapps that don't ship the
+    ini file. The ``script_location`` is set explicitly and the URL is
+    supplied per-call via the shared connection on ``cfg.attributes``.
     """
-    inspector = inspect(engine)
-    if "publications" in inspector.get_table_names():
-        existing = {col["name"] for col in inspector.get_columns("publications")}
-        with engine.begin() as conn:
-            if "cover_url" not in existing:
-                conn.execute(
-                    text("ALTER TABLE publications ADD COLUMN cover_url VARCHAR(500)")
-                )
-            if "description" not in existing:
-                conn.execute(
-                    text("ALTER TABLE publications ADD COLUMN description TEXT")
-                )
-            if "next_issue_date" not in existing:
-                conn.execute(
-                    text(
-                        "ALTER TABLE publications ADD COLUMN "
-                        "next_issue_date VARCHAR(20)"
-                    )
-                )
-            # short_code was briefly introduced in a previous revision and
-            # is no longer used; leave any existing column alone (SQLite
-            # does not support DROP COLUMN cleanly without a rebuild).
+    cfg = AlembicConfig()
+    cfg.set_main_option("script_location", str(_MIGRATIONS_DIR))
+    # ``sqlalchemy.url`` has to be set for Alembic to build a Config,
+    # but it's ignored because env.py uses the shared connection.
+    cfg.set_main_option("sqlalchemy.url", "sqlite:///")
+    return cfg
+
+
+def _ensure_schema(engine: Engine) -> None:
+    """Make sure the database is at the latest Alembic revision.
+
+    Handles three cases:
+
+    * Fresh database → ``upgrade head`` runs the baseline migration and
+      creates all tables.
+    * Existing Alembic-managed database → ``upgrade head`` is a no-op if
+      already current, or applies pending migrations otherwise.
+    * Pre-Alembic database (tables already exist from the hand-rolled
+      schema) → we ``stamp head`` so future migrations can run against
+      it without re-creating tables.
+    """
+    with engine.connect() as connection:
+        inspector = inspect(connection)
+        tables = set(inspector.get_table_names())
+        cfg = _alembic_config()
+        cfg.attributes["connection"] = connection
+
+        if "alembic_version" not in tables and "publications" in tables:
+            # Pre-Alembic schema – mark it as current without running
+            # the baseline (which would fail on "table already exists").
+            alembic_command.stamp(cfg, "head")
+        else:
+            alembic_command.upgrade(cfg, "head")
+        connection.commit()
 
 
 def make_session_factory(db_path: Path | str = ":memory:") -> sessionmaker[Session]:
