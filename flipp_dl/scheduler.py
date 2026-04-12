@@ -113,9 +113,14 @@ def run_download_queue(
             repo.finish_job(job.id, error="Missing issue_id in payload")
             return
 
+        # Capture primitive identifiers now: once the session closes, the ORM
+        # instances become detached and any attribute access (even ``.id``) can
+        # trigger a lazy refresh against an expired session.
+        job_id: int = job.id
+
         db_issue: DbIssue | None = repo.get_issue(issue_id)
         if db_issue is None:
-            repo.finish_job(job.id, error=f"Issue {issue_id} not found")
+            repo.finish_job(job_id, error=f"Issue {issue_id} not found")
             return
 
         db_pub = db_issue.publication
@@ -129,7 +134,7 @@ def run_download_queue(
             issue_date=db_issue.issue_date,
         )
 
-        repo.start_job(job.id)
+        repo.start_job(job_id)
 
     # Download outside the first session so status commits are visible.
     with get_session(session_factory) as session:
@@ -140,11 +145,11 @@ def run_download_queue(
         try:
             downloader.download_issue(domain_pub, domain_issue, skip_existing=True)
             with get_session(session_factory) as s2:
-                DownloadRepository(s2).finish_job(job.id)
+                DownloadRepository(s2).finish_job(job_id)
         except Exception as exc:  # noqa: BLE001
             with get_session(session_factory) as s2:
-                DownloadRepository(s2).finish_job(job.id, error=str(exc))
-            logger.error("Download job %d failed: %s", job.id, exc)
+                DownloadRepository(s2).finish_job(job_id, error=str(exc))
+            logger.error("Download job %d failed: %s", job_id, exc)
 
 
 # ---------------------------------------------------------------------------
