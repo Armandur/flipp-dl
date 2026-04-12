@@ -7,8 +7,7 @@ WORKDIR /app
 
 # Install dependencies first (layer cache)
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt \
-    fastapi>=0.111 uvicorn[standard]>=0.30 jinja2>=3.1
+RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
