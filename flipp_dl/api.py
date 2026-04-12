@@ -86,7 +86,12 @@ class FlippClient:
         response = self.session.get(
             self.READER_URL, params=params, timeout=self.timeout
         )
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except requests.HTTPError as exc:
+            raise FlippError(
+                f"Failed to fetch PDF URLs for {publication_code}/{issue_code}: {exc}"
+            ) from exc
         data = response.json()
         if "pageGroups" not in data:
             raise FlippError(
@@ -128,5 +133,14 @@ class FlippClient:
             "os": "Firefox / Windows",
         }
         response = self.session.post(self.API_URL, json=payload, timeout=self.timeout)
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except requests.HTTPError as exc:
+            status = response.status_code
+            if status == 403:
+                raise FlippError(
+                    "Flipp API returned 403 Forbidden – token is invalid or expired. "
+                    "Please obtain a new token and update FLIPP_TOKEN."
+                ) from exc
+            raise FlippError(f"Flipp API HTTP error {status}: {exc}") from exc
         return response.json()

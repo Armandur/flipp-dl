@@ -59,6 +59,7 @@ if _token:
         trigger="interval",
         minutes=_poll_interval,
         id="poll",
+        next_run_time=None,  # _initial_poll thread handles the first run
         kwargs=dict(
             client=_client,
             session_factory=_session_factory,
@@ -83,7 +84,10 @@ if _token:
 
     # Fire an immediate poll in a daemon thread so startup isn't blocked.
     def _initial_poll():
-        poll_publications(_client, _session_factory, _output_root, _workers)
+        try:
+            poll_publications(_client, _session_factory, _output_root, _workers)
+        except Exception as exc:
+            logger.error("Initial poll failed: %s", exc)
 
     threading.Thread(target=_initial_poll, daemon=True, name="initial-poll").start()
 else:
