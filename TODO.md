@@ -20,43 +20,43 @@ Förvandla `flipp-dl` från ett engångsskript till en självhostad tjänst:
 
 ## P0 – Buggar och korrekthet
 
-- [ ] **`app.py:131`** – `merger.close` anropas aldrig. Ska vara
+- [x] **`app.py:131`** – `merger.close` anropas aldrig. Ska vara
       `merger.close()`.
-- [ ] **`app.py:128`** – Byt `os.mkdir` mot
+- [x] **`app.py:128`** – Byt `os.mkdir` mot
       `os.makedirs(outputFolder, exist_ok=True)` så att `OUTPUTPATH`
       skapas vid första körningen och `os.path.exists`-checken kan tas bort.
-- [ ] **`app.py:96`** – `getIssuePDFs` kraschar med `KeyError` om API:t
+- [x] **`app.py:96`** – `getIssuePDFs` kraschar med `KeyError` om API:t
       svarar med fel (t.ex. ogiltig token). Validera svaret och kasta ett
       tydligt fel.
-- [ ] **`app.py:104`** – `readPdf` kastar generisk `Exception`. Använd
+- [x] **`app.py:104`** – `readPdf` kastar generisk `Exception`. Använd
       `response.raise_for_status()` eller en domänspecifik exception.
-- [ ] **`app.py:119` vs `app.py:145`** – dubblerad "file exists"-kontroll.
+- [x] **`app.py:119` vs `app.py:145`** – dubblerad "file exists"-kontroll.
       Ta bort den i `writePdf` eller gör den till den enda.
-- [ ] Lägg till `if __name__ == "__main__":`-guard så att skriptet kan
+- [x] Lägg till `if __name__ == "__main__":`-guard så att skriptet kan
       importeras utan att köras.
 
 ## P1 – Paketering och beroenden
 
-- [ ] Lägg till `requirements.txt` (eller `pyproject.toml`) med minst
+- [x] Lägg till `requirements.txt` (eller `pyproject.toml`) med minst
       `requests` och `pypdf`.
-- [ ] Byt ut **PyPDF2** (deprecated) mot **pypdf**. API:t är nästan
+- [x] Byt ut **PyPDF2** (deprecated) mot **pypdf**. API:t är nästan
       identiskt.
-- [ ] Ta bort oanvänd import `pprint` (`app.py:2`).
+- [x] Ta bort oanvänd import `pprint` (`app.py:2`).
 
 ## P2 – Konfiguration och UX
 
-- [ ] Läs token från miljövariabel (`FLIPP_TOKEN`) eller från `token`-filen
+- [x] Läs token från miljövariabel (`FLIPP_TOKEN`) eller från `token`-filen
       som redan finns i `.gitignore` – inte hårdkodad i källkoden.
 - [ ] Gör kategori-ID konfigurerbart; magisk `52` ska bort från koden
-      (`app.py:157`).
+      (`flipp_dl/cli.py`).
 - [ ] Lägg till `argparse` med flaggor som `--token`, `--output`,
       `--category`, `--publication`, `--list-categories`,
       `--list-publications`.
-- [ ] Ersätt `print` med `logging` så att nivåer kan styras.
+- [x] Ersätt `print` med `logging` så att nivåer kan styras.
 
 ## P3 – Robusthet
 
-- [ ] Lägg till `timeout` på alla `requests`-anrop.
+- [x] Lägg till `timeout` på alla `requests`-anrop.
 - [ ] Använd `requests.Session` + `HTTPAdapter` med `Retry` för 5xx och
       anslutningsfel.
 - [ ] Streama större nedladdningar (`stream=True` + tempfil) i stället för
@@ -66,25 +66,24 @@ Förvandla `flipp-dl` från ett engångsskript till en självhostad tjänst:
 
 ## P4 – Kodkvalitet
 
-- [ ] Åtgärda O(n²) i `getPublicationsInfo` – läs `issues` direkt från
+- [x] Åtgärda O(n²) i `getPublicationsInfo` – läs `issues` direkt från
       `publication`-objektet i stället för att anropa `getIssuesIds`.
-- [ ] Konvertera till konsekvent **snake_case** för både funktioner och
-      variabler (PEP 8).
-- [ ] Byt tabbar mot 4 spaces (PEP 8).
-- [ ] Lägg till typannoteringar på publika funktioner.
-- [ ] Låt uppslagsfunktioner (`getPublicationNameFromId`,
-      `getIssueInfoFromId`, `getIssuesIds`) kasta `KeyError` eller
-      returnera `Optional[...]` explicit i stället för implicit `None`.
-- [ ] Plocka bort den globala `OUTPUTPATH`; skicka den som argument eller
-      bygg en liten `Config`-klass.
-- [ ] Lägg till grundläggande tester (åtminstone `safeName`, filtrering,
+- [x] Konvertera till konsekvent **snake_case** för både funktioner och
+      variabler (PEP 8) – gjort i nya `flipp_dl/`-paketet.
+- [x] Byt tabbar mot 4 spaces (PEP 8) – gäller nya paketet.
+- [x] Lägg till typannoteringar på publika funktioner – gäller nya paketet.
+- [x] Låt uppslagsfunktioner returnera `Optional[...]` explicit – ersatt
+      av dataklassmetoder på `Publication`.
+- [x] Plocka bort den globala `OUTPUTPATH`; skickas nu som argument till
+      `IssueDownloader`.
+- [ ] Lägg till grundläggande tester (åtminstone `safe_name`, filtrering,
       parsing av API-svar med fixtures).
 - [ ] Sätt upp linting/formatering (`ruff` + `black`) och eventuellt en
       enkel GitHub Actions-workflow.
 
 ## P5 – Dokumentation
 
-- [ ] Skriv om `README.md`:
+- [x] Skriv om `README.md`:
   - Syfte och disclaimer om Egmonts användarvillkor.
   - Installation (`pip install -r requirements.txt`).
   - Hur man skaffar en token (flödet som commit `6dbfb6d` antyder).
@@ -115,10 +114,10 @@ flipp_dl/
     └── templates/  # Jinja2 eller en SPA-frontend
 ```
 
-- [ ] Flytta `app.py`-logiken in i `flipp_dl/` och behåll `app.py` (eller
+- [x] Flytta `app.py`-logiken in i `flipp_dl/` och behåll `app.py` (eller
       `python -m flipp_dl`) som tunt CLI-entry.
-- [ ] Definiera tydliga abstraktioner: `FlippClient`, `IssueDownloader`,
-      `DownloadRepository`.
+- [x] Definiera tydliga abstraktioner: `FlippClient`, `IssueDownloader`.
+      `DownloadRepository` kommer i P7 tillsammans med databasen.
 
 ## P7 – Databas
 
