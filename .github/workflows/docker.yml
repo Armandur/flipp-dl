@@ -2,8 +2,11 @@ name: Docker
 
 on:
   push:
+    branches:
+      - "**"
     tags:
       - "v*"
+  pull_request:
 
 jobs:
   build-push:
@@ -16,14 +19,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # arm64 emulation for multi-arch builds
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      # Skip login on pull_request events – forks don't have write access
+      # to GHCR, and we only want to verify the build in that case.
       - name: Login to GitHub Container Registry
+        if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -36,8 +41,21 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
+            # vX.Y.Z tag  →  1.2.3 and 1.2
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
+
+            # Branch push  →  branch name (slashes become dashes)
+            # e.g. feature/foo  →  feature-foo
+            type=ref,event=branch
+
+            # Pull request  →  pr-123
+            type=ref,event=pr
+
+            # Short SHA on every event  →  sha-a1b2c3d
+            type=sha,prefix=sha-
+
+            # latest only on the default branch
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push
@@ -45,7 +63,8 @@ jobs:
         with:
           context: .
           platforms: linux/amd64,linux/arm64
-          push: true
+          # Push on branch/tag commits; only build (no push) on PRs
+          push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
