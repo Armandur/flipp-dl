@@ -486,6 +486,41 @@ class DownloadRepository:
             reset += 1
         return reset
 
+    def queue_missing_issues(
+        self, publication_id: int, *, include_failed: bool = True
+    ) -> int:
+        """Queue every issue of a publication that isn't downloaded yet.
+
+        Watching a publication used to queue nothing, and a poll only
+        queues newly discovered issues - so everything already in the
+        database when watching was turned on never downloaded at all
+        (TASK-1346).
+
+        Issues already queued or downloading are skipped, so calling
+        this repeatedly is safe. *include_failed* re-queues issues that
+        previously errored: right for an explicit click, wrong for an
+        automatic poll, where a permanently broken issue would come
+        back every six hours.
+
+        Returns the number of issues queued.
+        """
+        wanted = [IssueStatus.NEW]
+        if include_failed:
+            wanted.append(IssueStatus.ERROR)
+
+        pending = self.session.scalars(
+            select(DbIssue).where(
+                DbIssue.publication_id == publication_id,
+                DbIssue.status.in_(wanted),
+            )
+        )
+        queued = 0
+        for issue in pending:
+            self.mark_issue_queued(issue.id)
+            self.create_job("download", {"issue_id": issue.id})
+            queued += 1
+        return queued
+
     def cancel_issue(self, issue_id: int) -> int:
         """Stop an in-flight issue: reset it and finish its jobs.
 

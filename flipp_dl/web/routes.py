@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 from datetime import datetime, timezone
 from pathlib import Path
@@ -17,6 +18,8 @@ from ..db.repository import DownloadRepository
 from ..db.session import get_session
 from ..scheduler import poll_publications
 from .auth import auth_enabled, check_csrf_form, generate_csrf_token, verify_password
+
+logger = logging.getLogger(__name__)
 
 
 def _repo(request: Request) -> DownloadRepository:
@@ -212,10 +215,22 @@ def register(app: FastAPI) -> None:
 
     @app.post("/publications/{code}/watch", response_class=HTMLResponse)
     async def watch_publication(request: Request, code: str):
+        """Start watching, and queue whatever is not downloaded yet.
+
+        Without this, watching only affects issues discovered by a
+        later poll and the back catalogue has to be clicked through by
+        hand.
+        """
         if not await check_csrf_form(request):
             return HTMLResponse("CSRF validation failed", status_code=400)
         with get_session(request.app.state.session_factory) as session:
-            DownloadRepository(session).set_watched(code, True)
+            repo = DownloadRepository(session)
+            if not repo.set_watched(code, True):
+                return HTMLResponse("Publication not found", status_code=404)
+            pub = repo.get_publication(code)
+            queued = repo.queue_missing_issues(pub.id)
+        if queued:
+            logger.info("Watch %s: queued %d missing issue(s)", code, queued)
         return await _publication_row(request, code)
 
     @app.post("/publications/{code}/unwatch", response_class=HTMLResponse)

@@ -75,8 +75,20 @@ def poll_publications(
                     repo.create_job("download", {"issue_id": db_issue.id})
                     queued += 1
 
+            # Catch up on anything a watched publication never got: an
+            # issue that existed before watching was turned on, or one
+            # that was lost to a restart. Failed issues stay out of this
+            # so a permanently broken issue isn't retried every poll.
+            backfilled = 0
+            for pub_id in watched_pub_ids:
+                backfilled += repo.queue_missing_issues(pub_id, include_failed=False)
+
             repo.finish_job(job.id)
-            logger.info("Poll: queued %d new download jobs", queued)
+            logger.info(
+                "Poll: queued %d new download jobs, %d catching up",
+                queued,
+                backfilled,
+            )
 
             # Opportunistic retention sweep – cheap and keeps the Jobs
             # page from growing without bound on long-lived instances.

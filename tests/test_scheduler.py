@@ -7,6 +7,7 @@ querying the DB directly for the oldest queued job.
 """
 
 from datetime import datetime, timedelta
+from pathlib import Path
 
 import pytest
 from sqlalchemy.orm import Session
@@ -156,3 +157,44 @@ def test_recover_leaves_issues_with_a_live_job_alone(repo, session_factory):
     with get_session(session_factory) as session:
         issue = DownloadRepository(session).get_issue(issue_id)
         assert issue.status == IssueStatus.QUEUED
+
+
+def test_poll_backfills_watched_publications(repo, session_factory, monkeypatch):
+    """A watched publication catches up on issues it never downloaded."""
+    from flipp_dl.scheduler import poll_publications
+
+    issue_id = _seed_issue(repo)
+    repo.set_watched("KA", True)
+    repo.session.commit()
+
+    class FakeClient:
+        def fetch_publications(self):
+            return []  # nothing new discovered this poll
+
+    poll_publications(FakeClient(), session_factory, Path("/tmp"), workers=1)
+
+    with get_session(session_factory) as session:
+        r = DownloadRepository(session)
+        assert r.get_issue(issue_id).status == IssueStatus.QUEUED
+        assert r.count_jobs_by_status()["queued"] == 1
+
+
+def test_poll_does_not_retry_failed_issues(repo, session_factory):
+    """A permanently broken issue must not be re-queued every poll."""
+    from flipp_dl.scheduler import poll_publications
+
+    issue_id = _seed_issue(repo)
+    repo.mark_issue_error(issue_id, "boom")
+    repo.set_watched("KA", True)
+    repo.session.commit()
+
+    class FakeClient:
+        def fetch_publications(self):
+            return []
+
+    poll_publications(FakeClient(), session_factory, Path("/tmp"), workers=1)
+
+    with get_session(session_factory) as session:
+        r = DownloadRepository(session)
+        assert r.get_issue(issue_id).status == IssueStatus.ERROR
+        assert r.count_jobs_by_status()["queued"] == 0

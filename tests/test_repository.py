@@ -390,3 +390,59 @@ def test_list_jobs_filters_by_status_and_type(session):
 
     polls = repo.list_jobs(limit=50, job_type="poll")
     assert [j.status for j in polls] == ["done"]
+
+
+def _pub_with_issues(repo, statuses):
+    """Seed one publication whose issues have the given statuses."""
+    from flipp_dl.models import Issue, Publication
+
+    pub = Publication(custom_code="KA", name="Kalle Anka")
+    db_pub = repo.upsert_publication(pub)
+    for i, status in enumerate(statuses):
+        issue = Issue(
+            custom_code=f"ka{i}", issue_name=f"Nr {i}", issue_date="2024-01-01"
+        )
+        db_issue, _ = repo.upsert_issue(issue, db_pub.id)
+        db_issue.status = status
+    repo.session.flush()
+    return db_pub
+
+
+def test_queue_missing_issues_queues_not_downloaded_and_failed(session):
+    repo = DownloadRepository(session)
+    pub = _pub_with_issues(
+        repo, ["new", "done", "error", "queued", "downloading", "new"]
+    )
+
+    queued = repo.queue_missing_issues(pub.id)
+    session.commit()
+
+    # Two new + one error; done/queued/downloading are left alone.
+    assert queued == 3
+    assert repo.count_jobs_by_status()["queued"] == 3
+    statuses = sorted(i.status for i in repo.list_issues(publication_id=pub.id))
+    assert statuses == ["done", "downloading", "queued", "queued", "queued", "queued"]
+
+
+def test_queue_missing_issues_can_skip_failed(session):
+    """Polls must not re-queue an issue that keeps failing."""
+    repo = DownloadRepository(session)
+    pub = _pub_with_issues(repo, ["new", "error"])
+
+    queued = repo.queue_missing_issues(pub.id, include_failed=False)
+    session.commit()
+
+    assert queued == 1
+    assert repo.count_jobs_by_status()["queued"] == 1
+
+
+def test_queue_missing_issues_is_idempotent(session):
+    repo = DownloadRepository(session)
+    pub = _pub_with_issues(repo, ["new", "new"])
+
+    first = repo.queue_missing_issues(pub.id)
+    second = repo.queue_missing_issues(pub.id)
+    session.commit()
+
+    assert (first, second) == (2, 0)
+    assert repo.count_jobs_by_status()["queued"] == 2

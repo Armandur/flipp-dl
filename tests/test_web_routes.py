@@ -547,3 +547,46 @@ def test_issue_row_offers_cancel_while_queued(client: TestClient):
     assert resp.status_code == 200
     assert "/issues/ka01/cancel" in resp.text
     assert "disabled" not in resp.text
+
+
+def test_watching_queues_the_back_catalogue(client: TestClient):
+    """Watch must queue what is already known, not just future issues."""
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        pub = repo.get_publication("KA")
+        for i in range(3):
+            repo.upsert_issue(
+                Issue(
+                    custom_code=f"back{i}",
+                    issue_name=f"Nr {i}",
+                    issue_date="2023-01-01",
+                ),
+                pub.id,
+            )
+
+    token = _csrf_for(client)
+    resp = client.post("/publications/KA/watch", data={"_csrf_token": token})
+    assert resp.status_code == 200
+
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        # The three back-catalogue issues; ka01 is already downloaded.
+        assert repo.count_jobs_by_status()["queued"] == 3
+        assert repo.get_publication("KA").watched is True
+
+
+def test_unwatching_queues_nothing(client: TestClient):
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        repo.upsert_issue(
+            Issue(custom_code="back0", issue_name="Nr 0", issue_date="2023-01-01"),
+            repo.get_publication("KA").id,
+        )
+
+    token = _csrf_for(client)
+    client.post("/publications/KA/unwatch", data={"_csrf_token": token})
+
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        assert repo.count_jobs_by_status()["queued"] == 0
+        assert repo.get_publication("KA").watched is False
