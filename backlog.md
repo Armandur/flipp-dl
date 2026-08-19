@@ -691,7 +691,7 @@ Filer som väntas ändras: `flipp_dl/web/routes.py` (ny `/metrics`-endpoint, tro
 
 ---
 
-## [P4][todo] [flipp] OPDS-feed i både 1.2 och 2.0
+## [P4][done] [flipp] OPDS-feed i både 1.2 och 2.0
 
 ## Context
 En OPDS-feed låter en PDF-läsare (t.ex. en surfplatta) upptäcka och hämta nya utgåvor automatiskt i stället för att ägaren manuellt kopierar filer. Feeden behöver exponera publikationer/utgåvor och länka till de befintliga filnedladdningsvägarna i `flipp_dl/web/routes.py`.
