@@ -825,3 +825,127 @@ def test_metrics_stays_closed_by_default(tmp_path, monkeypatch):
     app = create_app(db_path=tmp_path / "flipp.db", output_root=tmp_path / "out")
     with TestClient(app) as client:
         assert client.get("/metrics", follow_redirects=False).status_code == 302
+
+
+# ---------------------------------------------------------------------------
+# Settings – Flipp token (TASK-1342)
+# ---------------------------------------------------------------------------
+
+
+def test_settings_get_shows_no_token_configured_by_default(client: TestClient):
+    resp = client.get("/settings")
+    assert resp.status_code == 200
+    assert "No token configured" in resp.text
+
+
+def test_settings_post_saves_token(client: TestClient):
+    from flipp_dl.scheduler import resolve_current_token
+
+    csrf = _csrf_for(client)
+    resp = client.post(
+        "/settings",
+        data={
+            "_csrf_token": csrf,
+            "poll_interval": "360",
+            "workers": "4",
+            "flipp_token": "sekret-token-123",
+        },
+    )
+    assert resp.status_code == 200
+
+    # The saved value never comes back in the response body.
+    assert "sekret-token-123" not in resp.text
+
+    # But it is what a scheduler tick would now use.
+    assert resolve_current_token(client.app.state.session_factory) == "sekret-token-123"
+    assert "A token is saved and in use" in resp.text
+
+
+def test_settings_get_never_renders_saved_token(client: TestClient):
+    csrf = _csrf_for(client)
+    client.post(
+        "/settings",
+        data={
+            "_csrf_token": csrf,
+            "poll_interval": "360",
+            "workers": "4",
+            "flipp_token": "another-secret-value",
+        },
+    )
+
+    resp = client.get("/settings")
+    assert resp.status_code == 200
+    assert "another-secret-value" not in resp.text
+    assert "A token is saved and in use" in resp.text
+
+
+def test_settings_post_empty_token_leaves_saved_token_unchanged(client: TestClient):
+    from flipp_dl.scheduler import resolve_current_token
+
+    csrf = _csrf_for(client)
+    client.post(
+        "/settings",
+        data={
+            "_csrf_token": csrf,
+            "poll_interval": "360",
+            "workers": "4",
+            "flipp_token": "original-token",
+        },
+    )
+
+    csrf = _csrf_for(client)
+    resp = client.post(
+        "/settings",
+        data={
+            "_csrf_token": csrf,
+            "poll_interval": "120",
+            "workers": "2",
+            "flipp_token": "",
+        },
+    )
+    assert resp.status_code == 200
+    assert resolve_current_token(client.app.state.session_factory) == "original-token"
+
+
+def test_settings_post_requires_csrf(client: TestClient):
+    resp = client.post(
+        "/settings",
+        data={
+            "poll_interval": "360",
+            "workers": "4",
+            "flipp_token": "should-not-be-saved",
+        },
+    )
+    assert resp.status_code == 400
+    from flipp_dl.scheduler import resolve_current_token
+
+    assert resolve_current_token(client.app.state.session_factory) == ""
+
+
+def test_settings_post_saved_token_takes_priority_over_env(
+    client: TestClient, monkeypatch
+):
+    from flipp_dl.scheduler import resolve_current_token
+
+    monkeypatch.setenv("FLIPP_TOKEN", "env-token")
+    csrf = _csrf_for(client)
+    client.post(
+        "/settings",
+        data={
+            "_csrf_token": csrf,
+            "poll_interval": "360",
+            "workers": "4",
+            "flipp_token": "ui-token",
+        },
+    )
+    assert resolve_current_token(client.app.state.session_factory) == "ui-token"
+
+
+def test_settings_get_shows_env_fallback_hint_when_no_token_saved(
+    client: TestClient, monkeypatch
+):
+    monkeypatch.setenv("FLIPP_TOKEN", "env-token")
+    resp = client.get("/settings")
+    assert resp.status_code == 200
+    assert "FLIPP_TOKEN" in resp.text
+    assert "env-token" not in resp.text

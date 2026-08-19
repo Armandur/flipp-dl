@@ -8,15 +8,34 @@
 <div class="flash">Settings saved successfully.</div>
 {% endif %}
 
-<div class="note">
-  <strong>Flipp token</strong> — The API token is read at startup from the
-  <code>FLIPP_TOKEN</code> environment variable or a local <code>token</code> file.
-  It cannot be changed here for security reasons.
-</div>
-
 <div class="form-card">
   <form method="post" action="/settings">
     <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+    <div class="field">
+      <label for="flipp_token">Flipp token</label>
+      <input
+        type="password"
+        id="flipp_token"
+        name="flipp_token"
+        autocomplete="off"
+        {% if settings.token_saved %}
+        placeholder="•••••••••••"
+        {% else %}
+        placeholder="No token saved yet"
+        {% endif %}
+      >
+      {% if settings.token_saved %}
+      <div class="note">A token is saved and in use. Leave blank to keep it unchanged.</div>
+      {% elif settings.token_env_fallback %}
+      <div class="note">
+        No token saved here yet - the <code>FLIPP_TOKEN</code> environment
+        variable / <code>token</code> file is used until you save one.
+      </div>
+      {% else %}
+      <div class="note">No token configured. Paste one above and save.</div>
+      {% endif %}
+    </div>
+
     <div class="field">
       <label for="poll_interval">Poll interval (minutes)</label>
       <input

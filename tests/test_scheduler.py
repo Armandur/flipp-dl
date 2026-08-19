@@ -165,6 +165,7 @@ def test_poll_backfills_watched_publications(repo, session_factory, monkeypatch)
 
     issue_id = _seed_issue(repo)
     repo.set_watched("KA", True)
+    repo.set_setting("flipp_token", "test-token")  # poll skippar utan token
     repo.session.commit()
 
     class FakeClient:
@@ -186,6 +187,7 @@ def test_poll_does_not_retry_failed_issues(repo, session_factory):
     issue_id = _seed_issue(repo)
     repo.mark_issue_error(issue_id, "boom")
     repo.set_watched("KA", True)
+    repo.set_setting("flipp_token", "test-token")  # poll skippar utan token
     repo.session.commit()
 
     class FakeClient:
@@ -198,3 +200,32 @@ def test_poll_does_not_retry_failed_issues(repo, session_factory):
         r = DownloadRepository(session)
         assert r.get_issue(issue_id).status == IssueStatus.ERROR
         assert r.count_jobs_by_status()["queued"] == 0
+
+
+def test_poll_without_a_token_does_nothing(repo, session_factory):
+    """No token yet: skip quietly instead of logging a failure every poll.
+
+    The scheduler now starts even without a token so one saved in the UI
+    takes effect without a restart (TASK-1342) - which means the no-token
+    case is normal, not exceptional.
+    """
+    from flipp_dl.scheduler import poll_publications
+
+    repo.session.commit()
+
+    class ExplodingClient:
+        token = ""
+
+        def fetch_publications(self):
+            raise AssertionError("must not call the API without a token")
+
+    poll_publications(ExplodingClient(), session_factory, Path("/tmp"), workers=1)
+
+    with get_session(session_factory) as session:
+        r = DownloadRepository(session)
+        assert r.count_jobs_by_status() == {
+            "queued": 0,
+            "running": 0,
+            "done": 0,
+            "error": 0,
+        }

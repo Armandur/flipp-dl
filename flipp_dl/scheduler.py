@@ -42,6 +42,22 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 
+def resolve_current_token(session_factory) -> str:
+    """Return the token to use right now.
+
+    A token saved via the /settings UI (``DbSetting`` key ``flipp_token``)
+    always wins; otherwise fall back to ``FLIPP_TOKEN``/the ``token`` file.
+    The client object is created once at process startup, so every caller
+    that talks to the Flipp API re-resolves the token here instead of
+    trusting whatever ``client.token`` happened to be set to at creation
+    time - that's what lets a token saved in the UI take effect on the
+    next poll/download tick without a restart.
+    """
+    with get_session(session_factory) as session:
+        saved = DownloadRepository(session).get_setting("flipp_token", "").strip()
+    return saved or load_token()
+
+
 def poll_publications(
     client: FlippClient,
     session_factory,
@@ -52,6 +68,13 @@ def poll_publications(
 
     Only issues belonging to *watched* publications are queued.
     """
+    client.token = resolve_current_token(session_factory)
+    if not client.token:
+        # The scheduler runs even without a token so one saved via
+        # /settings takes effect without a restart. Polling anyway would
+        # just fill the jobs log with failures every six hours.
+        logger.info("Poll: no token configured yet - skipping")
+        return
     logger.info("Poll: fetching publications from Flipp API")
     with get_session(session_factory) as session:
         repo = DownloadRepository(session)
@@ -194,6 +217,9 @@ def run_download_queue(
     you want to yield back to the scheduler more frequently. Returns the
     number of jobs that were actually executed.
     """
+    client.token = resolve_current_token(session_factory)
+    if not client.token:
+        return 0
     processed = 0
     while max_jobs is None or processed < max_jobs:
         claimed = _claim_next_download_job(session_factory)

@@ -54,52 +54,61 @@ app = create_app(db_path=_db_path, output_root=_output_root)
 _session_factory = make_session_factory(_db_path)
 recover_stuck_jobs(_session_factory)
 
+# The client is created once here and reused by both scheduled jobs (the
+# same instance is baked into their kwargs), but its ``.token`` attribute
+# is refreshed on every run from ``resolve_current_token`` - see
+# scheduler.py. That's what lets a token saved via /settings take effect
+# on the next tick without restarting this process, even when no token
+# was available at all when the module was first imported.
 _token = load_token()
+_client = FlippClient(_token)
+
+_scheduler = BackgroundScheduler(timezone="UTC")
+_scheduler.add_job(
+    poll_publications,
+    trigger="interval",
+    minutes=_poll_interval,
+    id="poll",
+    next_run_time=None,  # _initial_poll thread handles the first run
+    kwargs=dict(
+        client=_client,
+        session_factory=_session_factory,
+        output_root=_output_root,
+        workers=_workers,
+    ),
+)
+_scheduler.add_job(
+    run_download_queue,
+    trigger="interval",
+    seconds=30,
+    id="download",
+    kwargs=dict(
+        client=_client,
+        session_factory=_session_factory,
+        output_root=_output_root,
+        workers=_workers,
+    ),
+)
+_scheduler.start()
+
 if _token:
-    _client = FlippClient(_token)
-
-    _scheduler = BackgroundScheduler(timezone="UTC")
-    _scheduler.add_job(
-        poll_publications,
-        trigger="interval",
-        minutes=_poll_interval,
-        id="poll",
-        next_run_time=None,  # _initial_poll thread handles the first run
-        kwargs=dict(
-            client=_client,
-            session_factory=_session_factory,
-            output_root=_output_root,
-            workers=_workers,
-        ),
-    )
-    _scheduler.add_job(
-        run_download_queue,
-        trigger="interval",
-        seconds=30,
-        id="download",
-        kwargs=dict(
-            client=_client,
-            session_factory=_session_factory,
-            output_root=_output_root,
-            workers=_workers,
-        ),
-    )
-    _scheduler.start()
     logger.info("Scheduler started – poll every %d min", _poll_interval)
-
-    # Fire an immediate poll in a daemon thread so startup isn't blocked.
-    def _initial_poll():
-        try:
-            poll_publications(_client, _session_factory, _output_root, _workers)
-        except Exception as exc:
-            logger.error("Initial poll failed: %s", exc)
-
-    threading.Thread(target=_initial_poll, daemon=True, name="initial-poll").start()
 else:
     logger.warning(
-        "FLIPP_TOKEN not set – scheduler disabled. "
-        "Set FLIPP_TOKEN and restart to enable automatic downloads."
+        "No Flipp token configured at startup – scheduler is running but "
+        "polls will fail until a token is saved via /settings."
     )
+
+
+# Fire an immediate poll in a daemon thread so startup isn't blocked.
+def _initial_poll():
+    try:
+        poll_publications(_client, _session_factory, _output_root, _workers)
+    except Exception as exc:
+        logger.error("Initial poll failed: %s", exc)
+
+
+threading.Thread(target=_initial_poll, daemon=True, name="initial-poll").start()
 
 
 # -------------------------------------------------------------------------

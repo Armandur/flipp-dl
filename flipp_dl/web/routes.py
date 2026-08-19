@@ -22,7 +22,7 @@ from ..config import load_token
 from ..db.models import IssueStatus, JobStatus
 from ..db.repository import DownloadRepository
 from ..db.session import get_session
-from ..scheduler import poll_publications
+from ..scheduler import poll_publications, resolve_current_token
 from .auth import auth_enabled, check_csrf_form, generate_csrf_token, verify_password
 
 logger = logging.getLogger(__name__)
@@ -571,7 +571,7 @@ def register(app: FastAPI) -> None:
     async def poll_single(request: Request, code: str):
         if not await check_csrf_form(request):
             return HTMLResponse("CSRF validation failed", status_code=400)
-        token = load_token()
+        token = resolve_current_token(request.app.state.session_factory)
         if not token:
             return JSONResponse({"error": "No token configured"}, status_code=400)
         client = FlippClient(token)
@@ -680,6 +680,20 @@ def register(app: FastAPI) -> None:
     # Settings
     # ------------------------------------------------------------------
 
+    def _token_settings(repo: DownloadRepository) -> dict:
+        """Token status for the settings template - never the value itself.
+
+        ``token_saved`` means a token was explicitly stored via this form
+        and takes precedence at the next poll. ``token_env_fallback`` means
+        no such token exists yet, but ``FLIPP_TOKEN``/the token file will
+        be used in the meantime.
+        """
+        saved = bool(repo.get_setting("flipp_token", "").strip())
+        return {
+            "token_saved": saved,
+            "token_env_fallback": (not saved) and bool(load_token()),
+        }
+
     @app.get("/settings", response_class=HTMLResponse)
     async def settings_get(request: Request):
         repo = _repo(request)
@@ -687,6 +701,7 @@ def register(app: FastAPI) -> None:
             settings = {
                 "poll_interval": repo.get_setting("poll_interval", "360"),
                 "workers": repo.get_setting("workers", "4"),
+                **_token_settings(repo),
             }
             csrf = generate_csrf_token(request)
             return _templates(request).TemplateResponse(
@@ -700,13 +715,21 @@ def register(app: FastAPI) -> None:
         request: Request,
         poll_interval: int = Form(360),
         workers: int = Form(4),
+        flipp_token: str = Form(""),
     ):
         if not await check_csrf_form(request):
             return HTMLResponse("CSRF validation failed", status_code=400)
+        token_value = flipp_token.strip()
         with get_session(request.app.state.session_factory) as session:
             repo = DownloadRepository(session)
             repo.set_setting("poll_interval", str(poll_interval))
             repo.set_setting("workers", str(workers))
+            # Empty input leaves a previously saved token untouched - the
+            # form field is never pre-filled with the real value, so a
+            # blank submit must not be read as "clear the token".
+            if token_value:
+                repo.set_setting("flipp_token", token_value)
+            token_settings = _token_settings(repo)
 
         csrf = generate_csrf_token(request)
         return _templates(request).TemplateResponse(
@@ -716,6 +739,7 @@ def register(app: FastAPI) -> None:
                 "settings": {
                     "poll_interval": str(poll_interval),
                     "workers": str(workers),
+                    **token_settings,
                 },
                 "csrf_token": csrf,
                 "saved": True,
@@ -744,12 +768,12 @@ def register(app: FastAPI) -> None:
         if not await check_csrf_form(request):
             return HTMLResponse("CSRF validation failed", status_code=400)
 
-        token = load_token()
+        token = resolve_current_token(request.app.state.session_factory)
         if not token:
             return _templates(request).TemplateResponse(
                 request,
                 "debug_poll_result.html",
-                {"error": "FLIPP_TOKEN is not set", "data_json": None},
+                {"error": "No Flipp token configured", "data_json": None},
             )
 
         try:

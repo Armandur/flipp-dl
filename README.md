@@ -107,7 +107,7 @@ Volymer:
 
 | Variabel            | Default     | Beskrivning                                    |
 |---------------------|-------------|------------------------------------------------|
-| `FLIPP_TOKEN`       | –           | **Krävs.** Din Flipp API-token.                |
+| `FLIPP_TOKEN`       | –           | Din Flipp API-token. Kan också sparas i gränssnittet under Inställningar, vilket har företräde. |
 | `FLIPP_DB`          | `flipp.db`  | Sökväg till SQLite-filen.                      |
 | `FLIPP_OUTPUT`      | `Output`    | Katalog där PDF:er sparas.                     |
 | `FLIPP_TZ`          | `Europe/Stockholm` | Tidszon som tider visas i. Databasen lagrar UTC. |
