@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+import jinja2
 from fastapi import FastAPI
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
@@ -15,6 +16,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from ..db.session import make_session_factory
 from .auth import AuthMiddleware
 from .html_sanitize import sanitize_html
+from .i18n import get_language, translate
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +56,21 @@ def _localtime(value: datetime | None, fmt: str = "%Y-%m-%d %H:%M") -> str:
     if value.tzinfo is None:
         value = value.replace(tzinfo=timezone.utc)
     return value.astimezone(_display_timezone()).strftime(fmt)
+
+
+@jinja2.pass_context
+def _translate_in_context(context: jinja2.runtime.Context, message: str) -> str:
+    """Jinja global ``_()`` - looks up the active request's language and
+    translates *message*, falling back to the English msgid untouched.
+
+    Reads the language from the render context (populated by FastAPI's
+    ``Jinja2Templates`` with the ``request`` object) instead of a
+    process-global, so concurrent requests in different languages never
+    interfere with each other.
+    """
+    request = context.get("request")
+    lang = get_language(request) if request is not None else "en"
+    return translate(lang, message)
 
 
 def _human_size(num_bytes: int | None) -> str:
@@ -112,6 +129,8 @@ def create_app(
     templates.env.filters["sanitize_html"] = sanitize_html
     templates.env.filters["human_size"] = _human_size
     templates.env.filters["localtime"] = _localtime
+    templates.env.globals["_"] = _translate_in_context
+    templates.env.globals["current_language"] = get_language
 
     app.state.session_factory = session_factory
     app.state.templates = templates

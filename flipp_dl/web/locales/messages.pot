@@ -1,0 +1,731 @@
+# Translations template for PROJECT.
+# Copyright (C) 2026 ORGANIZATION
+# This file is distributed under the same license as the PROJECT project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-08-19 18:24+0200\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: flipp_dl/web/templates/base.html:229 flipp_dl/web/templates/dashboard.html:2
+#: flipp_dl/web/templates/dashboard.html:5
+msgid "Dashboard"
+msgstr ""
+
+#: flipp_dl/web/templates/base.html:230
+#: flipp_dl/web/templates/publications.html:2
+#: flipp_dl/web/templates/publications.html:5
+#: flipp_dl/web/templates/stats_cards.html:3
+msgid "Publications"
+msgstr ""
+
+#: flipp_dl/web/templates/base.html:231 flipp_dl/web/templates/library.html:2
+#: flipp_dl/web/templates/library.html:5
+#: flipp_dl/web/templates/settings.html:140
+msgid "Library"
+msgstr ""
+
+#: flipp_dl/web/templates/base.html:232 flipp_dl/web/templates/jobs.html:2
+#: flipp_dl/web/templates/jobs.html:5
+msgid "Jobs"
+msgstr ""
+
+#: flipp_dl/web/templates/base.html:233 flipp_dl/web/templates/settings.html:2
+#: flipp_dl/web/templates/settings.html:5
+msgid "Settings"
+msgstr ""
+
+#: flipp_dl/web/templates/base.html:240
+msgid "Sign out"
+msgstr ""
+
+#: flipp_dl/web/templates/base.html:254
+#: flipp_dl/web/templates/issue_row.html:63
+msgid "Cancel"
+msgstr ""
+
+#: flipp_dl/web/templates/base.html:255
+msgid "Confirm"
+msgstr ""
+
+#: flipp_dl/web/templates/dashboard.html:11
+msgid "Recent Downloads"
+msgstr ""
+
+#: flipp_dl/web/templates/dashboard.html:17
+#: flipp_dl/web/templates/publication_detail.html:115
+msgid "Issue"
+msgstr ""
+
+#: flipp_dl/web/templates/dashboard.html:18
+msgid "Publication"
+msgstr ""
+
+#: flipp_dl/web/templates/dashboard.html:19
+msgid "Downloaded At"
+msgstr ""
+
+#: flipp_dl/web/templates/dashboard.html:20
+#: flipp_dl/web/templates/library.html:41
+#: flipp_dl/web/templates/publication_detail.html:118
+msgid "File"
+msgstr ""
+
+#: flipp_dl/web/templates/dashboard.html:54
+msgid "No downloads yet."
+msgstr ""
+
+#: flipp_dl/web/templates/dashboard.html:59
+msgid "Recent Jobs"
+msgstr ""
+
+#: flipp_dl/web/templates/dashboard.html:66
+#: flipp_dl/web/templates/job_detail.html:17
+#: flipp_dl/web/templates/jobs.html:26
+msgid "Type"
+msgstr ""
+
+#: flipp_dl/web/templates/dashboard.html:67
+#: flipp_dl/web/templates/job_detail.html:19
+#: flipp_dl/web/templates/jobs.html:28
+#: flipp_dl/web/templates/publication_detail.html:117
+msgid "Status"
+msgstr ""
+
+#: flipp_dl/web/templates/dashboard.html:68
+#: flipp_dl/web/templates/job_detail.html:48
+#: flipp_dl/web/templates/jobs.html:29
+msgid "Created"
+msgstr ""
+
+#: flipp_dl/web/templates/dashboard.html:69
+#: flipp_dl/web/templates/job_detail.html:59
+#: flipp_dl/web/templates/jobs.html:31
+msgid "Finished"
+msgstr ""
+
+#: flipp_dl/web/templates/dashboard.html:70
+#: flipp_dl/web/templates/issue_row.html:33
+#: flipp_dl/web/templates/job_detail.html:70
+#: flipp_dl/web/templates/jobs.html:32
+#: flipp_dl/web/templates/publication_detail.html:104
+msgid "Error"
+msgstr ""
+
+#: flipp_dl/web/templates/dashboard.html:101
+msgid "No jobs recorded yet."
+msgstr ""
+
+#: flipp_dl/web/templates/debug_poll_result.html:3
+msgid "Poll failed:"
+msgstr ""
+
+#: flipp_dl/web/templates/debug_poll_result.html:8
+msgid "Fetched"
+msgstr ""
+
+#: flipp_dl/web/templates/debug_poll_result.html:8
+msgid "publication"
+msgstr ""
+
+#: flipp_dl/web/templates/debug_poll_result.html:8
+msgid "publications"
+msgstr ""
+
+#: flipp_dl/web/templates/debug_poll_result.html:9
+msgid "bytes (redacted)"
+msgstr ""
+
+#: flipp_dl/web/templates/debug_poll_result.html:10
+msgid "Copy JSON"
+msgstr ""
+
+#: flipp_dl/web/templates/debug_poll_result.html:11
+msgid "Expand all"
+msgstr ""
+
+#: flipp_dl/web/templates/debug_poll_result.html:12
+msgid "Collapse all"
+msgstr ""
+
+#: flipp_dl/web/templates/debug_poll_result.html:26
+msgid "Failed to parse response JSON:"
+msgstr ""
+
+#: flipp_dl/web/templates/debug_poll_result.html:137
+msgid "Copied"
+msgstr ""
+
+#: flipp_dl/web/templates/debug_poll_result.html:138
+msgid "Copy failed - select the JSON and copy manually"
+msgstr ""
+
+#: flipp_dl/web/templates/import_existing_result.html:2
+msgid "Backfilled"
+msgstr ""
+
+#: flipp_dl/web/templates/import_existing_result.html:2
+msgid "issue(s) already on disk."
+msgstr ""
+
+#: flipp_dl/web/templates/import_existing_result.html:11
+msgid "File(s) with no matching issue (orphans):"
+msgstr ""
+
+#: flipp_dl/web/templates/import_existing_result.html:20
+msgid "Issue(s) marked done whose file is missing on disk:"
+msgstr ""
+
+#: flipp_dl/web/templates/import_existing_result.html:29
+msgid "File(s) shared by more than one issue:"
+msgstr ""
+
+#: flipp_dl/web/templates/import_existing_result.html:46
+msgid "No drift found - the database and the output folder agree."
+msgstr ""
+
+#: flipp_dl/web/templates/issue_row.html:23
+#: flipp_dl/web/templates/publication_detail.html:103
+#: flipp_dl/web/templates/publications.html:35
+#: flipp_dl/web/templates/stats_cards.html:15
+msgid "Downloaded"
+msgstr ""
+
+#: flipp_dl/web/templates/issue_row.html:26
+#: flipp_dl/web/templates/publication_detail.html:102
+msgid "Downloading"
+msgstr ""
+
+#: flipp_dl/web/templates/issue_row.html:28
+msgid "Downloading…"
+msgstr ""
+
+#: flipp_dl/web/templates/issue_row.html:31
+#: flipp_dl/web/templates/publication_detail.html:101
+msgid "Queued"
+msgstr ""
+
+#: flipp_dl/web/templates/issue_row.html:35
+#: flipp_dl/web/templates/publication_detail.html:100
+msgid "Not downloaded"
+msgstr ""
+
+#: flipp_dl/web/templates/issue_row.html:51
+msgid "View the first pages without marking this issue as downloaded"
+msgstr ""
+
+#: flipp_dl/web/templates/issue_row.html:52
+msgid "Preview"
+msgstr ""
+
+#: flipp_dl/web/templates/issue_row.html:62
+msgid "Cancel this download? The issue goes back to not downloaded."
+msgstr ""
+
+#: flipp_dl/web/templates/issue_row.html:71
+msgid "Open"
+msgstr ""
+
+#: flipp_dl/web/templates/issue_row.html:79
+msgid "Re-download this issue?"
+msgstr ""
+
+#: flipp_dl/web/templates/issue_row.html:80
+msgid "Re-download"
+msgstr ""
+
+#: flipp_dl/web/templates/issue_row.html:88
+msgid ""
+"Delete the downloaded PDF from disk? The issue will be marked as not "
+"downloaded."
+msgstr ""
+
+#: flipp_dl/web/templates/issue_row.html:89
+msgid "Delete"
+msgstr ""
+
+#: flipp_dl/web/templates/issue_row.html:98
+msgid "Retry"
+msgstr ""
+
+#: flipp_dl/web/templates/issue_row.html:106
+msgid "Download"
+msgstr ""
+
+#: flipp_dl/web/templates/job_detail.html:2
+#: flipp_dl/web/templates/job_detail.html:5
+msgid "Job"
+msgstr ""
+
+#: flipp_dl/web/templates/job_detail.html:8
+msgid "Back to jobs"
+msgstr ""
+
+#: flipp_dl/web/templates/job_detail.html:10
+#: flipp_dl/web/templates/jobs.html:11
+msgid "All"
+msgstr ""
+
+#: flipp_dl/web/templates/job_detail.html:10
+msgid "jobs"
+msgstr ""
+
+#: flipp_dl/web/templates/job_detail.html:23
+#: flipp_dl/web/templates/jobs.html:27
+msgid "Target"
+msgstr ""
+
+#: flipp_dl/web/templates/job_detail.html:41
+msgid "Issue status:"
+msgstr ""
+
+#: flipp_dl/web/templates/job_detail.html:52
+#: flipp_dl/web/templates/jobs.html:30
+msgid "Started"
+msgstr ""
+
+#: flipp_dl/web/templates/job_detail.html:66
+msgid "Payload"
+msgstr ""
+
+#: flipp_dl/web/templates/jobs.html:93
+#: flipp_dl/web/templates/publication_row.html:57
+msgid "No"
+msgstr ""
+
+#: flipp_dl/web/templates/jobs.html:93
+msgid "jobs."
+msgstr ""
+
+#: flipp_dl/web/templates/jobs.html:93
+msgid "No jobs yet."
+msgstr ""
+
+#: flipp_dl/web/templates/komga_library_select.html:2
+msgid "Could not connect to Komga:"
+msgstr ""
+
+#: flipp_dl/web/templates/komga_library_select.html:5
+#: flipp_dl/web/templates/settings.html:145
+msgid "Saved library"
+msgstr ""
+
+#: flipp_dl/web/templates/komga_library_select.html:7
+msgid "No library selected"
+msgstr ""
+
+#: flipp_dl/web/templates/komga_library_select.html:13
+msgid "No libraries found"
+msgstr ""
+
+#: flipp_dl/web/templates/library.html:8
+msgid "Listing every PDF currently on disk under"
+msgstr ""
+
+#: flipp_dl/web/templates/library.html:9
+msgid ""
+"Files deleted outside flipp-dl won't show up here but may still appear as"
+" \"Downloaded\" on the publication pages until the next poll."
+msgstr ""
+
+#: flipp_dl/web/templates/library.html:14
+msgid "Files"
+msgstr ""
+
+#: flipp_dl/web/templates/library.html:18
+msgid "Total size"
+msgstr ""
+
+#: flipp_dl/web/templates/library.html:28
+msgid "Search filename or folder…"
+msgstr ""
+
+#: flipp_dl/web/templates/library.html:36
+msgid "(root)"
+msgstr ""
+
+#: flipp_dl/web/templates/library.html:42
+msgid "Modified"
+msgstr ""
+
+#: flipp_dl/web/templates/library.html:43
+msgid "Size"
+msgstr ""
+
+#: flipp_dl/web/templates/library.html:68
+msgid "No PDFs found under"
+msgstr ""
+
+#: flipp_dl/web/templates/login.html:6
+msgid "Login"
+msgstr ""
+
+#: flipp_dl/web/templates/login.html:93
+msgid "Password"
+msgstr ""
+
+#: flipp_dl/web/templates/login.html:97
+msgid "Sign in"
+msgstr ""
+
+#: flipp_dl/web/templates/publication_detail.html:5
+msgid "All publications"
+msgstr ""
+
+#: flipp_dl/web/templates/publication_detail.html:21
+msgid "issue"
+msgstr ""
+
+#: flipp_dl/web/templates/publication_detail.html:21
+msgid "issues"
+msgstr ""
+
+#: flipp_dl/web/templates/publication_detail.html:23
+msgid "Next issue:"
+msgstr ""
+
+#: flipp_dl/web/templates/publication_detail.html:26
+#: flipp_dl/web/templates/publications.html:37
+#: flipp_dl/web/templates/stats_cards.html:7
+msgid "Watched"
+msgstr ""
+
+#: flipp_dl/web/templates/publication_detail.html:31
+msgid "synced ✓"
+msgstr ""
+
+#: flipp_dl/web/templates/publication_detail.html:34
+msgid "series"
+msgstr ""
+
+#: flipp_dl/web/templates/publication_detail.html:37
+msgid "unknown - will look up on next poll"
+msgstr ""
+
+#: flipp_dl/web/templates/publication_detail.html:55
+msgid "Queue every issue that isn't downloaded yet?"
+msgstr ""
+
+#: flipp_dl/web/templates/publication_detail.html:56
+msgid "Queue missing issues"
+msgstr ""
+
+#: flipp_dl/web/templates/publication_detail.html:67
+msgid "Own poll interval (minutes)"
+msgstr ""
+
+#: flipp_dl/web/templates/publication_detail.html:75
+msgid "Global default"
+msgstr ""
+
+#: flipp_dl/web/templates/publication_detail.html:79
+msgid "Save"
+msgstr ""
+
+#: flipp_dl/web/templates/publication_detail.html:94
+msgid "Search issues…"
+msgstr ""
+
+#: flipp_dl/web/templates/publication_detail.html:99
+msgid "All statuses"
+msgstr ""
+
+#: flipp_dl/web/templates/publication_detail.html:116
+msgid "Date"
+msgstr ""
+
+#: flipp_dl/web/templates/publication_detail.html:119
+msgid "Action"
+msgstr ""
+
+#: flipp_dl/web/templates/publication_detail.html:129
+msgid "No issues match the current filters."
+msgstr ""
+
+#: flipp_dl/web/templates/publication_detail.html:133
+msgid "No issues for this publication yet. Run a poll to refresh."
+msgstr ""
+
+#: flipp_dl/web/templates/publication_row.html:55
+msgid "Yes"
+msgstr ""
+
+#: flipp_dl/web/templates/publication_row.html:68
+msgid "Unwatch"
+msgstr ""
+
+#: flipp_dl/web/templates/publication_row.html:76
+msgid "Watch"
+msgstr ""
+
+#: flipp_dl/web/templates/publications.html:11
+msgid "Search by name or code…"
+msgstr ""
+
+#: flipp_dl/web/templates/publications.html:16
+msgid "All categories"
+msgstr ""
+
+#: flipp_dl/web/templates/publications.html:22
+msgid "Watched only"
+msgstr ""
+
+#: flipp_dl/web/templates/publications.html:33
+msgid "Name"
+msgstr ""
+
+#: flipp_dl/web/templates/publications.html:34
+msgid "Categories"
+msgstr ""
+
+#: flipp_dl/web/templates/publications.html:36
+msgid "Next issue"
+msgstr ""
+
+#: flipp_dl/web/templates/publications.html:38
+msgid "Actions"
+msgstr ""
+
+#: flipp_dl/web/templates/publications.html:48
+msgid "No publications match the current filters."
+msgstr ""
+
+#: flipp_dl/web/templates/publications.html:52
+msgid "No publications found. Run a poll to discover publications from Flipp."
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:8
+msgid "Settings saved successfully."
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:15
+msgid "Flipp token"
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:24
+msgid "No token saved yet"
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:28
+msgid "A token is saved and in use. Leave blank to keep it unchanged."
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:31
+msgid "No token saved here yet - the"
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:31
+msgid "environment variable /"
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:31
+msgid "file is used until you save one."
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:34
+msgid "No token configured. Paste one above and save."
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:39
+msgid "Poll interval (minutes)"
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:52
+msgid "Download workers"
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:64
+msgid "Komga"
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:66
+msgid ""
+"Triggers a Komga library scan right after a download finishes, so Komga "
+"picks up the new file immediately instead of waiting for its next "
+"scheduled scan. No requests are made and nothing is queued while the "
+"integration is disabled."
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:77
+msgid "Enable Komga integration"
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:82
+msgid "Komga URL"
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:93
+msgid "Komga username"
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:104
+msgid "Komga password"
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:113
+msgid "No password saved"
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:117
+msgid "Leave blank to keep the saved password."
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:122
+msgid "Komga API key"
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:131
+msgid "No API key saved"
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:135
+msgid "Leave blank to keep the saved API key."
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:148
+msgid "No library selected - test connection to pick one"
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:162
+msgid "Test connection"
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:164
+msgid "Testing…"
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:168
+msgid "Notifications"
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:170
+msgid ""
+"Get a push notification when a new issue finishes downloading, or when a "
+"download fails. Two channels are supported and can be enabled "
+"independently - use one, both, or neither."
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:181
+msgid "Enable ntfy notifications"
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:186
+msgid "ntfy server URL"
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:197
+msgid "ntfy topic"
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:208
+msgid "ntfy access token"
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:217
+msgid "No token saved (only needed for a protected topic)"
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:221
+msgid "Leave blank to keep the saved token."
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:233
+msgid "Enable webhook notifications"
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:238
+msgid "Webhook URL"
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:247
+msgid "No webhook URL saved"
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:252
+msgid ""
+"A URL is saved and in use. Leave blank to keep it unchanged. Every new "
+"issue (or failure) is POSTed here as"
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:257
+msgid "POSTs"
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:257
+msgid "to this URL for every new issue (or failure)."
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:262
+msgid "Save Settings"
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:266
+#: flipp_dl/web/templates/settings.html:281
+msgid "Import existing files"
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:268
+msgid ""
+"Scan the output folder and reconcile it with the database: a file that "
+"already sits on disk marks its issue downloaded without fetching it "
+"again. Anything the scan can't explain - orphan files, a downloaded issue"
+" whose file has vanished, or two issues sharing one file - is reported "
+"below instead of being fixed silently."
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:283
+msgid "Scanning…"
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:288
+msgid "Debug"
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:290
+msgid "Run a manual poll against the Flipp API and inspect the raw"
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:291
+msgid ""
+"response. Useful for verifying your token and spotting new fields. "
+"Sensitive fields"
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:292
+msgid "are redacted before the response reaches your browser."
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:304
+msgid "Run manual poll"
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:306
+msgid "Polling Flipp API…"
+msgstr ""
+
+#: flipp_dl/web/templates/stats_cards.html:11
+msgid "Total Issues"
+msgstr ""
+
+#: flipp_dl/web/templates/stats_cards.html:22
+msgid "In Queue"
+msgstr ""
+
+#: flipp_dl/web/templates/stats_cards.html:27
+msgid "running"
+msgstr ""
+
+#: flipp_dl/web/templates/stats_cards.html:29
+msgid "idle"
+msgstr ""
+

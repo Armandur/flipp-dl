@@ -1,25 +1,25 @@
 {% extends "base.html" %}
-{% block title %}Publications – Flipp-DL{% endblock %}
+{% block title %}{{ _("Publications") }} – Flipp-DL{% endblock %}
 
 {% block content %}
-<h1>Publications</h1>
+<h1>{{ _("Publications") }}</h1>
 
 <div class="filter-bar">
   <input
     id="pub-search"
     type="search"
-    placeholder="Search by name or code…"
+    placeholder="{{ _('Search by name or code…') }}"
     autocomplete="off"
     spellcheck="false"
   >
   <select id="pub-category">
-    <option value="">All categories</option>
+    <option value="">{{ _("All categories") }}</option>
     {% for cat_id, cat_name in categories %}
     <option value="{{ cat_id }}">{{ cat_name }}</option>
     {% endfor %}
   </select>
   <label class="watch-filter">
-    <input id="pub-watched" type="checkbox" checked> Watched only
+    <input id="pub-watched" type="checkbox" checked> {{ _("Watched only") }}
   </label>
   <span id="pub-count" class="dim"></span>
 </div>
@@ -30,12 +30,12 @@
     <thead>
       <tr>
         <th style="width:56px;"></th>
-        <th>Name</th>
-        <th>Categories</th>
-        <th style="text-align:center;">Downloaded</th>
-        <th>Next issue</th>
-        <th style="text-align:center;">Watched</th>
-        <th>Actions</th>
+        <th>{{ _("Name") }}</th>
+        <th>{{ _("Categories") }}</th>
+        <th style="text-align:center;">{{ _("Downloaded") }}</th>
+        <th>{{ _("Next issue") }}</th>
+        <th style="text-align:center;">{{ _("Watched") }}</th>
+        <th>{{ _("Actions") }}</th>
       </tr>
     </thead>
     <tbody id="pub-tbody">
@@ -45,11 +45,11 @@
     </tbody>
   </table>
   <div id="pub-empty" class="empty" style="display:none;">
-    No publications match the current filters.
+    {{ _("No publications match the current filters.") }}
   </div>
   {% else %}
   <div class="empty">
-    No publications found. Run a poll to discover publications from Flipp.
+    {{ _("No publications found. Run a poll to discover publications from Flipp.") }}
   </div>
   {% endif %}
 </div>

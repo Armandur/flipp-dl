@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ current_language(request) }}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Login – Flipp-DL</title>
+  <title>{{ _("Login") }} – Flipp-DL</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -90,11 +90,11 @@
       <input type="hidden" name="next" value="{{ next }}">
       {% endif %}
 
-      <label for="password">Password</label>
+      <label for="password">{{ _("Password") }}</label>
       <input type="password" id="password" name="password"
              autofocus autocomplete="current-password" required>
 
-      <button type="submit">Sign in</button>
+      <button type="submit">{{ _("Sign in") }}</button>
     </form>
   </div>
 </body>

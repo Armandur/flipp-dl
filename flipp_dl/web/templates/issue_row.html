@@ -20,19 +20,19 @@
   <td class="dim">{{ issue.issue_date or "—" }}</td>
   <td>
     {% if issue.status == "done" %}
-      <span class="badge badge-done">Downloaded</span>
+      <span class="badge badge-done">{{ _("Downloaded") }}</span>
     {% elif issue.status == "downloading" %}
       {% if issue.progress_total and issue.progress_total > 0 %}
-        <span class="badge badge-running">Downloading {{ issue.progress_current }}/{{ issue.progress_total }}</span>
+        <span class="badge badge-running">{{ _("Downloading") }} {{ issue.progress_current }}/{{ issue.progress_total }}</span>
       {% else %}
-        <span class="badge badge-running">Downloading…</span>
+        <span class="badge badge-running">{{ _("Downloading…") }}</span>
       {% endif %}
     {% elif issue.status == "queued" %}
-      <span class="badge badge-queued">Queued</span>
+      <span class="badge badge-queued">{{ _("Queued") }}</span>
     {% elif issue.status == "error" %}
-      <span class="badge badge-error" title="{{ issue.error_message or '' }}">Error</span>
+      <span class="badge badge-error" title="{{ issue.error_message or '' }}">{{ _("Error") }}</span>
     {% else %}
-      <span class="badge badge-queued">Not downloaded</span>
+      <span class="badge badge-queued">{{ _("Not downloaded") }}</span>
     {% endif %}
   </td>
   <td class="mono dim">
@@ -48,8 +48,8 @@
       href="/publications/{{ publication.custom_code }}/issues/{{ issue.custom_code }}/preview"
       target="_blank"
       rel="noopener"
-      title="View the first pages without marking this issue as downloaded"
-    >Preview</a>
+      title="{{ _('View the first pages without marking this issue as downloaded') }}"
+    >{{ _("Preview") }}</a>
     {% if issue.status in ("queued", "downloading") %}
       {# Always leave a way out - status and the jobs table can drift
          apart, and a stuck row was previously impossible to release. #}
@@ -59,8 +59,8 @@
         hx-target="closest tr"
         hx-swap="outerHTML"
         hx-vals='{"_csrf_token": "{{ csrf_token }}"}'
-        hx-confirm="Cancel this download? The issue goes back to not downloaded."
-      >Cancel</button>
+        hx-confirm="{{ _('Cancel this download? The issue goes back to not downloaded.') }}"
+      >{{ _("Cancel") }}</button>
     {% elif issue.status == "done" %}
       {% if issue.file_exists %}
       <a
@@ -68,7 +68,7 @@
         href="/publications/{{ publication.custom_code }}/issues/{{ issue.custom_code }}/file"
         target="_blank"
         rel="noopener"
-      >Open</a>
+      >{{ _("Open") }}</a>
       {% endif %}
       <button
         class="btn btn-watch"
@@ -76,8 +76,8 @@
         hx-target="closest tr"
         hx-swap="outerHTML"
         hx-vals='{"_csrf_token": "{{ csrf_token }}"}'
-        hx-confirm="Re-download this issue?"
-      >Re-download</button>
+        hx-confirm="{{ _('Re-download this issue?') }}"
+      >{{ _("Re-download") }}</button>
       {% if issue.file_exists %}
       <button
         class="btn btn-unwatch"
@@ -85,8 +85,8 @@
         hx-target="closest tr"
         hx-swap="outerHTML"
         hx-vals='{"_csrf_token": "{{ csrf_token }}"}'
-        hx-confirm="Delete the downloaded PDF from disk? The issue will be marked as not downloaded."
-      >Delete</button>
+        hx-confirm="{{ _('Delete the downloaded PDF from disk? The issue will be marked as not downloaded.') }}"
+      >{{ _("Delete") }}</button>
       {% endif %}
     {% elif issue.status == "error" %}
       <button
@@ -95,7 +95,7 @@
         hx-target="closest tr"
         hx-swap="outerHTML"
         hx-vals='{"_csrf_token": "{{ csrf_token }}"}'
-      >Retry</button>
+      >{{ _("Retry") }}</button>
     {% else %}
       <button
         class="btn btn-watch"
@@ -103,7 +103,7 @@
         hx-target="closest tr"
         hx-swap="outerHTML"
         hx-vals='{"_csrf_token": "{{ csrf_token }}"}'
-      >Download</button>
+      >{{ _("Download") }}</button>
     {% endif %}
   </td>
 </tr>

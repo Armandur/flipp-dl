@@ -1,14 +1,14 @@
 {% extends "base.html" %}
-{% block title %}Jobs – Flipp-DL{% endblock %}
+{% block title %}{{ _("Jobs") }} – Flipp-DL{% endblock %}
 
 {% block content %}
-<h1>Jobs</h1>
+<h1>{{ _("Jobs") }}</h1>
 
 {# Filtering happens in the query, so a queue deeper than the page size
    is still reachable here. #}
 <div class="status-filter">
   <a href="/jobs" class="{{ 'active' if not selected_status }}">
-    All<span class="count">{{ total_jobs }}</span>
+    {{ _("All") }}<span class="count">{{ total_jobs }}</span>
   </a>
   {% for status in statuses %}
   <a href="/jobs?status={{ status }}" class="{{ 'active' if selected_status == status }}">
@@ -23,13 +23,13 @@
     <thead>
       <tr>
         <th>#</th>
-        <th>Type</th>
-        <th>Target</th>
-        <th>Status</th>
-        <th>Created</th>
-        <th>Started</th>
-        <th>Finished</th>
-        <th>Error</th>
+        <th>{{ _("Type") }}</th>
+        <th>{{ _("Target") }}</th>
+        <th>{{ _("Status") }}</th>
+        <th>{{ _("Created") }}</th>
+        <th>{{ _("Started") }}</th>
+        <th>{{ _("Finished") }}</th>
+        <th>{{ _("Error") }}</th>
       </tr>
     </thead>
     <tbody>
@@ -90,7 +90,7 @@
   </table>
   {% else %}
   <div class="empty">
-    {% if selected_status %}No {{ selected_status }} jobs.{% else %}No jobs yet.{% endif %}
+    {% if selected_status %}{{ _("No") }} {{ selected_status }} {{ _("jobs.") }}{% else %}{{ _("No jobs yet.") }}{% endif %}
   </div>
   {% endif %}
 </div>

@@ -1,32 +1,32 @@
 <div class="stats" id="stats-cards" hx-get="/stats/cards" hx-trigger="every 5s" hx-swap="outerHTML">
   <div class="stat-card">
-    <div class="label">Publications</div>
+    <div class="label">{{ _("Publications") }}</div>
     <div class="value">{{ stats.total_pubs }}</div>
   </div>
   <div class="stat-card">
-    <div class="label">Watched</div>
+    <div class="label">{{ _("Watched") }}</div>
     <div class="value">{{ stats.watched_pubs }}</div>
   </div>
   <div class="stat-card">
-    <div class="label">Total Issues</div>
+    <div class="label">{{ _("Total Issues") }}</div>
     <div class="value">{{ stats.total_issues }}</div>
   </div>
   <div class="stat-card">
-    <div class="label">Downloaded</div>
+    <div class="label">{{ _("Downloaded") }}</div>
     <div class="value">{{ stats.downloaded_issues }}</div>
   </div>
   {# Card body and sub-line link separately - an <a> inside an <a> is
      invalid HTML and the browser silently splits it. #}
   <div class="stat-card">
     <a class="stat-card-link" href="/jobs?status=queued">
-      <div class="label">In Queue</div>
+      <div class="label">{{ _("In Queue") }}</div>
       <div class="value">{{ stats.queued_jobs }}</div>
     </a>
     <div class="sub">
       {% if stats.running_jobs %}
-        <a href="/jobs?status=running">{{ stats.running_jobs }} running</a>
+        <a href="/jobs?status=running">{{ stats.running_jobs }} {{ _("running") }}</a>
       {% else %}
-        idle
+        {{ _("idle") }}
       {% endif %}
     </div>
   </div>

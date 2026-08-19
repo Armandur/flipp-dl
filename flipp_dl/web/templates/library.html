@@ -1,23 +1,21 @@
 {% extends "base.html" %}
-{% block title %}Library – Flipp-DL{% endblock %}
+{% block title %}{{ _("Library") }} – Flipp-DL{% endblock %}
 
 {% block content %}
-<h1>Library</h1>
+<h1>{{ _("Library") }}</h1>
 
 <div class="note">
-  Listing every PDF currently on disk under
-  <code>{{ output_root }}</code>. Files deleted outside flipp-dl won't show up
-  here but may still appear as "Downloaded" on the publication pages until the
-  next poll.
+  {{ _("Listing every PDF currently on disk under") }}
+  <code>{{ output_root }}</code>. {{ _('Files deleted outside flipp-dl won\'t show up here but may still appear as "Downloaded" on the publication pages until the next poll.') }}
 </div>
 
 <div class="stats">
   <div class="stat-card">
-    <div class="label">Files</div>
+    <div class="label">{{ _("Files") }}</div>
     <div class="value">{{ total_files }}</div>
   </div>
   <div class="stat-card">
-    <div class="label">Total size</div>
+    <div class="label">{{ _("Total size") }}</div>
     <div class="value">{{ total_bytes | human_size }}</div>
   </div>
 </div>
@@ -27,7 +25,7 @@
   <input
     id="lib-search"
     type="search"
-    placeholder="Search filename or folder…"
+    placeholder="{{ _('Search filename or folder…') }}"
     autocomplete="off"
     spellcheck="false"
   >
@@ -35,14 +33,14 @@
 </div>
 
 {% for folder, files in groups %}
-<h2>{{ folder or "(root)" }}</h2>
+<h2>{{ folder or _("(root)") }}</h2>
 <div class="card">
   <table class="lib-table">
     <thead>
       <tr>
-        <th>File</th>
-        <th style="width:140px;">Modified</th>
-        <th style="width:100px; text-align:right;">Size</th>
+        <th>{{ _("File") }}</th>
+        <th style="width:140px;">{{ _("Modified") }}</th>
+        <th style="width:100px; text-align:right;">{{ _("Size") }}</th>
       </tr>
     </thead>
     <tbody>
@@ -67,7 +65,7 @@
 {% else %}
 <div class="card">
   <div class="empty">
-    No PDFs found under <code>{{ output_root }}</code>.
+    {{ _("No PDFs found under") }} <code>{{ output_root }}</code>.
   </div>
 </div>
 {% endif %}

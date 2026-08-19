@@ -1,15 +1,15 @@
 {% if error %}
 <div class="debug-error">
-  <strong>Poll failed:</strong>
+  <strong>{{ _("Poll failed:") }}</strong>
   <pre>{{ error }}</pre>
 </div>
 {% else %}
 <div class="debug-summary">
-  Fetched <strong>{{ num_pubs }}</strong> publication{{ "s" if num_pubs != 1 else "" }}
-  · {{ byte_size }} bytes (redacted)
-  <button type="button" class="btn btn-watch" id="json-copy-btn">Copy JSON</button>
-  <button type="button" class="btn" id="json-expand-btn">Expand all</button>
-  <button type="button" class="btn" id="json-collapse-btn">Collapse all</button>
+  {{ _("Fetched") }} <strong>{{ num_pubs }}</strong> {{ _("publication") if num_pubs == 1 else _("publications") }}
+  · {{ byte_size }} {{ _("bytes (redacted)") }}
+  <button type="button" class="btn btn-watch" id="json-copy-btn">{{ _("Copy JSON") }}</button>
+  <button type="button" class="btn" id="json-expand-btn">{{ _("Expand all") }}</button>
+  <button type="button" class="btn" id="json-collapse-btn">{{ _("Collapse all") }}</button>
   <span id="json-copy-status" class="dim"></span>
 </div>
 
@@ -23,7 +23,7 @@
   try { data = JSON.parse(raw); }
   catch (e) {
     document.getElementById("json-tree").textContent =
-      "Failed to parse response JSON: " + e;
+      "{{ _('Failed to parse response JSON:') }}" + " " + e;
     return;
   }
   const root = document.getElementById("json-tree");
@@ -134,8 +134,8 @@
       setTimeout(() => { status.textContent = ""; }, 3000);
     };
     navigator.clipboard.writeText(raw).then(
-      () => say("Copied"),
-      () => say("Copy failed - select the JSON and copy manually")
+      () => say("{{ _('Copied') }}"),
+      () => say("{{ _('Copy failed - select the JSON and copy manually') }}")
     );
   });
   document.getElementById("json-expand-btn").addEventListener("click", () => {

@@ -2,7 +2,7 @@
 {% block title %}{{ publication.name }} – Flipp-DL{% endblock %}
 
 {% block content %}
-<a class="back-link" href="/publications">← All publications</a>
+<a class="back-link" href="/publications">← {{ _("All publications") }}</a>
 
 <div class="detail-header">
   {% if publication.cover_cache_path %}
@@ -18,23 +18,23 @@
     <h1>{{ publication.name }}</h1>
     <div class="dim detail-meta">
       <span class="mono">{{ publication.custom_code }}</span>
-      · {{ issues | length }} issue{{ "s" if issues | length != 1 else "" }}
+      · {{ issues | length }} {{ _("issue") if issues | length == 1 else _("issues") }}
       {% if publication.next_issue_date %}
-        · Next issue: <strong>{{ publication.next_issue_date }}</strong>
+        · {{ _("Next issue:") }} <strong>{{ publication.next_issue_date }}</strong>
       {% endif %}
       {% if publication.watched %}
-        · <span class="badge badge-done">Watched</span>
+        · <span class="badge badge-done">{{ _("Watched") }}</span>
       {% endif %}
       {% if komga.enabled %}
         {% if komga.mapped %}
           · Komga:
-          <span class="badge badge-done">synkad ✓</span>
+          <span class="badge badge-done">{{ _("synced ✓") }}</span>
           ·
           <a href="{{ komga.series_url }}" target="_blank" rel="noopener">
-            serie #{{ komga.series_id }}
+            {{ _("series") }} #{{ komga.series_id }}
           </a>
         {% else %}
-          · Komga: okänd - söker nästa gång
+          · Komga: {{ _("unknown - will look up on next poll") }}
         {% endif %}
       {% endif %}
     </div>
@@ -52,8 +52,8 @@
         hx-target="#queue-missing-result"
         hx-swap="innerHTML"
         hx-vals='{"_csrf_token": "{{ csrf_token }}"}'
-        hx-confirm="Queue every issue that isn't downloaded yet?"
-      >Queue missing issues</button>
+        hx-confirm="{{ _("Queue every issue that isn't downloaded yet?") }}"
+      >{{ _("Queue missing issues") }}</button>
       <span id="queue-missing-result" class="dim"></span>
     </div>
     <form
@@ -64,7 +64,7 @@
     >
       <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
       <label for="poll_interval_minutes" class="dim">
-        Own poll interval (minutes)
+        {{ _("Own poll interval (minutes)") }}
       </label>
       <input
         id="poll_interval_minutes"
@@ -72,11 +72,11 @@
         type="number"
         min="1"
         step="1"
-        placeholder="Global default"
+        placeholder="{{ _('Global default') }}"
         value="{{ publication.poll_interval_minutes or '' }}"
         style="width:120px;"
       >
-      <button class="btn btn-watch" type="submit">Save</button>
+      <button class="btn btn-watch" type="submit">{{ _("Save") }}</button>
     </form>
   </div>
 </div>
@@ -91,17 +91,17 @@
   <input
     id="issue-search"
     type="search"
-    placeholder="Search issues…"
+    placeholder="{{ _('Search issues…') }}"
     autocomplete="off"
     spellcheck="false"
   >
   <select id="issue-status">
-    <option value="">All statuses</option>
-    <option value="new">Not downloaded</option>
-    <option value="queued">Queued</option>
-    <option value="downloading">Downloading</option>
-    <option value="done">Downloaded</option>
-    <option value="error">Error</option>
+    <option value="">{{ _("All statuses") }}</option>
+    <option value="new">{{ _("Not downloaded") }}</option>
+    <option value="queued">{{ _("Queued") }}</option>
+    <option value="downloading">{{ _("Downloading") }}</option>
+    <option value="done">{{ _("Downloaded") }}</option>
+    <option value="error">{{ _("Error") }}</option>
   </select>
   <span id="issue-count" class="dim"></span>
 </div>
@@ -112,11 +112,11 @@
     <thead>
       <tr>
         <th style="width:56px;"></th>
-        <th>Issue</th>
-        <th>Date</th>
-        <th>Status</th>
-        <th>File</th>
-        <th>Action</th>
+        <th>{{ _("Issue") }}</th>
+        <th>{{ _("Date") }}</th>
+        <th>{{ _("Status") }}</th>
+        <th>{{ _("File") }}</th>
+        <th>{{ _("Action") }}</th>
       </tr>
     </thead>
     <tbody id="issue-tbody">
@@ -126,11 +126,11 @@
     </tbody>
   </table>
   <div id="issue-empty" class="empty" style="display:none;">
-    No issues match the current filters.
+    {{ _("No issues match the current filters.") }}
   </div>
   {% else %}
   <div class="empty">
-    No issues for this publication yet. Run a poll to refresh.
+    {{ _("No issues for this publication yet. Run a poll to refresh.") }}
   </div>
   {% endif %}
 </div>

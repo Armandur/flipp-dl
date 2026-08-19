@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ current_language(request) }}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -21,6 +21,10 @@
     nav a:hover, nav a.active { background: #313244; color: #cdd6f4; }
     nav .spacer { flex: 1; }
     nav .logout { color: #6c7086; font-size: 12px; }
+    nav .lang-switch { display: flex; gap: 2px; margin-right: 4px; }
+    nav .lang-switch a { padding: 4px 8px; font-size: 11px; font-weight: 600;
+                          text-transform: uppercase; }
+    nav .lang-switch a.active { background: #313244; color: #cba6f7; }
 
     @media (max-width: 480px) {
       nav { padding: 8px 12px; gap: 2px; }
@@ -222,14 +226,18 @@
 <body>
   <nav>
     <a class="brand" href="/">Flipp-DL</a>
-    <a href="/" {% if request.url.path == "/" %}class="active"{% endif %}>Dashboard</a>
-    <a href="/publications" {% if request.url.path.startswith("/publications") %}class="active"{% endif %}>Publications</a>
-    <a href="/library" {% if request.url.path.startswith("/library") %}class="active"{% endif %}>Library</a>
-    <a href="/jobs" {% if request.url.path.startswith("/jobs") %}class="active"{% endif %}>Jobs</a>
-    <a href="/settings" {% if request.url.path.startswith("/settings") %}class="active"{% endif %}>Settings</a>
+    <a href="/" {% if request.url.path == "/" %}class="active"{% endif %}>{{ _("Dashboard") }}</a>
+    <a href="/publications" {% if request.url.path.startswith("/publications") %}class="active"{% endif %}>{{ _("Publications") }}</a>
+    <a href="/library" {% if request.url.path.startswith("/library") %}class="active"{% endif %}>{{ _("Library") }}</a>
+    <a href="/jobs" {% if request.url.path.startswith("/jobs") %}class="active"{% endif %}>{{ _("Jobs") }}</a>
+    <a href="/settings" {% if request.url.path.startswith("/settings") %}class="active"{% endif %}>{{ _("Settings") }}</a>
     <span class="spacer"></span>
+    <span class="lang-switch">
+      <a href="/language/en?next={{ request.url.path | urlencode }}" {% if current_language(request) == "en" %}class="active"{% endif %}>EN</a>
+      <a href="/language/sv?next={{ request.url.path | urlencode }}" {% if current_language(request) == "sv" %}class="active"{% endif %}>SV</a>
+    </span>
     {% if request.session.get("authenticated") %}
-    <a class="logout" href="/logout">Sign out</a>
+    <a class="logout" href="/logout">{{ _("Sign out") }}</a>
     {% endif %}
   </nav>
   <main>
@@ -243,8 +251,8 @@
   <dialog class="confirm-dialog" id="confirm-dialog">
     <p class="confirm-body" id="confirm-text"></p>
     <div class="confirm-actions">
-      <button class="btn btn-neutral" value="cancel" id="confirm-no">Cancel</button>
-      <button class="btn btn-primary" value="ok" id="confirm-yes" autofocus>Confirm</button>
+      <button class="btn btn-neutral" value="cancel" id="confirm-no">{{ _("Cancel") }}</button>
+      <button class="btn btn-primary" value="ok" id="confirm-yes" autofocus>{{ _("Confirm") }}</button>
     </div>
   </dialog>
   <script>

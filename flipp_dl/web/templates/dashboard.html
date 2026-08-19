@@ -1,23 +1,23 @@
 {% extends "base.html" %}
-{% block title %}Dashboard – Flipp-DL{% endblock %}
+{% block title %}{{ _("Dashboard") }} – Flipp-DL{% endblock %}
 
 {% block content %}
-<h1>Dashboard</h1>
+<h1>{{ _("Dashboard") }}</h1>
 
 {# ── Stats (self-refreshing via HTMX) ── #}
 {% include "stats_cards.html" %}
 
 {# ── Recent Downloads ── #}
-<h2>Recent Downloads</h2>
+<h2>{{ _("Recent Downloads") }}</h2>
 <div class="card">
   {% if recent_issues %}
   <table>
     <thead>
       <tr>
-        <th>Issue</th>
-        <th>Publication</th>
-        <th>Downloaded At</th>
-        <th>File</th>
+        <th>{{ _("Issue") }}</th>
+        <th>{{ _("Publication") }}</th>
+        <th>{{ _("Downloaded At") }}</th>
+        <th>{{ _("File") }}</th>
       </tr>
     </thead>
     <tbody>
@@ -51,23 +51,23 @@
     </tbody>
   </table>
   {% else %}
-  <div class="empty">No downloads yet.</div>
+  <div class="empty">{{ _("No downloads yet.") }}</div>
   {% endif %}
 </div>
 
 {# ── Recent Jobs ── #}
-<h2>Recent Jobs</h2>
+<h2>{{ _("Recent Jobs") }}</h2>
 <div class="card">
   {% if recent_jobs %}
   <table>
     <thead>
       <tr>
         <th>#</th>
-        <th>Type</th>
-        <th>Status</th>
-        <th>Created</th>
-        <th>Finished</th>
-        <th>Error</th>
+        <th>{{ _("Type") }}</th>
+        <th>{{ _("Status") }}</th>
+        <th>{{ _("Created") }}</th>
+        <th>{{ _("Finished") }}</th>
+        <th>{{ _("Error") }}</th>
       </tr>
     </thead>
     <tbody>
@@ -98,7 +98,7 @@
     </tbody>
   </table>
   {% else %}
-  <div class="empty">No jobs recorded yet.</div>
+  <div class="empty">{{ _("No jobs recorded yet.") }}</div>
   {% endif %}
 </div>
 {% endblock %}

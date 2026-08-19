@@ -1,18 +1,18 @@
 {% extends "base.html" %}
-{% block title %}Settings – Flipp-DL{% endblock %}
+{% block title %}{{ _("Settings") }} – Flipp-DL{% endblock %}
 
 {% block content %}
-<h1>Settings</h1>
+<h1>{{ _("Settings") }}</h1>
 
 {% if saved %}
-<div class="flash">Settings saved successfully.</div>
+<div class="flash">{{ _("Settings saved successfully.") }}</div>
 {% endif %}
 
 <div class="form-card">
   <form method="post" action="/settings">
     <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
     <div class="field">
-      <label for="flipp_token">Flipp token</label>
+      <label for="flipp_token">{{ _("Flipp token") }}</label>
       <input
         type="password"
         id="flipp_token"
@@ -21,23 +21,22 @@
         {% if settings.token_saved %}
         placeholder="•••••••••••"
         {% else %}
-        placeholder="No token saved yet"
+        placeholder="{{ _('No token saved yet') }}"
         {% endif %}
       >
       {% if settings.token_saved %}
-      <div class="note">A token is saved and in use. Leave blank to keep it unchanged.</div>
+      <div class="note">{{ _("A token is saved and in use. Leave blank to keep it unchanged.") }}</div>
       {% elif settings.token_env_fallback %}
       <div class="note">
-        No token saved here yet - the <code>FLIPP_TOKEN</code> environment
-        variable / <code>token</code> file is used until you save one.
+        {{ _('No token saved here yet - the') }} <code>FLIPP_TOKEN</code> {{ _('environment variable /') }} <code>token</code> {{ _('file is used until you save one.') }}
       </div>
       {% else %}
-      <div class="note">No token configured. Paste one above and save.</div>
+      <div class="note">{{ _("No token configured. Paste one above and save.") }}</div>
       {% endif %}
     </div>
 
     <div class="field">
-      <label for="poll_interval">Poll interval (minutes)</label>
+      <label for="poll_interval">{{ _("Poll interval (minutes)") }}</label>
       <input
         type="number"
         id="poll_interval"
@@ -50,7 +49,7 @@
     </div>
 
     <div class="field">
-      <label for="workers">Download workers</label>
+      <label for="workers">{{ _("Download workers") }}</label>
       <input
         type="number"
         id="workers"
@@ -62,12 +61,9 @@
       >
     </div>
 
-    <h2>Komga</h2>
+    <h2>{{ _("Komga") }}</h2>
     <div class="note">
-      Triggers a Komga library scan right after a download finishes, so
-      Komga picks up the new file immediately instead of waiting for its
-      next scheduled scan. No requests are made and nothing is queued
-      while the integration is disabled.
+      {{ _("Triggers a Komga library scan right after a download finishes, so Komga picks up the new file immediately instead of waiting for its next scheduled scan. No requests are made and nothing is queued while the integration is disabled.") }}
     </div>
 
     <div class="field checkbox-field">
@@ -78,12 +74,12 @@
           name="komga_enabled"
           {% if settings.komga_enabled %}checked{% endif %}
         >
-        Enable Komga integration
+        {{ _("Enable Komga integration") }}
       </label>
     </div>
 
     <div class="field">
-      <label for="komga_url">Komga URL</label>
+      <label for="komga_url">{{ _("Komga URL") }}</label>
       <input
         type="url"
         id="komga_url"
@@ -94,7 +90,7 @@
     </div>
 
     <div class="field">
-      <label for="komga_username">Komga username</label>
+      <label for="komga_username">{{ _("Komga username") }}</label>
       <input
         type="text"
         id="komga_username"
@@ -105,7 +101,7 @@
     </div>
 
     <div class="field">
-      <label for="komga_password">Komga password</label>
+      <label for="komga_password">{{ _("Komga password") }}</label>
       <input
         type="password"
         id="komga_password"
@@ -114,16 +110,16 @@
         {% if settings.komga_password_saved %}
         placeholder="•••"
         {% else %}
-        placeholder="No password saved"
+        placeholder="{{ _('No password saved') }}"
         {% endif %}
       >
       {% if settings.komga_password_saved %}
-      <div class="note">Leave blank to keep the saved password.</div>
+      <div class="note">{{ _("Leave blank to keep the saved password.") }}</div>
       {% endif %}
     </div>
 
     <div class="field">
-      <label for="komga_api_key">Komga API key</label>
+      <label for="komga_api_key">{{ _("Komga API key") }}</label>
       <input
         type="password"
         id="komga_api_key"
@@ -132,24 +128,24 @@
         {% if settings.komga_api_key_saved %}
         placeholder="•••"
         {% else %}
-        placeholder="No API key saved"
+        placeholder="{{ _('No API key saved') }}"
         {% endif %}
       >
       {% if settings.komga_api_key_saved %}
-      <div class="note">Leave blank to keep the saved API key.</div>
+      <div class="note">{{ _("Leave blank to keep the saved API key.") }}</div>
       {% endif %}
     </div>
 
     <div class="field">
-      <label for="komga_library_id">Library</label>
+      <label for="komga_library_id">{{ _("Library") }}</label>
       <div id="komga-library-field">
         <select id="komga_library_id" name="komga_library_id">
           {% if settings.komga_library_id %}
           <option value="{{ settings.komga_library_id }}" selected>
-            Saved library ({{ settings.komga_library_id }})
+            {{ _("Saved library") }} ({{ settings.komga_library_id }})
           </option>
           {% else %}
-          <option value="">No library selected - test connection to pick one</option>
+          <option value="">{{ _("No library selected - test connection to pick one") }}</option>
           {% endif %}
         </select>
       </div>
@@ -163,17 +159,15 @@
         hx-swap="innerHTML"
         hx-indicator="#komga-test-spinner"
         hx-vals='{"_csrf_token": "{{ csrf_token }}"}'
-      >Test connection</button>
+      >{{ _("Test connection") }}</button>
       <span id="komga-test-spinner" class="htmx-indicator dim" style="margin-left:12px;">
-        Testing…
+        {{ _("Testing…") }}
       </span>
     </div>
 
-    <h2>Notifications</h2>
+    <h2>{{ _("Notifications") }}</h2>
     <div class="note">
-      Get a push notification when a new issue finishes downloading, or
-      when a download fails. Two channels are supported and can be
-      enabled independently - use one, both, or neither.
+      {{ _("Get a push notification when a new issue finishes downloading, or when a download fails. Two channels are supported and can be enabled independently - use one, both, or neither.") }}
     </div>
 
     <div class="field checkbox-field">
@@ -184,12 +178,12 @@
           name="notify_ntfy_enabled"
           {% if settings.notify_ntfy_enabled %}checked{% endif %}
         >
-        Enable ntfy notifications
+        {{ _("Enable ntfy notifications") }}
       </label>
     </div>
 
     <div class="field">
-      <label for="notify_ntfy_url">ntfy server URL</label>
+      <label for="notify_ntfy_url">{{ _("ntfy server URL") }}</label>
       <input
         type="url"
         id="notify_ntfy_url"
@@ -200,7 +194,7 @@
     </div>
 
     <div class="field">
-      <label for="notify_ntfy_topic">ntfy topic</label>
+      <label for="notify_ntfy_topic">{{ _("ntfy topic") }}</label>
       <input
         type="text"
         id="notify_ntfy_topic"
@@ -211,7 +205,7 @@
     </div>
 
     <div class="field">
-      <label for="notify_ntfy_token">ntfy access token</label>
+      <label for="notify_ntfy_token">{{ _("ntfy access token") }}</label>
       <input
         type="password"
         id="notify_ntfy_token"
@@ -220,11 +214,11 @@
         {% if settings.notify_ntfy_token_saved %}
         placeholder="•••"
         {% else %}
-        placeholder="No token saved (only needed for a protected topic)"
+        placeholder="{{ _('No token saved (only needed for a protected topic)') }}"
         {% endif %}
       >
       {% if settings.notify_ntfy_token_saved %}
-      <div class="note">Leave blank to keep the saved token.</div>
+      <div class="note">{{ _("Leave blank to keep the saved token.") }}</div>
       {% endif %}
     </div>
 
@@ -236,12 +230,12 @@
           name="notify_webhook_enabled"
           {% if settings.notify_webhook_enabled %}checked{% endif %}
         >
-        Enable webhook notifications
+        {{ _("Enable webhook notifications") }}
       </label>
     </div>
 
     <div class="field">
-      <label for="notify_webhook_url">Webhook URL</label>
+      <label for="notify_webhook_url">{{ _("Webhook URL") }}</label>
       <input
         type="url"
         id="notify_webhook_url"
@@ -250,34 +244,28 @@
         {% if settings.notify_webhook_url_saved %}
         placeholder="•••••••••••"
         {% else %}
-        placeholder="No webhook URL saved"
+        placeholder="{{ _('No webhook URL saved') }}"
         {% endif %}
       >
       {% if settings.notify_webhook_url_saved %}
       <div class="note">
-        A URL is saved and in use. Leave blank to keep it unchanged.
-        Every new issue (or failure) is POSTed here as
+        {{ _('A URL is saved and in use. Leave blank to keep it unchanged. Every new issue (or failure) is POSTed here as') }}
         <code>{"title": ..., "message": ...}</code>.
       </div>
       {% else %}
       <div class="note">
-        POSTs <code>{"title": ..., "message": ...}</code> to this URL for
-        every new issue (or failure).
+        {{ _('POSTs') }} <code>{"title": ..., "message": ...}</code> {{ _('to this URL for every new issue (or failure).') }}
       </div>
       {% endif %}
     </div>
 
-    <button type="submit" class="btn btn-primary">Save Settings</button>
+    <button type="submit" class="btn btn-primary">{{ _("Save Settings") }}</button>
   </form>
 </div>
 
-<h2>Import existing files</h2>
+<h2>{{ _("Import existing files") }}</h2>
 <div class="note">
-  Scan the output folder and reconcile it with the database: a file that
-  already sits on disk marks its issue downloaded without fetching it
-  again. Anything the scan can't explain - orphan files, a downloaded
-  issue whose file has vanished, or two issues sharing one file - is
-  reported below instead of being fixed silently.
+  {{ _("Scan the output folder and reconcile it with the database: a file that already sits on disk marks its issue downloaded without fetching it again. Anything the scan can't explain - orphan files, a downloaded issue whose file has vanished, or two issues sharing one file - is reported below instead of being fixed silently.") }}
 </div>
 
 <div class="form-card" style="max-width: 100%;">
@@ -290,20 +278,18 @@
     hx-swap="innerHTML"
     hx-indicator="#import-existing-spinner"
     hx-vals='{"_csrf_token": "{{ csrf_token }}"}'
-  >Import existing files</button>
+  >{{ _("Import existing files") }}</button>
   <span id="import-existing-spinner" class="htmx-indicator dim" style="margin-left:12px;">
-    Scanning…
+    {{ _("Scanning…") }}
   </span>
   <div id="import-existing-output" style="margin-top:18px;"></div>
 </div>
 
-<h2>Debug</h2>
+<h2>{{ _("Debug") }}</h2>
 <div class="note">
-  Run a manual poll against the Flipp API and inspect the raw
-  <code>refreshsignintoken</code> response. Useful for verifying your
-  token and spotting new fields. Sensitive fields
-  (<code>token</code>, <code>password</code>, <code>email</code>) are
-  redacted before the response reaches your browser.
+  {{ _("Run a manual poll against the Flipp API and inspect the raw") }}
+  <code>refreshsignintoken</code> {{ _("response. Useful for verifying your token and spotting new fields. Sensitive fields") }}
+  (<code>token</code>, <code>password</code>, <code>email</code>) {{ _("are redacted before the response reaches your browser.") }}
 </div>
 
 <div class="form-card" style="max-width: 100%;">
@@ -315,9 +301,9 @@
     hx-swap="innerHTML"
     hx-indicator="#debug-spinner"
     hx-vals='{"_csrf_token": "{{ csrf_token }}"}'
-  >Run manual poll</button>
+  >{{ _("Run manual poll") }}</button>
   <span id="debug-spinner" class="htmx-indicator dim" style="margin-left:12px;">
-    Polling Flipp API…
+    {{ _("Polling Flipp API…") }}
   </span>
   <div id="debug-output" style="margin-top:18px;"></div>
 </div>

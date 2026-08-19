@@ -167,6 +167,39 @@ Webbgränssnittet nås sedan på `http://<unraid-ip>:8000`.
 | JSON-API          | `/api/…`         | `publications`, `publications/{code}`, `jobs` |
 | OPDS              | `/api/opds`, `/api/opds2` | Atom 1.2 respektive JSON 2.0, för PDF-läsare |
 
+### Översättningar
+
+UI-texten går via gettext/Babel: engelska är alltid källtexten (`msgid`)
+och fallback-språket, svenska är en `.po`-katalog under
+`flipp_dl/web/locales/sv/LC_MESSAGES/`. Språket väljs via `/language/en`
+respektive `/language/sv` (växlaren i toppnavigeringen), sparas i
+sessionen, och slår igenom på `<html lang="…">` och all översatt text.
+Saknas en sträng i den svenska katalogen visas den engelska originaltexten
+i stället för en tom sträng eller en `msgid`.
+
+Kompilerade `.mo`-filer är incheckade och används direkt i produktion -
+`pybabel` (från `Babel`-paketet i `requirements.txt`) behövs bara när du
+ändrar UI-text:
+
+```bash
+# 1. Extrahera alla _("...")-strängar ur templates till en .pot-mall
+pybabel extract -F flipp_dl/web/locales/babel.cfg \
+  -o flipp_dl/web/locales/messages.pot flipp_dl/web/templates
+
+# 2. Slå ihop nya/ändrade strängar in i den befintliga svenska katalogen
+#    (behåller redan gjorda översättningar; nya strängar får tom msgstr)
+pybabel update -i flipp_dl/web/locales/messages.pot \
+  -d flipp_dl/web/locales -l sv
+
+# 3. Redigera flipp_dl/web/locales/sv/LC_MESSAGES/messages.po för hand,
+#    fyll i msgstr för det som är nytt eller ändrat
+
+# 4. Kompilera .po till .mo - detta är filen som faktiskt läses i drift
+pybabel compile -d flipp_dl/web/locales -l sv
+```
+
+Glöm inte steg 4 - `.po`-ändringar utan omkompilering syns aldrig i UI:t.
+
 ## Utveckling
 
 ```bash

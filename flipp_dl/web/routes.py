@@ -33,7 +33,7 @@ from ..scheduler import (
     resolve_current_token,
     resolve_komga_settings_from_repo,
 )
-from . import opds
+from . import i18n, opds
 from .auth import auth_enabled, check_csrf_form, generate_csrf_token, verify_password
 
 logger = logging.getLogger(__name__)
@@ -146,6 +146,22 @@ def register(app: FastAPI) -> None:
 
         body = "\n".join(lines) + "\n"
         return PlainTextResponse(body, media_type="text/plain; version=0.0.4")
+
+    # ------------------------------------------------------------------
+    # Language
+    # ------------------------------------------------------------------
+
+    @app.get("/language/{lang}", include_in_schema=False)
+    async def set_language(request: Request, lang: str, next: str = "/"):
+        """Switch the UI language for this session.
+
+        A plain GET is fine here (no CSRF check): this only changes a
+        display preference in the session, not any stored data, so it
+        carries none of the risk a state-changing POST would.
+        """
+        i18n.set_language(request, lang)
+        safe_next = next if next.startswith("/") else "/"
+        return RedirectResponse(url=safe_next, status_code=302)
 
     # ------------------------------------------------------------------
     # Auth – login / logout
