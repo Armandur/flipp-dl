@@ -113,6 +113,28 @@ Rätt fix är troligen en riktig claim-fråga mot DB (SELECT ... WHERE status=qu
 
 ---
 
+## [P3][done] [flipp] Byt webbläsardialoger mot egna modaler
+
+Gränssnittet använder webbläsarens inbyggda dialoger på fem ställen: hx-confirm i issue_row.html (Cancel, Re-download, Delete) och publication_detail.html (Queue missing issues), plus alert("Copy failed") i debug_poll_result.html. De ser ut som systemdialoger, går inte att styla, och texten prefixas av webbläsaren med sidans adress.
+
+Ersätt med en egen modal i base.html byggd på <dialog>. HTMX fyrar htmx:confirm innan varje förfrågan med hx-confirm - fånga eventet, visa modalen, och kör evt.detail.issueRequest() när användaren bekräftar. Då behöver inga knappar ändras.
+
+alert-fallet blir en kort inline-text i stället för en dialog.
+
+Acceptanskriterier:
+- Ingen confirm/alert/prompt kvar i mallarna.
+- Modalen följer sidans mörka tema, går att stänga med Escape och genom att klicka utanför, och avbryter då förfrågan.
+- Bekräfta kör samma HTMX-anrop som förut.
+- Fokus hamnar i modalen när den öppnas.
+
+Verifiering: klicka igenom Cancel, Re-download, Delete och Queue missing i webbläsaren - både bekräfta och avbryt - och kontrollera att avbryt inte skickar något anrop. Skärmdumpar vid 390px och 1280px.
+
+- ID: `01M0CZKQ35MP4YXWNKQWZA820M`
+- Type: improvement
+- Actor: ai:claude-opus-5
+
+---
+
 ## [P3][done] [flipp] Knapp för att köa saknade utgåvor utan att röra bevakningen
 
 I dag är unwatch följt av watch enda sättet att köa om en publikations saknade utgåvor manuellt. Det är en omväg, och mellan klicken är publikationen faktiskt obevakad - landar en poll där missas nya utgåvor.
