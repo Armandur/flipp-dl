@@ -27,7 +27,11 @@ from ..downloader import IssueDownloader
 from ..komga import KomgaClient, KomgaError
 from ..models import Issue as DomainIssue
 from ..models import Publication as DomainPublication
-from ..scheduler import poll_publications, resolve_current_token
+from ..scheduler import (
+    poll_publications,
+    resolve_current_token,
+    resolve_komga_settings_from_repo,
+)
 from .auth import auth_enabled, check_csrf_form, generate_csrf_token, verify_password
 
 logger = logging.getLogger(__name__)
@@ -63,6 +67,28 @@ def _annotate_file_exists(issues, output_root: Path) -> None:
     """Attach a ``file_exists`` boolean to each ORM issue for the template."""
     for issue in issues:
         issue.file_exists = _safe_output_file(output_root, issue.file_path) is not None
+
+
+def _komga_status(repo: DownloadRepository, pub) -> dict:
+    """Komga mapping status for the publication detail header (TASK-1327).
+
+    ``enabled`` is False (and the rest omitted) when Komga isn't turned
+    on at all - nothing useful to show, so the template renders nothing.
+    Otherwise ``mapped`` distinguishes "synkad ✓ · serie #<id>" (with a
+    link into Komga) from "okänd - söker nästa gång" for a publication
+    the folder-name lookup hasn't matched yet.
+    """
+    settings = resolve_komga_settings_from_repo(repo)
+    if not settings["enabled"] or not settings["url"]:
+        return {"enabled": False}
+    if pub.komga_series_id:
+        return {
+            "enabled": True,
+            "mapped": True,
+            "series_id": pub.komga_series_id,
+            "series_url": f"{settings['url'].rstrip('/')}/series/{pub.komga_series_id}",
+        }
+    return {"enabled": True, "mapped": False}
 
 
 def register(app: FastAPI) -> None:
@@ -372,6 +398,7 @@ def register(app: FastAPI) -> None:
                 {
                     "publication": pub,
                     "issues": issues,
+                    "komga": _komga_status(repo, pub),
                     "csrf_token": generate_csrf_token(request),
                 },
             )

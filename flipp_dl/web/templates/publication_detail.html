@@ -25,6 +25,18 @@
       {% if publication.watched %}
         · <span class="badge badge-done">Watched</span>
       {% endif %}
+      {% if komga.enabled %}
+        {% if komga.mapped %}
+          · Komga:
+          <span class="badge badge-done">synkad ✓</span>
+          ·
+          <a href="{{ komga.series_url }}" target="_blank" rel="noopener">
+            serie #{{ komga.series_id }}
+          </a>
+        {% else %}
+          · Komga: okänd - söker nästa gång
+        {% endif %}
+      {% endif %}
     </div>
     {% if publication.categories %}
     <div class="dim" style="margin-top:6px;">

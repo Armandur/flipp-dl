@@ -99,6 +99,46 @@ def test_set_watched_unknown_returns_false(repo):
 
 
 # ---------------------------------------------------------------------------
+# Komga series mapping (TASK-1327)
+# ---------------------------------------------------------------------------
+
+
+def test_set_komga_series_id(repo):
+    repo.upsert_publication(_publication())
+    repo.session.commit()
+
+    assert repo.set_komga_series_id("KA", 55)
+    repo.session.commit()
+
+    assert repo.get_publication("KA").komga_series_id == 55
+
+
+def test_set_komga_series_id_unknown_returns_false(repo):
+    assert repo.set_komga_series_id("NOPE", 55) is False
+
+
+def test_get_unmapped_publications(repo):
+    repo.upsert_publication(_publication("KA", "Kalle Anka & Co"))
+    repo.upsert_publication(_publication("BAMSE", "Bamse"))
+    repo.session.commit()
+    repo.set_komga_series_id("KA", 55)
+    repo.session.commit()
+
+    unmapped = repo.get_unmapped_publications()
+
+    assert [p.custom_code for p in unmapped] == ["BAMSE"]
+
+
+def test_get_unmapped_publications_empty_when_all_mapped(repo):
+    repo.upsert_publication(_publication())
+    repo.session.commit()
+    repo.set_komga_series_id("KA", 55)
+    repo.session.commit()
+
+    assert repo.get_unmapped_publications() == []
+
+
+# ---------------------------------------------------------------------------
 # Per-publication poll interval (TASK-1291)
 # ---------------------------------------------------------------------------
 

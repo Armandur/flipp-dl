@@ -348,6 +348,32 @@ class DownloadRepository:
     def get_publication_by_id(self, publication_id: int) -> DbPublication | None:
         return self.session.get(DbPublication, publication_id)
 
+    def set_komga_series_id(self, custom_code: str, series_id: int) -> bool:
+        """Cache the Komga series a publication maps to (TASK-1327).
+
+        Called once, the first time the folder-name lookup against
+        Komga's search endpoint succeeds - the mapping never changes
+        afterwards, so this is the only writer of the column. Returns
+        False if the publication doesn't exist.
+        """
+        db_pub = self.get_publication(custom_code)
+        if db_pub is None:
+            return False
+        db_pub.komga_series_id = series_id
+        return True
+
+    def get_unmapped_publications(self) -> list[DbPublication]:
+        """Publications with no Komga series mapped yet.
+
+        Used by the detail page (and any future bulk-remap tooling) to
+        show "Komga: okänd - söker nästa gång" without a per-row query.
+        """
+        return list(
+            self.session.scalars(
+                select(DbPublication).where(DbPublication.komga_series_id.is_(None))
+            )
+        )
+
     # ------------------------------------------------------------------
     # Issues
     # ------------------------------------------------------------------

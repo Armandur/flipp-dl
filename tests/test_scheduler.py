@@ -7,6 +7,7 @@ querying the DB directly for the oldest queued job.
 """
 
 import io
+import json
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -14,11 +15,12 @@ import pytest
 from pypdf import PdfWriter
 from sqlalchemy.orm import Session
 
+from flipp_dl import storage
 from flipp_dl.db.models import DbJob, IssueStatus, JobStatus
 from flipp_dl.db.repository import DownloadRepository
 from flipp_dl.db.session import get_session, make_session_factory
 from flipp_dl.komga import KomgaError
-from flipp_dl.models import Issue, Publication
+from flipp_dl.models import Category, Issue, Publication
 from flipp_dl.scheduler import (
     _claim_next_download_job,
     recover_stuck_jobs,
@@ -88,7 +90,7 @@ def test_claim_picks_oldest_queued_job_beyond_200_newer_jobs(repo, session_facto
 
     claimed = _claim_next_download_job(session_factory)
     assert claimed is not None
-    job_id, _domain_pub, _domain_issue = claimed
+    job_id, _domain_pub, _domain_issue, _issue_id = claimed
     assert job_id == oldest_id
 
 
@@ -321,9 +323,17 @@ class _FakeFlippClient:
 
 
 class _FakeKomgaClient:
-    """Records scan_library calls; monkeypatched in for KomgaClient."""
+    """Records scan_library calls; monkeypatched in for KomgaClient.
+
+    Also fakes the level-2 (TASK-1327) metadata-push surface. The two
+    class-level dicts are the fake's canned "server state" - set them
+    before calling ``run_komga_sync_queue`` and reset them (and
+    ``instances``) at the start of each test that uses them.
+    """
 
     instances: list["_FakeKomgaClient"] = []
+    series_by_name: dict[str, dict] = {}
+    books_by_series: dict[object, list[dict]] = {}
 
     def __init__(self, url, *, username="", password="", api_key=""):
         self.url = url
@@ -331,10 +341,34 @@ class _FakeKomgaClient:
         self.password = password
         self.api_key = api_key
         self.scanned: list[str] = []
+        self.patched_series: list[tuple] = []
+        self.patched_books: list[tuple] = []
+        self.uploaded_thumbnails: list[tuple] = []
         _FakeKomgaClient.instances.append(self)
 
     def scan_library(self, library_id):
         self.scanned.append(library_id)
+
+    def find_series_by_name(self, _library_id, name):
+        return _FakeKomgaClient.series_by_name.get(name)
+
+    def patch_series_metadata(self, series_id, **fields):
+        self.patched_series.append((series_id, fields))
+
+    def list_series_books(self, series_id):
+        return _FakeKomgaClient.books_by_series.get(series_id, [])
+
+    def find_book_by_stems(self, series_id, stems):
+        for book in self.list_series_books(series_id):
+            if book.get("name") in stems:
+                return book
+        return None
+
+    def patch_book_metadata(self, book_id, **fields):
+        self.patched_books.append((book_id, fields))
+
+    def upload_series_thumbnail(self, series_id, content, filename):
+        self.uploaded_thumbnails.append((series_id, content, filename))
 
 
 class _FailingKomgaClient:
@@ -374,7 +408,9 @@ def test_run_download_queue_queues_komga_sync_when_enabled(
 
         komga_job = r.get_oldest_queued_job("komga_sync")
         assert komga_job is not None
-        assert komga_job.payload == '{"library_id": "lib-1"}'
+        payload = json.loads(komga_job.payload)
+        assert payload["library_id"] == "lib-1"
+        assert payload["issue_id"] == issue_id
 
 
 def test_run_download_queue_does_not_queue_komga_sync_when_disabled(
@@ -487,3 +523,259 @@ def test_komga_failure_marks_job_error_but_issue_stays_done(
         assert len(komga_jobs) == 1
         assert komga_jobs[0].status == JobStatus.ERROR
         assert komga_jobs[0].error_message == "Komga is down"
+
+
+# ---------------------------------------------------------------------------
+# Metadata + cover push (TASK-1327)
+# ---------------------------------------------------------------------------
+
+
+def _seed_mapped_issue(
+    repo: DownloadRepository,
+    *,
+    description: str | None = None,
+    categories: list[Category] | None = None,
+    cover_cache_path: str | None = None,
+) -> tuple[int, str]:
+    """Seed a publication + issue, return (issue_id, expected book stem)."""
+    pub = Publication(
+        custom_code="KA",
+        name="Kalle Anka & Co",
+        description=description,
+        categories=categories or [],
+    )
+    db_pub = repo.upsert_publication(pub)
+    if cover_cache_path:
+        db_pub.cover_cache_path = cover_cache_path
+    repo.session.commit()
+    issue = Issue(custom_code="KA-01", issue_name="Nr 12", issue_date="2024-03-01")
+    db_issue, _created = repo.upsert_issue(issue, db_pub.id)
+    repo.session.commit()
+    stem = Path(storage.issue_filename(pub, issue)).stem
+    return db_issue.id, stem
+
+
+def _queue_komga_sync_job(repo: DownloadRepository, issue_id: int) -> int:
+    repo.set_setting("komga_enabled", "true")
+    repo.set_setting("komga_url", "http://localhost:25600")
+    repo.set_setting("komga_library_id", "lib-1")
+    job = repo.create_job("komga_sync", {"library_id": "lib-1", "issue_id": issue_id})
+    repo.session.commit()
+    return job.id
+
+
+def test_komga_sync_maps_series_and_pushes_metadata(repo, session_factory, monkeypatch):
+    monkeypatch.setattr("flipp_dl.scheduler.KomgaClient", _FakeKomgaClient)
+    _FakeKomgaClient.instances.clear()
+    _FakeKomgaClient.series_by_name = {
+        "Kalle Anka och Co": {"id": 55, "name": "Kalle Anka och Co"}
+    }
+
+    issue_id, stem = _seed_mapped_issue(
+        repo,
+        description="<p>Kul serie</p>",
+        categories=[Category(id=1, name="Humor")],
+    )
+    _FakeKomgaClient.books_by_series = {55: [{"id": 77, "name": stem}]}
+    job_id = _queue_komga_sync_job(repo, issue_id)
+
+    processed = run_komga_sync_queue(session_factory, max_jobs=1)
+    assert processed == 1
+
+    with get_session(session_factory) as session:
+        r = DownloadRepository(session)
+        assert r.get_job(job_id).status == JobStatus.DONE
+        assert r.get_publication("KA").komga_series_id == 55
+
+    client = _FakeKomgaClient.instances[0]
+    assert client.scanned == ["lib-1"]
+    series_id, series_fields = client.patched_series[0]
+    assert series_id == 55
+    assert series_fields["title"] == "Kalle Anka & Co"
+    assert series_fields["summary"] == "Kul serie"
+    assert series_fields["publisher"] == "Egmont"
+    assert series_fields["language"] == "sv"
+    assert series_fields["genres"] == ["Humor"]
+
+    book_id, book_fields = client.patched_books[0]
+    assert book_id == 77
+    assert book_fields["title"] == "Nr 12"
+    assert book_fields["number"] == "12"
+    assert book_fields["numberSort"] == 12.0
+    assert book_fields["releaseDate"] == "2024-03-01"
+
+
+def test_komga_sync_caches_series_id_and_never_looks_up_again(
+    repo, session_factory, monkeypatch
+):
+    monkeypatch.setattr("flipp_dl.scheduler.KomgaClient", _FakeKomgaClient)
+    _FakeKomgaClient.instances.clear()
+    _FakeKomgaClient.series_by_name = {
+        "Kalle Anka och Co": {"id": 55, "name": "Kalle Anka och Co"}
+    }
+
+    issue_id, stem = _seed_mapped_issue(repo)
+    _FakeKomgaClient.books_by_series = {55: [{"id": 77, "name": stem}]}
+    _queue_komga_sync_job(repo, issue_id)
+    run_komga_sync_queue(session_factory, max_jobs=1)
+
+    # Second sync: even if the fake "forgot" the series, the cached id on
+    # the publication must be used instead of searching again.
+    _FakeKomgaClient.series_by_name = {}
+    _queue_komga_sync_job(repo, issue_id)
+    processed = run_komga_sync_queue(session_factory, max_jobs=1)
+    assert processed == 1
+
+    with get_session(session_factory) as session:
+        r = DownloadRepository(session)
+        jobs = r.list_jobs(job_type="komga_sync")
+        assert all(j.status == JobStatus.DONE for j in jobs)
+        assert r.get_publication("KA").komga_series_id == 55
+
+
+def test_komga_sync_without_series_match_finishes_job_and_stays_unmapped(
+    repo, session_factory, monkeypatch
+):
+    """No exact folder-name match yet - not an error, just "try next time"."""
+    monkeypatch.setattr("flipp_dl.scheduler.KomgaClient", _FakeKomgaClient)
+    _FakeKomgaClient.instances.clear()
+    _FakeKomgaClient.series_by_name = {}
+    _FakeKomgaClient.books_by_series = {}
+
+    issue_id, _stem = _seed_mapped_issue(repo)
+    job_id = _queue_komga_sync_job(repo, issue_id)
+
+    processed = run_komga_sync_queue(session_factory, max_jobs=1)
+    assert processed == 1
+
+    with get_session(session_factory) as session:
+        r = DownloadRepository(session)
+        job = r.get_job(job_id)
+        assert job.status == JobStatus.DONE
+        assert job.error_message is None
+        assert r.get_publication("KA").komga_series_id is None
+
+
+def test_komga_sync_book_not_found_times_out_with_job_error(
+    repo, session_factory, monkeypatch
+):
+    monkeypatch.setattr("flipp_dl.scheduler.KomgaClient", _FakeKomgaClient)
+    monkeypatch.setenv("KOMGA_WAIT_SECONDS", "0")
+    _FakeKomgaClient.instances.clear()
+    _FakeKomgaClient.series_by_name = {
+        "Kalle Anka och Co": {"id": 55, "name": "Kalle Anka och Co"}
+    }
+    _FakeKomgaClient.books_by_series = {55: []}  # scan hasn't picked it up yet
+
+    issue_id, _stem = _seed_mapped_issue(repo)
+    job_id = _queue_komga_sync_job(repo, issue_id)
+
+    processed = run_komga_sync_queue(session_factory, max_jobs=1)
+    assert processed == 1
+
+    with get_session(session_factory) as session:
+        r = DownloadRepository(session)
+        job = r.get_job(job_id)
+        assert job.status == JobStatus.ERROR
+        assert "not found" in job.error_message.lower()
+        # The series mapping itself must still have been cached, even
+        # though the book lookup afterwards timed out.
+        assert r.get_publication("KA").komga_series_id == 55
+
+
+def test_komga_sync_uploads_cached_cover_as_thumbnail(
+    repo, session_factory, monkeypatch, tmp_path
+):
+    monkeypatch.setattr("flipp_dl.scheduler.KomgaClient", _FakeKomgaClient)
+    monkeypatch.setattr("flipp_dl.scheduler.default_cover_cache_root", lambda: tmp_path)
+    _FakeKomgaClient.instances.clear()
+    _FakeKomgaClient.series_by_name = {
+        "Kalle Anka och Co": {"id": 55, "name": "Kalle Anka och Co"}
+    }
+
+    (tmp_path / "pub-KA.jpg").write_bytes(b"\xff\xd8fake-jpeg")
+    issue_id, stem = _seed_mapped_issue(repo, cover_cache_path="pub-KA.jpg")
+    _FakeKomgaClient.books_by_series = {55: [{"id": 77, "name": stem}]}
+    _queue_komga_sync_job(repo, issue_id)
+
+    processed = run_komga_sync_queue(session_factory, max_jobs=1)
+    assert processed == 1
+
+    client = _FakeKomgaClient.instances[0]
+    assert len(client.uploaded_thumbnails) == 1
+    series_id, content, filename = client.uploaded_thumbnails[0]
+    assert series_id == 55
+    assert content == b"\xff\xd8fake-jpeg"
+    assert filename == "pub-KA.jpg"
+
+
+def test_komga_sync_skips_cover_upload_when_disabled(
+    repo, session_factory, monkeypatch, tmp_path
+):
+    monkeypatch.setattr("flipp_dl.scheduler.KomgaClient", _FakeKomgaClient)
+    monkeypatch.setattr("flipp_dl.scheduler.default_cover_cache_root", lambda: tmp_path)
+    monkeypatch.setenv("KOMGA_PUSH_COVER", "false")
+    _FakeKomgaClient.instances.clear()
+    _FakeKomgaClient.series_by_name = {
+        "Kalle Anka och Co": {"id": 55, "name": "Kalle Anka och Co"}
+    }
+
+    (tmp_path / "pub-KA.jpg").write_bytes(b"\xff\xd8fake-jpeg")
+    issue_id, stem = _seed_mapped_issue(repo, cover_cache_path="pub-KA.jpg")
+    _FakeKomgaClient.books_by_series = {55: [{"id": 77, "name": stem}]}
+    _queue_komga_sync_job(repo, issue_id)
+
+    run_komga_sync_queue(session_factory, max_jobs=1)
+
+    client = _FakeKomgaClient.instances[0]
+    assert client.uploaded_thumbnails == []
+
+
+def test_komga_sync_matches_disambiguated_filename(repo, session_factory, monkeypatch):
+    """Bok-uppslaget måste tåla filnamn med "(kortkod)"-suffix (TASK-1349)."""
+    monkeypatch.setattr("flipp_dl.scheduler.KomgaClient", _FakeKomgaClient)
+    _FakeKomgaClient.instances.clear()
+    _FakeKomgaClient.series_by_name = {
+        "Kalle Anka och Co": {"id": 55, "name": "Kalle Anka och Co"}
+    }
+
+    issue_id, stem = _seed_mapped_issue(repo)
+    disambiguated_name = f"{stem} (KA-01)"
+    _FakeKomgaClient.books_by_series = {55: [{"id": 99, "name": disambiguated_name}]}
+    job_id = _queue_komga_sync_job(repo, issue_id)
+
+    processed = run_komga_sync_queue(session_factory, max_jobs=1)
+    assert processed == 1
+
+    with get_session(session_factory) as session:
+        r = DownloadRepository(session)
+        assert r.get_job(job_id).status == JobStatus.DONE
+
+    client = _FakeKomgaClient.instances[0]
+    assert client.patched_books[0][0] == 99
+
+
+def test_komga_sync_without_issue_id_still_scans_library(
+    repo, session_factory, monkeypatch
+):
+    """A komga_sync job without issue_id (e.g. from an older payload shape)
+    must still trigger the scan and finish cleanly - it just can't push
+    metadata for a specific issue."""
+    monkeypatch.setattr("flipp_dl.scheduler.KomgaClient", _FakeKomgaClient)
+    _FakeKomgaClient.instances.clear()
+
+    repo.set_setting("komga_enabled", "true")
+    repo.set_setting("komga_url", "http://localhost:25600")
+    repo.set_setting("komga_library_id", "lib-1")
+    job = repo.create_job("komga_sync", {"library_id": "lib-1"})
+    repo.session.commit()
+    job_id = job.id
+
+    processed = run_komga_sync_queue(session_factory, max_jobs=1)
+    assert processed == 1
+
+    with get_session(session_factory) as session:
+        r = DownloadRepository(session)
+        assert r.get_job(job_id).status == JobStatus.DONE
+
+    assert _FakeKomgaClient.instances[0].scanned == ["lib-1"]

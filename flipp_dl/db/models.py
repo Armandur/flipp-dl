@@ -90,6 +90,11 @@ class DbPublication(Base):
     # publication every tick regardless of any override - reusing it here
     # would make the override reset itself on every poll.
     next_poll_due_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # Komga series id this publication maps to (TASK-1327), resolved lazily
+    # on the first successful sync and cached here forever afterwards -
+    # the folder-name lookup against Komga's search endpoint is never
+    # repeated once a match has been found.
+    komga_series_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     issues: Mapped[list[DbIssue]] = relationship(
         "DbIssue", back_populates="publication", cascade="all, delete-orphan"

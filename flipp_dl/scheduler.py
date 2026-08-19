@@ -23,10 +23,12 @@ import logging
 import os
 import signal
 import sys
+import time
 from pathlib import Path
 
 from apscheduler.schedulers.blocking import BlockingScheduler
 
+from . import storage
 from .api import FlippClient, FlippError, build_session
 from .config import default_output_path, load_token
 from .db.models import DbIssue
@@ -37,7 +39,17 @@ from .db.repository import (
 )
 from .db.session import get_session, make_session_factory
 from .downloader import DEFAULT_WORKERS, IssueDownloader, purge_old_previews
-from .komga import KomgaClient, KomgaError
+from .komga import (
+    DEFAULT_WAIT_SECONDS,
+    ISSUE_METADATA_FIELDS,
+    PUBLICATION_METADATA_FIELDS,
+    KomgaClient,
+    KomgaError,
+    cover_push_enabled,
+    filter_pushed_fields,
+    html_to_plain_text,
+    parse_issue_number,
+)
 from .models import Issue as DomainIssue
 from .models import Publication as DomainPublication
 
@@ -273,13 +285,15 @@ def recover_stuck_jobs(session_factory) -> int:
 
 def _claim_next_download_job(
     session_factory,
-) -> tuple[int, DomainPublication, DomainIssue] | None:
+) -> tuple[int, DomainPublication, DomainIssue, int] | None:
     """Atomically mark the oldest queued download job as RUNNING.
 
-    Returns ``(job_id, publication, issue)`` for the claimed job, or
-    ``None`` when there is nothing to do. All ORM attribute access
-    happens inside the single session so callers only ever see plain
-    primitives / frozen dataclasses.
+    Returns ``(job_id, publication, issue, issue_id)`` for the claimed
+    job, or ``None`` when there is nothing to do. All ORM attribute
+    access happens inside the single session so callers only ever see
+    plain primitives / frozen dataclasses. ``issue_id`` is handed back
+    alongside the domain dataclasses (which don't carry a DB id) so the
+    caller can thread it into the ``komga_sync`` job payload (TASK-1327).
     """
     with get_session(session_factory) as session:
         repo = DownloadRepository(session)
@@ -315,7 +329,7 @@ def _claim_next_download_job(
         )
 
         repo.start_job(job_id)
-        return job_id, domain_pub, domain_issue
+        return job_id, domain_pub, domain_issue, db_issue.id
 
 
 def run_download_queue(
@@ -342,7 +356,7 @@ def run_download_queue(
         claimed = _claim_next_download_job(session_factory)
         if claimed is None:
             break
-        job_id, domain_pub, domain_issue = claimed
+        job_id, domain_pub, domain_issue, issue_id = claimed
 
         # Run the download in its own session so status commits are
         # immediately visible to the web UI between jobs.
@@ -371,8 +385,16 @@ def run_download_queue(
                 and komga_settings["url"]
                 and komga_settings["library_id"]
             ):
+                # issue_id lets the komga_sync handler push this specific
+                # issue's metadata once the scan it triggers has picked
+                # the book up (TASK-1327) - the scan itself stays
+                # library-wide, matching TASK-1326.
                 repo2.create_job(
-                    "komga_sync", {"library_id": komga_settings["library_id"]}
+                    "komga_sync",
+                    {
+                        "library_id": komga_settings["library_id"],
+                        "issue_id": issue_id,
+                    },
                 )
             repo2.finish_job(job_id)
         processed += 1
@@ -380,21 +402,162 @@ def run_download_queue(
     return processed
 
 
+def _komga_wait_seconds() -> int:
+    """``KOMGA_WAIT_SECONDS`` - how long to poll for a book after a scan."""
+    raw = os.environ.get("KOMGA_WAIT_SECONDS", "")
+    try:
+        return int(raw) if raw.strip() else DEFAULT_WAIT_SECONDS
+    except ValueError:
+        return DEFAULT_WAIT_SECONDS
+
+
+def _wait_for_book(
+    client: KomgaClient,
+    series_id: int | str,
+    stems: set[str],
+    wait_seconds: int,
+    *,
+    sleep=time.sleep,
+    clock=time.monotonic,
+) -> dict | None:
+    """Poll Komga's book list for *stems* until found or *wait_seconds* elapse.
+
+    Komga's library scan (triggered right before this) runs
+    asynchronously, so the book this sync is about may not be indexed
+    yet. Polls at most once per second, always trying at least once even
+    when ``wait_seconds`` is 0.
+    """
+    deadline = clock() + wait_seconds
+    while True:
+        book = client.find_book_by_stems(series_id, stems)
+        if book is not None:
+            return book
+        remaining = deadline - clock()
+        if remaining <= 0:
+            return None
+        sleep(min(1, remaining))
+
+
+def _push_publication_and_issue_metadata(
+    session_factory,
+    client: KomgaClient,
+    library_id: str,
+    issue_id: int,
+    wait_seconds: int,
+) -> str | None:
+    """Map, then push, series + book metadata and the cover for one issue.
+
+    Returns ``None`` on success, or an error string for the job log. A
+    publication with no Komga series mapped yet is not an error - it
+    just means the folder-name lookup hasn't matched (yet), which the
+    detail page renders as "Komga: okänd - söker nästa gång" and the
+    next successful sync tries again.
+    """
+    with get_session(session_factory) as session:
+        repo = DownloadRepository(session)
+        db_issue: DbIssue | None = repo.get_issue(issue_id)
+        if db_issue is None:
+            return f"Issue {issue_id} not found"
+        db_pub = db_issue.publication
+
+        series_id = db_pub.komga_series_id
+        if series_id is None:
+            folder_name = storage.safe_name(db_pub.name)
+            series = client.find_series_by_name(library_id, folder_name)
+            if series is None:
+                logger.info(
+                    "Komga sync: no series matched for publication %r yet - "
+                    "will retry next sync",
+                    db_pub.name,
+                )
+                return None
+            series_id = series["id"]
+            repo.set_komga_series_id(db_pub.custom_code, series_id)
+
+        pub_fields = filter_pushed_fields(
+            {
+                "title": db_pub.name,
+                "titleSort": db_pub.name,
+                "summary": html_to_plain_text(db_pub.description),
+                "publisher": "Egmont",
+                "language": "sv",
+                "genres": [c.category_name for c in db_pub.categories] or None,
+                "tags": [c.category_name for c in db_pub.categories] or None,
+            },
+            PUBLICATION_METADATA_FIELDS,
+        )
+
+        cover_path = None
+        if cover_push_enabled() and db_pub.cover_cache_path:
+            cache_file = default_cover_cache_root() / db_pub.cover_cache_path
+            cover_path = cache_file if cache_file.is_file() else None
+            cover_filename = db_pub.cover_cache_path
+
+        domain_pub = DomainPublication(custom_code=db_pub.custom_code, name=db_pub.name)
+        domain_issue = DomainIssue(
+            custom_code=db_issue.custom_code,
+            issue_name=db_issue.issue_name,
+            issue_date=db_issue.issue_date,
+        )
+        stems = {
+            Path(storage.issue_filename(domain_pub, domain_issue, disambiguate=d)).stem
+            for d in (False, True)
+        }
+
+    try:
+        client.patch_series_metadata(series_id, **pub_fields)
+        if cover_path is not None:
+            client.upload_series_thumbnail(
+                series_id, cover_path.read_bytes(), cover_filename
+            )
+    except (KomgaError, OSError) as exc:
+        return f"Failed to push series metadata/cover for series {series_id}: {exc}"
+
+    book = _wait_for_book(client, series_id, stems, wait_seconds)
+    if book is None:
+        return (
+            f"Book for issue {domain_issue.issue_name!r} not found in Komga "
+            f"series {series_id} after waiting {wait_seconds}s - run the "
+            "sync again manually once Komga has finished scanning."
+        )
+
+    number, number_sort = parse_issue_number(domain_issue.issue_name)
+    issue_fields = filter_pushed_fields(
+        {
+            "title": domain_issue.issue_name,
+            "number": number,
+            "numberSort": number_sort,
+            "releaseDate": domain_issue.issue_date,
+        },
+        ISSUE_METADATA_FIELDS,
+    )
+    try:
+        client.patch_book_metadata(book["id"], **issue_fields)
+    except KomgaError as exc:
+        return f"Failed to push book metadata for book {book['id']}: {exc}"
+
+    return None
+
+
 def run_komga_sync_queue(session_factory, *, max_jobs: int | None = None) -> int:
-    """Drain queued ``komga_sync`` jobs, triggering a library scan for each.
+    """Drain queued ``komga_sync`` jobs.
+
+    Each job triggers a library scan, then - when the job carries an
+    ``issue_id`` (TASK-1327) - maps the publication to its Komga series
+    (once, cached forever in ``komga_series_id``) and pushes series +
+    book metadata and the cover.
 
     A no-op (returns 0 without touching the DB or the network) whenever
     ``KOMGA_ENABLED`` is off - an instance without Komga configured must
-    see zero difference in behaviour. Komga's scan endpoint returns
-    immediately (the scan itself runs asynchronously on Komga's side), so
-    this drains fire-and-forget - there is nothing to wait for. A Komga
-    failure is recorded as a job error and never touches issue status,
-    which already finished (as ``done``) when the download job completed.
+    see zero difference in behaviour. A Komga failure is recorded as a
+    job error and never touches issue status, which already finished (as
+    ``done``) when the download job completed.
     """
     settings = resolve_komga_settings(session_factory)
     if not settings["enabled"] or not settings["url"]:
         return 0
 
+    wait_seconds = _komga_wait_seconds()
     processed = 0
     while max_jobs is None or processed < max_jobs:
         with get_session(session_factory) as session:
@@ -408,6 +571,7 @@ def run_komga_sync_queue(session_factory, *, max_jobs: int | None = None) -> int
             except (TypeError, ValueError):
                 payload = {}
             library_id = payload.get("library_id") or settings["library_id"]
+            issue_id = payload.get("issue_id")
             repo.start_job(job_id)
 
         if not library_id:
@@ -419,13 +583,13 @@ def run_komga_sync_queue(session_factory, *, max_jobs: int | None = None) -> int
             processed += 1
             continue
 
+        client = KomgaClient(
+            settings["url"],
+            username=settings["username"],
+            password=settings["password"],
+            api_key=settings["api_key"],
+        )
         try:
-            client = KomgaClient(
-                settings["url"],
-                username=settings["username"],
-                password=settings["password"],
-                api_key=settings["api_key"],
-            )
             client.scan_library(library_id)
         except KomgaError as exc:
             with get_session(session_factory) as s2:
@@ -434,8 +598,19 @@ def run_komga_sync_queue(session_factory, *, max_jobs: int | None = None) -> int
             processed += 1
             continue
 
+        sync_error = None
+        if issue_id is not None:
+            try:
+                sync_error = _push_publication_and_issue_metadata(
+                    session_factory, client, library_id, int(issue_id), wait_seconds
+                )
+            except KomgaError as exc:
+                sync_error = str(exc)
+            if sync_error:
+                logger.error("Komga sync job %d failed: %s", job_id, sync_error)
+
         with get_session(session_factory) as s2:
-            DownloadRepository(s2).finish_job(job_id)
+            DownloadRepository(s2).finish_job(job_id, error=sync_error)
         processed += 1
 
     return processed
