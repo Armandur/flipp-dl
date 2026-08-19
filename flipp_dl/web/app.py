@@ -117,8 +117,9 @@ def create_app(
     app.state.templates = templates
     app.state.output_root = output
 
-    from . import routes  # noqa: F401
+    from . import api_routes, routes  # noqa: F401
 
     routes.register(app)
+    api_routes.register(app)
 
     return app

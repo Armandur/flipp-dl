@@ -164,6 +164,7 @@ Webbgränssnittet nås sedan på `http://<unraid-ip>:8000`.
 | Inställningar     | `/settings`      | Poll-intervall, workers               |
 | Healthcheck       | `/healthz`       | `{"status":"ok"}` för Docker          |
 | Metrics           | `/metrics`       | Prometheus-format, se `FLIPP_METRICS_PUBLIC` |
+| JSON-API          | `/api/…`         | `publications`, `publications/{code}`, `jobs` |
 
 ## Utveckling
 

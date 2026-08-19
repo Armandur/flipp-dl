@@ -18,7 +18,7 @@ import secrets
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
-from starlette.responses import RedirectResponse, Response
+from starlette.responses import JSONResponse, RedirectResponse, Response
 
 # Routes that are always public (no login required)
 _PUBLIC_PATHS = frozenset(["/login", "/healthz"])
@@ -114,6 +114,12 @@ class AuthMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         if not request.session.get("authenticated"):
+            if path.startswith("/api/"):
+                # An API client can't fill in a login form, so send it a
+                # status it can act on instead of a redirect to HTML.
+                return JSONResponse(
+                    {"error": "authentication required"}, status_code=401
+                )
             # Preserve the original destination so we can redirect back
             return RedirectResponse(url=f"/login?next={path}", status_code=302)
 
