@@ -15,6 +15,9 @@ from sqlalchemy.orm import Session, sessionmaker
 _ALEMBIC_INI = Path(__file__).resolve().parent.parent.parent / "alembic.ini"
 _MIGRATIONS_DIR = Path(__file__).resolve().parent / "migrations"
 
+# How long a writer waits for a competing writer before giving up.
+_LOCK_TIMEOUT_SECONDS = 30
+
 
 def make_engine(db_path: Path | str = ":memory:") -> Engine:
     """Create a SQLite engine and bring the schema up to date.
@@ -29,12 +32,24 @@ def make_engine(db_path: Path | str = ":memory:") -> Engine:
         if str(db_path) == ":memory:"
         else f"sqlite:///{Path(db_path).resolve()}"
     )
-    engine = create_engine(url, connect_args={"check_same_thread": False})
+    engine = create_engine(
+        url,
+        connect_args={
+            "check_same_thread": False,
+            # Wait for a competing writer instead of raising "database is
+            # locked" straight away. The scheduler thread writes download
+            # progress while the web thread serves pages, and SQLite's
+            # 5-second default was not enough on a busy instance.
+            "timeout": _LOCK_TIMEOUT_SECONDS,
+        },
+    )
 
     @event.listens_for(engine, "connect")
     def _on_connect(conn, _record):
         conn.execute("PRAGMA journal_mode=WAL")
         conn.execute("PRAGMA foreign_keys=ON")
+        # Same wait, applied to the SQLite side of the connection.
+        conn.execute(f"PRAGMA busy_timeout={_LOCK_TIMEOUT_SECONDS * 1000}")
 
     _ensure_schema(engine)
     return engine

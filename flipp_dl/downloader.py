@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import io
 import logging
+import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from pypdf import PdfReader, PdfWriter
+from sqlalchemy.exc import OperationalError
 
 from .api import FlippClient
 from .models import Issue, Publication
@@ -21,6 +23,9 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 DEFAULT_WORKERS = 4
+
+# Minimum seconds between progress writes during a download.
+PROGRESS_INTERVAL_SECONDS = 1.0
 
 
 class IssueDownloader:
@@ -79,17 +84,24 @@ class IssueDownloader:
 
         if db_issue_id is not None and self.repository is not None:
             self.repository.mark_issue_downloading(db_issue_id)
-            self.repository.update_issue_progress(db_issue_id, 0, len(pdf_urls))
-            self.repository.session.commit()
+            self._write_progress(db_issue_id, 0, len(pdf_urls))
 
         progress_cb: Callable[[int, int], None] | None = None
         if db_issue_id is not None and self.repository is not None:
-            repo = self.repository
             issue_id = db_issue_id
+            last_write = 0.0
 
             def progress_cb(done: int, total: int) -> None:
-                repo.update_issue_progress(issue_id, done, total)
-                repo.session.commit()
+                # The counter only feeds a UI label, so throttle it: one
+                # write per page meant hundreds of commits competing with
+                # the web thread for the SQLite write lock. The final page
+                # always writes so the UI doesn't stop short of the total.
+                nonlocal last_write
+                now = time.monotonic()
+                if done < total and now - last_write < PROGRESS_INTERVAL_SECONDS:
+                    return
+                last_write = now
+                self._write_progress(issue_id, done, total)
 
         try:
             pages = self._fetch_pages_parallel(pdf_urls, progress_cb=progress_cb)
@@ -139,6 +151,29 @@ class IssueDownloader:
         return written
 
     # ------------------------------------------------------------------
+
+    def _write_progress(self, issue_id: int, done: int, total: int) -> None:
+        """Persist the page counter, tolerating a busy database.
+
+        A lost progress update is cosmetic; letting it propagate is not.
+        The exception poisons the session, so every later write in the
+        same download fails too and a finished PDF gets recorded as an
+        error (TASK-1340).
+        """
+        if self.repository is None:
+            return
+        try:
+            self.repository.update_issue_progress(issue_id, done, total)
+            self.repository.session.commit()
+        except OperationalError as exc:
+            self.repository.session.rollback()
+            logger.warning(
+                "Could not record progress %d/%d for issue %d: %s",
+                done,
+                total,
+                issue_id,
+                exc,
+            )
 
     def _resolve_db_id(self, publication: Publication, issue: Issue) -> int | None:
         """Return the DB id for *issue* if a repository is wired up."""
