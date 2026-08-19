@@ -444,8 +444,7 @@ def test_localtime_renders_missing_timestamp_as_dash():
 
 def test_jobs_page_renders_timestamps_in_local_time(client: TestClient, monkeypatch):
     """End-to-end: a job created now shows the local hour, not the UTC hour."""
-    from datetime import datetime, timezone
-
+    from datetime import timezone
     from zoneinfo import ZoneInfo
 
     monkeypatch.setenv("FLIPP_TZ", "Europe/Stockholm")
@@ -470,7 +469,6 @@ def test_library_file_times_are_not_shifted_twice(client: TestClient, monkeypatc
     UTC would show every file two hours into the future in summer.
     """
     from datetime import datetime
-
     from zoneinfo import ZoneInfo
 
     monkeypatch.setenv("FLIPP_TZ", "Europe/Stockholm")
