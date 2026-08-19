@@ -278,3 +278,67 @@ def test_stats_cards_partial_reflects_queue_depth(client: TestClient):
     assert ">4</div>" in resp.text
     # The partial re-arms its own polling so the swap keeps refreshing.
     assert 'hx-trigger="every 5s"' in resp.text
+
+
+# ---------------------------------------------------------------------------
+# Job target column and detail view (TASK-1333)
+# ---------------------------------------------------------------------------
+
+
+def _seed_download_job(client: TestClient, payload: str) -> int:
+    """Create one download job with a raw payload string, return its id."""
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        job = repo.create_job("download")
+        job.payload = payload
+        session.flush()
+        return job.id
+
+
+def test_jobs_list_names_the_issue_a_job_targets(client: TestClient):
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        issue = repo.get_issue_by_code("ka01", repo.get_publication("KA").id)
+        issue_id = issue.id
+    _seed_download_job(client, f'{{"issue_id": {issue_id}}}')
+
+    resp = client.get("/jobs")
+    assert resp.status_code == 200
+    assert "Kalle Anka" in resp.text
+    assert "Nr 1" in resp.text
+
+
+def test_jobs_list_survives_broken_and_dangling_payloads(client: TestClient):
+    """A job pointing nowhere must render as a blank target, not a 500."""
+    _seed_download_job(client, "not json at all")
+    _seed_download_job(client, '{"issue_id": 999999}')
+    _seed_download_job(client, "{}")
+
+    resp = client.get("/jobs")
+    assert resp.status_code == 200
+
+
+def test_job_detail_shows_payload_and_target(client: TestClient):
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        issue = repo.get_issue_by_code("ka01", repo.get_publication("KA").id)
+        issue_id = issue.id
+    job_id = _seed_download_job(client, f'{{"issue_id": {issue_id}}}')
+
+    resp = client.get(f"/jobs/{job_id}")
+    assert resp.status_code == 200
+    assert "Kalle Anka" in resp.text
+    assert "issue_id" in resp.text  # payload renderas HTML-escapad
+    assert 'href="/publications/KA"' in resp.text
+
+
+def test_job_detail_handles_broken_payload(client: TestClient):
+    job_id = _seed_download_job(client, "not json at all")
+
+    resp = client.get(f"/jobs/{job_id}")
+    assert resp.status_code == 200
+    assert "not json at all" in resp.text
+
+
+def test_job_detail_returns_404_for_unknown_job(client: TestClient):
+    assert client.get("/jobs/424242").status_code == 404

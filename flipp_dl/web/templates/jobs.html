@@ -24,6 +24,7 @@
       <tr>
         <th>#</th>
         <th>Type</th>
+        <th>Target</th>
         <th>Status</th>
         <th>Created</th>
         <th>Started</th>
@@ -34,8 +35,19 @@
     <tbody>
       {% for job in jobs %}
       <tr>
-        <td class="dim">{{ job.id }}</td>
+        <td class="dim"><a class="job-link" href="/jobs/{{ job.id }}">{{ job.id }}</a></td>
         <td>{{ job.job_type }}</td>
+        <td>
+          {% set issue = targets.get(job.id) %}
+          {% if issue %}
+            <a class="job-link" href="/publications/{{ issue.publication.custom_code }}">
+              {{ issue.publication.name }}
+            </a>
+            <span class="dim">· {{ issue.issue_name }}</span>
+          {% else %}
+            <span class="dim">—</span>
+          {% endif %}
+        </td>
         <td>
           {# status values: queued | running | done | error #}
           <span class="badge badge-{{ job.status }}">{{ job.status }}</span>

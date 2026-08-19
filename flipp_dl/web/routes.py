@@ -477,6 +477,32 @@ def register(app: FastAPI) -> None:
         JobStatus.ERROR.value,
     )
 
+    def _job_issue_id(job) -> int | None:
+        """Return the issue id a download job points at, if any.
+
+        A job whose payload is malformed still has to render - the row
+        just shows no target.
+        """
+        try:
+            payload = json.loads(job.payload or "{}")
+        except (TypeError, ValueError):
+            return None
+        issue_id = payload.get("issue_id")
+        try:
+            return int(issue_id) if issue_id is not None else None
+        except (TypeError, ValueError):
+            return None
+
+    def _job_targets(repo: DownloadRepository, jobs: list) -> dict[int, object]:
+        """Map ``job.id -> DbIssue`` for the listed jobs, in one query."""
+        wanted = {job.id: _job_issue_id(job) for job in jobs}
+        issues = repo.get_issues_by_ids([i for i in wanted.values() if i is not None])
+        return {
+            job_id: issues[issue_id]
+            for job_id, issue_id in wanted.items()
+            if issue_id is not None and issue_id in issues
+        }
+
     @app.get("/jobs", response_class=HTMLResponse)
     async def jobs_list(request: Request, status: str = ""):
         """List jobs, optionally narrowed to a single status.
@@ -494,11 +520,33 @@ def register(app: FastAPI) -> None:
                 "jobs.html",
                 {
                     "jobs": jobs,
+                    "targets": _job_targets(repo, jobs),
                     "counts": counts,
                     "total_jobs": sum(counts.values()),
                     "selected_status": selected,
                     "statuses": _JOB_STATUSES,
                 },
+            )
+        finally:
+            repo.session.close()
+
+    @app.get("/jobs/{job_id}", response_class=HTMLResponse)
+    async def job_detail(request: Request, job_id: int):
+        repo = _repo(request)
+        try:
+            job = repo.get_job(job_id)
+            if job is None:
+                return HTMLResponse("Job not found", status_code=404)
+            issue_id = _job_issue_id(job)
+            issue = repo.get_issue(issue_id) if issue_id is not None else None
+            try:
+                payload = json.dumps(json.loads(job.payload or "{}"), indent=2)
+            except (TypeError, ValueError):
+                payload = job.payload or ""
+            return _templates(request).TemplateResponse(
+                request,
+                "job_detail.html",
+                {"job": job, "issue": issue, "payload": payload},
             )
         finally:
             repo.session.close()

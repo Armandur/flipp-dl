@@ -213,6 +213,21 @@ class DownloadRepository:
         )
         return list(self.session.scalars(q))
 
+    def get_issues_by_ids(self, issue_ids: list[int]) -> dict[int, DbIssue]:
+        """Return ``{issue_id: DbIssue}`` for the given ids, publication loaded.
+
+        One query for the whole page - the jobs list would otherwise do a
+        lookup per row just to name what each job is about.
+        """
+        if not issue_ids:
+            return {}
+        rows = self.session.scalars(
+            select(DbIssue)
+            .options(selectinload(DbIssue.publication))
+            .where(DbIssue.id.in_(set(issue_ids)))
+        )
+        return {issue.id: issue for issue in rows}
+
     def mark_issue_queued(self, issue_id: int) -> None:
         issue = self.session.get(DbIssue, issue_id)
         if issue:
@@ -370,6 +385,9 @@ class DownloadRepository:
         for status, count in rows:
             counts[status] = int(count)
         return counts
+
+    def get_job(self, job_id: int) -> DbJob | None:
+        return self.session.get(DbJob, job_id)
 
     def get_oldest_queued_job(self, job_type: str) -> DbJob | None:
         """Return the oldest queued job of *job_type*, or ``None``.

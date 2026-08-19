@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Job #{{ job.id }} – Flipp-DL{% endblock %}
+
+{% block content %}
+<h1>Job #{{ job.id }}</h1>
+
+<div class="filter-bar">
+  <a class="btn btn-primary-soft" href="/jobs">← Back to jobs</a>
+  <a class="btn btn-primary-soft" href="/jobs?status={{ job.status }}">
+    All {{ job.status }} jobs
+  </a>
+</div>
+
+<div class="card">
+  <table>
+    <tbody>
+      <tr><th>Type</th><td>{{ job.job_type }}</td></tr>
+      <tr>
+        <th>Status</th>
+        <td><span class="badge badge-{{ job.status }}">{{ job.status }}</span></td>
+      </tr>
+      <tr>
+        <th>Target</th>
+        <td>
+          {% if issue %}
+            <a class="job-link" href="/publications/{{ issue.publication.custom_code }}">
+              {{ issue.publication.name }}
+            </a>
+            <span class="dim">·</span> {{ issue.issue_name }}
+            <span class="dim">({{ issue.issue_date }})</span>
+            <div class="dim">Issue status: {{ issue.status }}</div>
+          {% else %}
+            <span class="dim">—</span>
+          {% endif %}
+        </td>
+      </tr>
+      <tr>
+        <th>Created</th>
+        <td class="dim">{{ job.created_at.strftime("%Y-%m-%d %H:%M:%S") }}</td>
+      </tr>
+      <tr>
+        <th>Started</th>
+        <td class="dim">
+          {% if job.started_at %}{{ job.started_at.strftime("%Y-%m-%d %H:%M:%S") }}
+          {% else %}—{% endif %}
+        </td>
+      </tr>
+      <tr>
+        <th>Finished</th>
+        <td class="dim">
+          {% if job.finished_at %}{{ job.finished_at.strftime("%Y-%m-%d %H:%M:%S") }}
+          {% else %}—{% endif %}
+        </td>
+      </tr>
+      <tr>
+        <th>Payload</th>
+        <td><pre class="mono payload">{{ payload }}</pre></td>
+      </tr>
+      <tr>
+        <th>Error</th>
+        <td>
+          {% if job.error_message %}
+            <pre class="mono job-error">{{ job.error_message }}</pre>
+          {% else %}
+            <span class="dim">—</span>
+          {% endif %}
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+{% endblock %}
