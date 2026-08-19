@@ -112,12 +112,19 @@ def recover_stuck_jobs(session_factory) -> int:
         repo = DownloadRepository(session)
         reset = repo.reset_stuck_download_jobs()
         orphaned = repo.reset_orphaned_issues()
+        duplicates = repo.release_duplicate_file_claims()
     if reset:
         logger.info("Startup: reset %d stuck running download job(s) to queued", reset)
     if orphaned:
         logger.info(
             "Startup: reset %d issue(s) stuck without a job to not-downloaded",
             orphaned,
+        )
+    if duplicates:
+        logger.warning(
+            "Startup: %d issue(s) claimed another issue's file and were "
+            "marked not-downloaded - they will be fetched on the next poll",
+            duplicates,
         )
     return reset
 

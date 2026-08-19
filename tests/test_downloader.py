@@ -125,3 +125,90 @@ def test_connection_waits_for_a_busy_writer(tmp_path: Path):
             __import__("sqlalchemy").text("PRAGMA busy_timeout")
         ).scalar()
     assert timeout >= 5000
+
+
+def test_second_issue_with_the_same_name_gets_its_own_file(wired):
+    """The colliding issue must not adopt the first issue's file."""
+    factory, out = wired
+    twin = Issue(custom_code="ka01-twin", issue_name="Nr 1", issue_date="2024-01-01")
+
+    with get_session(factory) as session:
+        repo = DownloadRepository(session)
+        repo.upsert_issue(twin, repo.get_publication("KA").id)
+
+    with get_session(factory) as session:
+        repo = DownloadRepository(session)
+        first = IssueDownloader(
+            FakeClient(pages=2), out, workers=1, repository=repo
+        ).download_issue(PUB, ISSUE, skip_existing=False)
+
+    with get_session(factory) as session:
+        repo = DownloadRepository(session)
+        second = IssueDownloader(
+            FakeClient(pages=2), out, workers=1, repository=repo
+        ).download_issue(PUB, twin, skip_existing=True)
+
+    assert first != second, "the twin reused the first issue's file"
+    assert first.is_file() and second.is_file()
+    with get_session(factory) as session:
+        repo = DownloadRepository(session)
+        pub_id = repo.get_publication("KA").id
+        a = repo.get_issue_by_code("ka01", pub_id)
+        b = repo.get_issue_by_code("ka01-twin", pub_id)
+        assert a.file_path != b.file_path
+        assert repo.list_issues_sharing_files() == []
+
+
+def test_skipping_an_existing_file_still_marks_the_issue_done(wired):
+    """A re-run over an existing file must not leave the row queued."""
+    factory, out = wired
+
+    with get_session(factory) as session:
+        repo = DownloadRepository(session)
+        IssueDownloader(
+            FakeClient(pages=2), out, workers=1, repository=repo
+        ).download_issue(PUB, ISSUE, skip_existing=False)
+        issue_id = repo.get_issue_by_code("ka01", repo.get_publication("KA").id).id
+        repo.mark_issue_queued(issue_id)
+
+    with get_session(factory) as session:
+        repo = DownloadRepository(session)
+        IssueDownloader(
+            FakeClient(pages=2), out, workers=1, repository=repo
+        ).download_issue(PUB, ISSUE, skip_existing=True)
+
+    with get_session(factory) as session:
+        repo = DownloadRepository(session)
+        assert repo.get_issue(issue_id).status == "done"
+
+
+def test_release_duplicate_file_claims_keeps_the_first_download(wired):
+    """Recovery leaves the real owner alone and frees the other."""
+    factory, _out = wired
+    from datetime import datetime
+
+    with get_session(factory) as session:
+        repo = DownloadRepository(session)
+        pub_id = repo.get_publication("KA").id
+        twin = Issue(
+            custom_code="ka01-twin", issue_name="Nr 1", issue_date="2024-01-01"
+        )
+        db_twin, _ = repo.upsert_issue(twin, pub_id)
+        original = repo.get_issue_by_code("ka01", pub_id)
+        shared = "/output/Kalle Anka/dupe.pdf"
+        repo.mark_issue_done(original.id, shared)
+        repo.mark_issue_done(db_twin.id, shared)
+        original.downloaded_at = datetime(2024, 1, 1)
+        db_twin.downloaded_at = datetime(2024, 6, 1)
+        original_id, twin_id = original.id, db_twin.id
+
+    with get_session(factory) as session:
+        repo = DownloadRepository(session)
+        assert repo.release_duplicate_file_claims() == 1
+
+    with get_session(factory) as session:
+        repo = DownloadRepository(session)
+        assert repo.get_issue(original_id).status == "done"
+        assert repo.get_issue(original_id).file_path == "/output/Kalle Anka/dupe.pdf"
+        assert repo.get_issue(twin_id).status == "new"
+        assert repo.get_issue(twin_id).file_path is None

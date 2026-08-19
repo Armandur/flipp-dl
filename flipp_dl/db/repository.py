@@ -156,6 +156,28 @@ class DownloadRepository:
             )
         )
 
+    def get_issue_by_file_path(self, file_path: str) -> DbIssue | None:
+        """Return the issue that owns *file_path*, if any."""
+        return self.session.scalar(
+            select(DbIssue).where(DbIssue.file_path == str(file_path))
+        )
+
+    def list_issues_sharing_files(self) -> list[list[DbIssue]]:
+        """Group issues that claim the same file on disk.
+
+        Two issues pointing at one file means one of them was never
+        actually downloaded - its content is nowhere (TASK-1349).
+        """
+        by_path: dict[str, list[DbIssue]] = {}
+        rows = self.session.scalars(
+            select(DbIssue)
+            .options(selectinload(DbIssue.publication))
+            .where(DbIssue.file_path.is_not(None))
+        )
+        for issue in rows:
+            by_path.setdefault(issue.file_path, []).append(issue)
+        return [group for group in by_path.values() if len(group) > 1]
+
     def list_issues(
         self,
         publication_id: int | None = None,
@@ -446,6 +468,34 @@ class DownloadRepository:
                 )
             )
         )
+
+    def release_duplicate_file_claims(self) -> int:
+        """Un-mark issues that claim a file belonging to another issue.
+
+        The oldest download keeps the file; the others never had one of
+        their own, so they go back to not-downloaded and get picked up
+        by the next backfill (TASK-1349).
+
+        Returns the number of issues released.
+        """
+        released = 0
+        for group in self.list_issues_sharing_files():
+            # Whoever downloaded first owns the file; fall back to the
+            # lowest id when timestamps are missing or equal.
+            keeper = min(
+                group,
+                key=lambda i: (i.downloaded_at or datetime.max, i.id),
+            )
+            for issue in group:
+                if issue.id == keeper.id:
+                    continue
+                issue.status = IssueStatus.NEW
+                issue.file_path = None
+                issue.downloaded_at = None
+                issue.progress_current = 0
+                issue.progress_total = 0
+                released += 1
+        return released
 
     def reset_orphaned_issues(self) -> int:
         """Reset issues stuck in queued/downloading with no job behind them.

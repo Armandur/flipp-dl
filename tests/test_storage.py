@@ -59,3 +59,29 @@ def test_issue_path_joins_folder_and_filename():
     assert issue_path(root, pub, issue) == (
         root / "Kalle Anka och Co" / "Kalle Anka och Co - 2024-01-01 - Nr 1.pdf"
     )
+
+
+def test_issue_filename_can_be_disambiguated():
+    """Two issues sharing name and date must not share a filename.
+
+    Flipp publishes distinct issues with identical name and date, so
+    the plain filename is not unique (TASK-1349).
+    """
+    from flipp_dl.models import Issue, Publication
+    from flipp_dl.storage import issue_filename
+
+    pub = Publication(custom_code="91", name="91:an")
+    a = Issue(
+        custom_code="ab2041c2-bb4d", issue_name="Nr 6 2022", issue_date="2022-02-25"
+    )
+    b = Issue(
+        custom_code="6410d950-be8e", issue_name="Nr 6 2022", issue_date="2022-02-25"
+    )
+
+    assert issue_filename(pub, a) == issue_filename(pub, b)
+    assert issue_filename(pub, a, disambiguate=True) != issue_filename(
+        pub, b, disambiguate=True
+    )
+    # The plain name stays as it is, so existing files are not renamed.
+    assert issue_filename(pub, a) == "91an - 2022-02-25 - Nr 6 2022.pdf"
+    assert issue_filename(pub, a, disambiguate=True).endswith("(ab2041c2).pdf")

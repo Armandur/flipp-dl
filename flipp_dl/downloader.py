@@ -62,11 +62,17 @@ class IssueDownloader:
         If a :class:`~flipp_dl.db.repository.DownloadRepository` was
         supplied, the issue's DB status is kept up-to-date throughout.
         """
-        target = issue_path(self.output_root, publication, issue)
         db_issue_id = self._resolve_db_id(publication, issue)
+        target = self._target_path(publication, issue, db_issue_id)
 
         if skip_existing and target.is_file():
+            # The file is ours (see _target_path), so the issue really is
+            # downloaded - record that instead of returning with the
+            # status untouched, which used to leave rows stuck in queued.
             logger.info("Skipping existing file: %s", target)
+            if db_issue_id is not None and self.repository is not None:
+                self.repository.mark_issue_done(db_issue_id, str(target))
+                self.repository.session.commit()
             return target
 
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -151,6 +157,31 @@ class IssueDownloader:
         return written
 
     # ------------------------------------------------------------------
+
+    def _target_path(
+        self, publication: Publication, issue: Issue, db_issue_id: int | None
+    ) -> Path:
+        """Where this issue's PDF belongs, avoiding another issue's file.
+
+        Publication, date and issue name do not identify an issue: Flipp
+        publishes distinct issues sharing all three. Without this check
+        the second one silently adopts the first one's file and its own
+        content is never stored (TASK-1349).
+        """
+        target = issue_path(self.output_root, publication, issue)
+        if self.repository is None or db_issue_id is None:
+            return target
+
+        owner = self.repository.get_issue_by_file_path(str(target))
+        if owner is not None and owner.id != db_issue_id:
+            unique = issue_path(self.output_root, publication, issue, disambiguate=True)
+            logger.info(
+                "Filename taken by issue %s - using %s instead",
+                owner.custom_code,
+                unique.name,
+            )
+            return unique
+        return target
 
     def _write_progress(self, issue_id: int, done: int, total: int) -> None:
         """Persist the page counter, tolerating a busy database.
