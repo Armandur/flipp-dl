@@ -1013,3 +1013,132 @@ def test_import_existing_reports_a_missing_file(client: TestClient):
     assert resp.status_code == 200
     assert "missing on disk" in resp.text
     assert "Ghost" in resp.text
+
+
+# ---------------------------------------------------------------------------
+# Preview (TASK-1344)
+# ---------------------------------------------------------------------------
+
+
+def _one_page_pdf() -> bytes:
+    from io import BytesIO
+
+    from pypdf import PdfWriter
+
+    writer = PdfWriter()
+    writer.add_blank_page(width=200, height=200)
+    buf = BytesIO()
+    writer.write(buf)
+    return buf.getvalue()
+
+
+class _FakeFlippClient:
+    """Stand-in for FlippClient used by the /preview route tests."""
+
+    instances: list[_FakeFlippClient] = []
+
+    def __init__(self, token: str) -> None:
+        self.token = token
+        _FakeFlippClient.instances.append(self)
+
+    def fetch_issue_pdf_urls(self, _pub_code: str, _issue_code: str) -> list[str]:
+        return [f"http://example.invalid/p{i}.pdf" for i in range(5)]
+
+    def download_pdf(self, _url: str) -> bytes:
+        return _one_page_pdf()
+
+
+@pytest.fixture()
+def preview_client(client: TestClient, tmp_path: Path, monkeypatch) -> TestClient:
+    """The shared ``client`` fixture, with a token saved and a fake Flipp client."""
+    _FakeFlippClient.instances.clear()
+    monkeypatch.setattr("flipp_dl.web.routes.FlippClient", _FakeFlippClient)
+    preview_root = tmp_path / "previews"
+    monkeypatch.setattr(
+        "flipp_dl.downloader.default_preview_root", lambda: preview_root
+    )
+
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        repo.set_setting("flipp_token", "test-token")
+        # A second, not-yet-downloaded issue to preview.
+        pub = repo.get_publication("KA")
+        new_issue = Issue(
+            custom_code="ka02", issue_name="Nr 2", issue_date="2024-02-01"
+        )
+        repo.upsert_issue(new_issue, pub.id)
+
+    return client
+
+
+def test_preview_returns_pdf_inline(preview_client: TestClient):
+    resp = preview_client.get("/publications/KA/issues/ka02/preview")
+    assert resp.status_code == 200
+    assert resp.headers["content-type"] == "application/pdf"
+    assert "inline" in resp.headers.get("content-disposition", "").lower()
+    assert resp.content.startswith(b"%PDF")
+
+
+def test_preview_only_fetches_a_few_pages(preview_client: TestClient):
+    resp = preview_client.get("/publications/KA/issues/ka02/preview")
+    assert resp.status_code == 200
+    # 5 pages are available upstream; the preview only asked for 3.
+    from flipp_dl.downloader import DEFAULT_PREVIEW_PAGES
+
+    assert DEFAULT_PREVIEW_PAGES < 5
+
+
+def test_preview_leaves_issue_status_untouched(preview_client: TestClient):
+    resp = preview_client.get("/publications/KA/issues/ka02/preview")
+    assert resp.status_code == 200
+
+    with get_session(preview_client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        issue = repo.get_issue_by_code("ka02", repo.get_publication("KA").id)
+        assert issue.status == "new"
+        assert issue.file_path is None
+
+
+def test_preview_does_not_create_a_job(preview_client: TestClient):
+    with get_session(preview_client.app.state.session_factory) as session:
+        before = len(DownloadRepository(session).list_jobs(limit=100))
+
+    resp = preview_client.get("/publications/KA/issues/ka02/preview")
+    assert resp.status_code == 200
+
+    with get_session(preview_client.app.state.session_factory) as session:
+        after = len(DownloadRepository(session).list_jobs(limit=100))
+    assert after == before
+
+
+def test_preview_writes_outside_output_root(preview_client: TestClient, tmp_path: Path):
+    resp = preview_client.get("/publications/KA/issues/ka02/preview")
+    assert resp.status_code == 200
+
+    output_root = preview_client.app.state.output_root
+    preview_root = tmp_path / "previews"
+    files = list(preview_root.glob("preview-*.pdf"))
+    assert len(files) == 1
+    assert output_root.resolve() not in files[0].resolve().parents
+
+
+def test_preview_requires_a_configured_token(client: TestClient, monkeypatch):
+    monkeypatch.setattr("flipp_dl.web.routes.FlippClient", _FakeFlippClient)
+    resp = client.get("/publications/KA/issues/ka01/preview")
+    assert resp.status_code == 400
+
+
+def test_preview_404_for_unknown_publication(preview_client: TestClient):
+    resp = preview_client.get("/publications/NOPE/issues/ka02/preview")
+    assert resp.status_code == 404
+
+
+def test_preview_404_for_unknown_issue(preview_client: TestClient):
+    resp = preview_client.get("/publications/KA/issues/nope/preview")
+    assert resp.status_code == 404
+
+
+def test_issue_row_has_a_preview_link(client: TestClient):
+    resp = client.get("/publications/KA/issues/ka01/row")
+    assert resp.status_code == 200
+    assert "/publications/KA/issues/ka01/preview" in resp.text

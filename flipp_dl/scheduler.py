@@ -30,7 +30,7 @@ from .config import default_output_path, load_token
 from .db.models import DbIssue
 from .db.repository import DownloadRepository
 from .db.session import get_session, make_session_factory
-from .downloader import DEFAULT_WORKERS, IssueDownloader
+from .downloader import DEFAULT_WORKERS, IssueDownloader, purge_old_previews
 from .models import Issue as DomainIssue
 from .models import Publication as DomainPublication
 
@@ -118,6 +118,13 @@ def poll_publications(
             purged = repo.purge_old_jobs()
             if purged:
                 logger.info("Poll: purged %d old job rows", purged)
+
+            # Same idea for stray preview PDFs (TASK-1344) - they live
+            # outside output_root and outside the DB, so this poll tick
+            # is their only cleanup path.
+            purged_previews = purge_old_previews()
+            if purged_previews:
+                logger.info("Poll: purged %d old preview file(s)", purged_previews)
         except FlippError as exc:
             repo.finish_job(job.id, error=str(exc))
             logger.error("Poll failed: %s", exc)

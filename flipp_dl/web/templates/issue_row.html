@@ -43,6 +43,13 @@
     {% endif %}
   </td>
   <td>
+    <a
+      class="btn btn-primary-soft"
+      href="/publications/{{ publication.custom_code }}/issues/{{ issue.custom_code }}/preview"
+      target="_blank"
+      rel="noopener"
+      title="View the first pages without marking this issue as downloaded"
+    >Preview</a>
     {% if issue.status in ("queued", "downloading") %}
       {# Always leave a way out - status and the jobs table can drift
          apart, and a stuck row was previously impossible to release. #}

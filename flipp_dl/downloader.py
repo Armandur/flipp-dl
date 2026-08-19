@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import io
 import logging
+import tempfile
 import time
+import uuid
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
@@ -26,6 +28,51 @@ DEFAULT_WORKERS = 4
 
 # Minimum seconds between progress writes during a download.
 PROGRESS_INTERVAL_SECONDS = 1.0
+
+# How many leading pages a preview fetches - enough to judge the issue
+# without paying for a full download's worth of bandwidth.
+DEFAULT_PREVIEW_PAGES = 3
+
+# How long a preview file is allowed to sit in the temp directory before
+# a purge sweep is entitled to remove it (TASK-1344).
+PREVIEW_MAX_AGE_SECONDS = 600
+
+
+def default_preview_root() -> Path:
+    """Where preview PDFs live when the caller doesn't pick a location.
+
+    Deliberately the system temp dir, never under ``output_root``: the
+    Library view and the disk importer (``import_existing_files``) walk
+    ``output_root`` and would otherwise mistake a preview for a real
+    download.
+    """
+    return Path(tempfile.gettempdir()) / "flipp-dl-previews"
+
+
+def purge_old_previews(
+    preview_root: Path | None = None,
+    *,
+    max_age_seconds: int = PREVIEW_MAX_AGE_SECONDS,
+) -> int:
+    """Delete preview PDFs older than *max_age_seconds*.
+
+    Mirrors ``DownloadRepository.purge_old_jobs`` - a cheap sweep meant
+    to be called opportunistically from the poll tick, not a background
+    thread of its own. Returns the number of files removed.
+    """
+    root = Path(preview_root) if preview_root is not None else default_preview_root()
+    if not root.is_dir():
+        return 0
+    cutoff = time.time() - max_age_seconds
+    removed = 0
+    for path in root.glob("preview-*.pdf"):
+        try:
+            if path.stat().st_mtime < cutoff:
+                path.unlink()
+                removed += 1
+        except OSError:
+            continue
+    return removed
 
 
 class IssueDownloader:
@@ -132,6 +179,57 @@ class IssueDownloader:
             self.repository.session.commit()
 
         logger.info("Wrote %s", target)
+        return target
+
+    def preview_issue(
+        self,
+        publication: Publication,
+        issue: Issue,
+        *,
+        pages: int = DEFAULT_PREVIEW_PAGES,
+        preview_root: Path | None = None,
+    ) -> Path:
+        """Fetch the first *pages* pages of *issue* to a throwaway file.
+
+        Deliberately a separate path from :meth:`download_issue`: it
+        never touches ``self.output_root`` (so the file can't be mistaken
+        for a real download by the Library view or the disk importer),
+        never calls ``_target_path``/``skip_existing``, and never reports
+        status through ``self.repository`` - a preview must not make the
+        issue look queued, downloading, or done.
+
+        Returns the path to the merged preview PDF, written under
+        *preview_root* (default: :func:`default_preview_root`).
+        """
+        root = (
+            Path(preview_root) if preview_root is not None else default_preview_root()
+        )
+        root.mkdir(parents=True, exist_ok=True)
+
+        pdf_urls = self.client.fetch_issue_pdf_urls(
+            publication.custom_code, issue.custom_code
+        )
+        subset = pdf_urls[:pages] if pages > 0 else pdf_urls
+        logger.info(
+            "Previewing %s / %s (%d of %d pages)",
+            publication.name,
+            issue.issue_name,
+            len(subset),
+            len(pdf_urls),
+        )
+        pages_data = self._fetch_pages_parallel(subset)
+
+        target = root / f"preview-{issue.custom_code}-{uuid.uuid4().hex[:8]}.pdf"
+        writer = PdfWriter()
+        try:
+            for data in pages_data:
+                writer.append(PdfReader(io.BytesIO(data)))
+            with target.open("wb") as fh:
+                writer.write(fh)
+        finally:
+            writer.close()
+
+        logger.info("Wrote preview %s", target)
         return target
 
     def download_publication(

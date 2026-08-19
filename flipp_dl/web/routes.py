@@ -23,6 +23,9 @@ from ..config import load_token
 from ..db.models import IssueStatus, JobStatus
 from ..db.repository import DownloadRepository
 from ..db.session import get_session
+from ..downloader import IssueDownloader
+from ..models import Issue as DomainIssue
+from ..models import Publication as DomainPublication
 from ..scheduler import poll_publications, resolve_current_token
 from .auth import auth_enabled, check_csrf_form, generate_csrf_token, verify_password
 
@@ -483,6 +486,53 @@ def register(app: FastAPI) -> None:
             )
         finally:
             repo.session.close()
+
+    @app.get("/publications/{code}/issues/{issue_code}/preview")
+    async def preview_issue(request: Request, code: str, issue_code: str):
+        """Fetch a few leading pages of an issue and stream them inline.
+
+        Deliberately does not go through the job queue or
+        ``download_issue()`` - the issue's DB status is left completely
+        alone, so a preview never shows up in /jobs or as a queued /
+        downloading row (TASK-1344).
+        """
+        repo = _repo(request)
+        try:
+            pub = repo.get_publication(code)
+            if pub is None:
+                return HTMLResponse("Publication not found", status_code=404)
+            issue = repo.get_issue_by_code(issue_code, pub.id)
+            if issue is None:
+                return HTMLResponse("Issue not found", status_code=404)
+            domain_pub = DomainPublication(custom_code=pub.custom_code, name=pub.name)
+            domain_issue = DomainIssue(
+                custom_code=issue.custom_code,
+                issue_name=issue.issue_name,
+                issue_date=issue.issue_date,
+            )
+        finally:
+            repo.session.close()
+
+        token = resolve_current_token(request.app.state.session_factory)
+        if not token:
+            return JSONResponse({"error": "No token configured"}, status_code=400)
+
+        client = FlippClient(token)
+        # No repository wired in: preview_issue() never reports status
+        # through one, but omitting it entirely rules out a future
+        # change accidentally reaching for self.repository here.
+        downloader = IssueDownloader(client, request.app.state.output_root)
+        try:
+            preview_path = downloader.preview_issue(domain_pub, domain_issue)
+        except FlippError as exc:
+            return HTMLResponse(str(exc), status_code=502)
+
+        return FileResponse(
+            preview_path,
+            media_type="application/pdf",
+            filename=preview_path.name,
+            content_disposition_type="inline",
+        )
 
     # ------------------------------------------------------------------
     # Library – browse everything currently on disk under output_root

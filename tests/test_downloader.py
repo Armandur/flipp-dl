@@ -212,3 +212,102 @@ def test_release_duplicate_file_claims_keeps_the_first_download(wired):
         assert repo.get_issue(original_id).file_path == "/output/Kalle Anka/dupe.pdf"
         assert repo.get_issue(twin_id).status == "new"
         assert repo.get_issue(twin_id).file_path is None
+
+
+# ---------------------------------------------------------------------------
+# Preview (TASK-1344)
+# ---------------------------------------------------------------------------
+
+
+def test_preview_writes_outside_output_root_and_leaves_status_untouched(
+    wired, tmp_path
+):
+    """A preview must not look like a real download in any way."""
+    factory, out = wired
+    client = FakeClient(pages=5)
+    preview_root = tmp_path / "previews"
+
+    with get_session(factory) as session:
+        repo = DownloadRepository(session)
+        downloader = IssueDownloader(client, out, workers=1, repository=repo)
+        preview_path = downloader.preview_issue(PUB, ISSUE, preview_root=preview_root)
+
+        assert preview_path.is_file()
+        assert preview_root in preview_path.parents
+        # Not anywhere under output_root, however it's spelled.
+        assert out.resolve() not in preview_path.resolve().parents
+
+        issue = repo.get_issue_by_code("ka01", repo.get_publication("KA").id)
+        assert issue.status == "new"
+        assert issue.file_path is None
+
+
+def test_preview_fetches_only_the_requested_page_count(wired, tmp_path):
+    """A preview is cheap: it must not download every page."""
+    factory, out = wired
+    client = FakeClient(pages=40)
+    fetched: list[str] = []
+    real_download = client.download_pdf
+
+    def spy(url: str) -> bytes:
+        fetched.append(url)
+        return real_download(url)
+
+    client.download_pdf = spy
+    preview_root = tmp_path / "previews"
+
+    with get_session(factory) as session:
+        repo = DownloadRepository(session)
+        IssueDownloader(client, out, workers=1, repository=repo).preview_issue(
+            PUB, ISSUE, pages=3, preview_root=preview_root
+        )
+
+    assert len(fetched) == 3
+
+
+def test_preview_does_not_go_through_target_path_or_skip_existing(wired, tmp_path):
+    """preview_issue must not reuse download_issue's real-file machinery."""
+    factory, out = wired
+    client = FakeClient(pages=2)
+    preview_root = tmp_path / "previews"
+
+    with get_session(factory) as session:
+        repo = DownloadRepository(session)
+        downloader = IssueDownloader(client, out, workers=1, repository=repo)
+
+        def boom(*_args, **_kwargs):
+            raise AssertionError("preview_issue must not call _target_path")
+
+        downloader._target_path = boom  # type: ignore[method-assign]
+        preview_path = downloader.preview_issue(PUB, ISSUE, preview_root=preview_root)
+
+    assert preview_path.is_file()
+
+
+def test_purge_old_previews_removes_only_stale_files(tmp_path):
+    import os
+    import time
+
+    from flipp_dl.downloader import purge_old_previews
+
+    root = tmp_path / "previews"
+    root.mkdir()
+    stale = root / "preview-old-aaaa1111.pdf"
+    fresh = root / "preview-new-bbbb2222.pdf"
+    stale.write_bytes(b"%PDF-old")
+    fresh.write_bytes(b"%PDF-new")
+
+    old_time = time.time() - 3600
+    os.utime(stale, (old_time, old_time))
+
+    removed = purge_old_previews(root, max_age_seconds=600)
+
+    assert removed == 1
+    assert not stale.exists()
+    assert fresh.exists()
+
+
+def test_purge_old_previews_on_missing_dir_is_a_noop(tmp_path):
+    from flipp_dl.downloader import purge_old_previews
+
+    assert purge_old_previews(tmp_path / "does-not-exist") == 0
