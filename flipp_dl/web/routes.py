@@ -12,7 +12,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Redirect
 
 from ..api import FlippClient, FlippError
 from ..config import load_token
-from ..db.models import IssueStatus
+from ..db.models import IssueStatus, JobStatus
 from ..db.repository import DownloadRepository
 from ..db.session import get_session
 from ..scheduler import poll_publications
@@ -127,27 +127,32 @@ def register(app: FastAPI) -> None:
     # Dashboard
     # ------------------------------------------------------------------
 
+    def _dashboard_stats(repo: DownloadRepository) -> dict:
+        """Counts for the dashboard cards, all computed in the DB.
+
+        The cards poll this every few seconds, so nothing here may load
+        whole tables - a live instance has tens of thousands of issues.
+        """
+        total_pubs, watched_pubs = repo.count_publications()
+        issue_counts = repo.count_issues_by_status()
+        job_counts = repo.count_jobs_by_status()
+        return {
+            "total_pubs": total_pubs,
+            "watched_pubs": watched_pubs,
+            "total_issues": sum(issue_counts.values()),
+            "downloaded_issues": issue_counts[IssueStatus.DONE.value],
+            "queued_jobs": job_counts[JobStatus.QUEUED.value],
+            "running_jobs": job_counts[JobStatus.RUNNING.value],
+        }
+
     @app.get("/", response_class=HTMLResponse)
     async def dashboard(request: Request):
         repo = _repo(request)
         try:
-            pubs = repo.list_publications()
-            watched = [p for p in pubs if p.watched]
-            all_issues = repo.list_issues()
-            done_issues = [i for i in all_issues if i.status == IssueStatus.DONE]
-            recent_issues = sorted(
-                done_issues,
-                key=lambda i: i.downloaded_at or datetime.min,
-                reverse=True,
-            )[:10]
+            recent_issues = repo.list_recent_downloads(limit=10)
             _annotate_file_exists(recent_issues, request.app.state.output_root)
             recent_jobs = repo.list_jobs(limit=10)
-            stats = {
-                "total_pubs": len(pubs),
-                "watched_pubs": len(watched),
-                "total_issues": len(all_issues),
-                "downloaded_issues": len(done_issues),
-            }
+            stats = _dashboard_stats(repo)
             # Render inside the try-block so the session is still open while
             # Jinja resolves any lazy-loaded attributes on ORM instances.
             return _templates(request).TemplateResponse(
@@ -159,6 +164,17 @@ def register(app: FastAPI) -> None:
                     "recent_jobs": recent_jobs,
                     "auth_enabled": auth_enabled(),
                 },
+            )
+        finally:
+            repo.session.close()
+
+    @app.get("/stats/cards", response_class=HTMLResponse)
+    async def dashboard_stats_partial(request: Request):
+        """Stats cards on their own - polled by HTMX from the dashboard."""
+        repo = _repo(request)
+        try:
+            return _templates(request).TemplateResponse(
+                request, "stats_cards.html", {"stats": _dashboard_stats(repo)}
             )
         finally:
             repo.session.close()
@@ -452,13 +468,37 @@ def register(app: FastAPI) -> None:
     # Jobs
     # ------------------------------------------------------------------
 
+    # Plain strings: these end up in URLs and in the template, where a
+    # `str, Enum` member would render as "JobStatus.QUEUED".
+    _JOB_STATUSES = (
+        JobStatus.QUEUED.value,
+        JobStatus.RUNNING.value,
+        JobStatus.DONE.value,
+        JobStatus.ERROR.value,
+    )
+
     @app.get("/jobs", response_class=HTMLResponse)
-    async def jobs_list(request: Request):
+    async def jobs_list(request: Request, status: str = ""):
+        """List jobs, optionally narrowed to a single status.
+
+        An unknown *status* is treated as no filter rather than an
+        error - the value comes from a bookmarkable URL.
+        """
+        selected = status if status in _JOB_STATUSES else ""
         repo = _repo(request)
         try:
-            jobs = repo.list_jobs(limit=100)
+            jobs = repo.list_jobs(limit=100, status=selected or None)
+            counts = repo.count_jobs_by_status()
             return _templates(request).TemplateResponse(
-                request, "jobs.html", {"jobs": jobs}
+                request,
+                "jobs.html",
+                {
+                    "jobs": jobs,
+                    "counts": counts,
+                    "total_jobs": sum(counts.values()),
+                    "selected_status": selected,
+                    "statuses": _JOB_STATUSES,
+                },
             )
         finally:
             repo.session.close()

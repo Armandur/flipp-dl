@@ -4,25 +4,8 @@
 {% block content %}
 <h1>Dashboard</h1>
 
-{# ── Stats ── #}
-<div class="stats">
-  <div class="stat-card">
-    <div class="label">Publications</div>
-    <div class="value">{{ stats.total_pubs }}</div>
-  </div>
-  <div class="stat-card">
-    <div class="label">Watched</div>
-    <div class="value">{{ stats.watched_pubs }}</div>
-  </div>
-  <div class="stat-card">
-    <div class="label">Total Issues</div>
-    <div class="value">{{ stats.total_issues }}</div>
-  </div>
-  <div class="stat-card">
-    <div class="label">Downloaded</div>
-    <div class="value">{{ stats.downloaded_issues }}</div>
-  </div>
-</div>
+{# ── Stats (self-refreshing via HTMX) ── #}
+{% include "stats_cards.html" %}
 
 {# ── Recent Downloads ── #}
 <h2>Recent Downloads</h2>

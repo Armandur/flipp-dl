@@ -4,6 +4,19 @@
 {% block content %}
 <h1>Jobs</h1>
 
+{# Filtering happens in the query, so a queue deeper than the page size
+   is still reachable here. #}
+<div class="status-filter">
+  <a href="/jobs" class="{{ 'active' if not selected_status }}">
+    All<span class="count">{{ total_jobs }}</span>
+  </a>
+  {% for status in statuses %}
+  <a href="/jobs?status={{ status }}" class="{{ 'active' if selected_status == status }}">
+    {{ status }}<span class="count">{{ counts[status] }}</span>
+  </a>
+  {% endfor %}
+</div>
+
 <div class="card">
   {% if jobs %}
   <table>
@@ -54,7 +67,9 @@
     </tbody>
   </table>
   {% else %}
-  <div class="empty">No jobs yet.</div>
+  <div class="empty">
+    {% if selected_status %}No {{ selected_status }} jobs.{% else %}No jobs yet.{% endif %}
+  </div>
   {% endif %}
 </div>
 {% endblock %}

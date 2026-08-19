@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session, selectinload
 
 from ..models import Issue as DomainIssue
@@ -168,6 +168,51 @@ class DownloadRepository:
             q = q.where(DbIssue.status == status)
         return list(self.session.scalars(q))
 
+    def count_issues_by_status(self) -> dict[str, int]:
+        """Return ``{status: count}`` over the issues table.
+
+        Counting in the DB instead of loading every row matters on a
+        real instance - the dashboard polls this and there are tens of
+        thousands of issues.
+        """
+        rows = self.session.execute(
+            select(DbIssue.status, func.count(DbIssue.id)).group_by(DbIssue.status)
+        ).all()
+        counts = {
+            IssueStatus.NEW.value: 0,
+            IssueStatus.QUEUED.value: 0,
+            IssueStatus.DOWNLOADING.value: 0,
+            IssueStatus.DONE.value: 0,
+            IssueStatus.ERROR.value: 0,
+        }
+        for status, count in rows:
+            counts[status] = int(count)
+        return counts
+
+    def count_publications(self) -> tuple[int, int]:
+        """Return ``(total, watched)`` publication counts."""
+        total = int(self.session.scalar(select(func.count(DbPublication.id))) or 0)
+        watched = int(
+            self.session.scalar(
+                select(func.count(DbPublication.id)).where(
+                    DbPublication.watched == True  # noqa: E712
+                )
+            )
+            or 0
+        )
+        return total, watched
+
+    def list_recent_downloads(self, limit: int = 10) -> list[DbIssue]:
+        """Return the most recently downloaded issues, newest first."""
+        q = (
+            select(DbIssue)
+            .options(selectinload(DbIssue.publication))
+            .where(DbIssue.status == IssueStatus.DONE)
+            .order_by(DbIssue.downloaded_at.desc(), DbIssue.id.desc())
+            .limit(limit)
+        )
+        return list(self.session.scalars(q))
+
     def mark_issue_queued(self, issue_id: int) -> None:
         issue = self.session.get(DbIssue, issue_id)
         if issue:
@@ -287,9 +332,44 @@ class DownloadRepository:
             job.finished_at = _now()
             job.error_message = error
 
-    def list_jobs(self, limit: int = 50) -> list[DbJob]:
-        q = select(DbJob).order_by(DbJob.created_at.desc()).limit(limit)
+    def list_jobs(
+        self,
+        limit: int = 50,
+        status: str | None = None,
+        job_type: str | None = None,
+    ) -> list[DbJob]:
+        """Return the newest jobs, optionally narrowed by status/type.
+
+        Filtering happens in the query, not on the returned page - a
+        queue deeper than *limit* would otherwise be invisible behind
+        newer finished jobs.
+        """
+        q = select(DbJob)
+        if status is not None:
+            q = q.where(DbJob.status == status)
+        if job_type is not None:
+            q = q.where(DbJob.job_type == job_type)
+        q = q.order_by(DbJob.created_at.desc(), DbJob.id.desc()).limit(limit)
         return list(self.session.scalars(q))
+
+    def count_jobs_by_status(self) -> dict[str, int]:
+        """Return ``{status: count}`` over the whole jobs table.
+
+        Every known status is present in the result, zero-filled, so
+        callers can render a counter without guarding for missing keys.
+        """
+        rows = self.session.execute(
+            select(DbJob.status, func.count(DbJob.id)).group_by(DbJob.status)
+        ).all()
+        counts = {
+            JobStatus.QUEUED.value: 0,
+            JobStatus.RUNNING.value: 0,
+            JobStatus.DONE.value: 0,
+            JobStatus.ERROR.value: 0,
+        }
+        for status, count in rows:
+            counts[status] = int(count)
+        return counts
 
     def get_oldest_queued_job(self, job_type: str) -> DbJob | None:
         """Return the oldest queued job of *job_type*, or ``None``.

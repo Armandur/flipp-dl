@@ -361,3 +361,32 @@ def test_purge_old_jobs_never_deletes_running(repo):
     remaining = list(repo.session.scalars(select(DbJob)))
     assert len(remaining) == 1
     assert remaining[0].status == JobStatus.RUNNING
+
+
+def test_count_jobs_by_status_covers_every_status(session):
+    """Counting happens in the DB and zero-fills unused statuses."""
+    repo = DownloadRepository(session)
+    for _ in range(3):
+        repo.create_job("download", {"issue_id": 1})
+    finished = repo.create_job("poll")
+    repo.finish_job(finished.id)
+    failed = repo.create_job("poll")
+    repo.finish_job(failed.id, error="boom")
+    session.commit()
+
+    counts = repo.count_jobs_by_status()
+    assert counts == {"queued": 3, "running": 0, "done": 1, "error": 1}
+
+
+def test_list_jobs_filters_by_status_and_type(session):
+    repo = DownloadRepository(session)
+    repo.create_job("download", {"issue_id": 1})
+    done = repo.create_job("poll")
+    repo.finish_job(done.id)
+    session.commit()
+
+    queued = repo.list_jobs(limit=50, status="queued")
+    assert [j.job_type for j in queued] == ["download"]
+
+    polls = repo.list_jobs(limit=50, job_type="poll")
+    assert [j.status for j in polls] == ["done"]

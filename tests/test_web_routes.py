@@ -196,3 +196,85 @@ def test_issue_row_partial_shows_progress_while_downloading(
     # Polling attributes must be present so HTMX keeps refreshing.
     assert "hx-trigger" in resp.text
     assert "every 2s" in resp.text
+
+
+# ---------------------------------------------------------------------------
+# Jobs view – status filter and queue counters (TASK-1330)
+# ---------------------------------------------------------------------------
+
+
+def _seed_jobs(client: TestClient, queued: int, done: int) -> None:
+    """Create *done* finished jobs and *queued* queued ones.
+
+    The queued jobs are created FIRST so they end up oldest - that is
+    the case that used to fall off the end of the jobs page.
+    """
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        for i in range(queued):
+            repo.create_job("download", {"issue_id": i})
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        for _ in range(done):
+            job = repo.create_job("poll")
+            repo.finish_job(job.id)
+
+
+def test_jobs_page_filters_by_status_in_the_query(client: TestClient):
+    """A queued job must stay visible behind a page-full of newer jobs.
+
+    120 finished jobs is more than the 100-row page, so without a
+    DB-level filter the queued job would be invisible on /jobs.
+    """
+    _seed_jobs(client, queued=1, done=120)
+
+    unfiltered = client.get("/jobs")
+    assert unfiltered.status_code == 200
+    assert 'class="badge badge-queued"' not in unfiltered.text  # off the page
+
+    filtered = client.get("/jobs?status=queued")
+    assert filtered.status_code == 200
+    assert 'class="badge badge-queued"' in filtered.text
+    assert 'class="badge badge-done"' not in filtered.text
+
+
+def test_jobs_page_counts_cover_the_whole_table(client: TestClient):
+    """The counters must reflect every row, not just the listed page."""
+    _seed_jobs(client, queued=3, done=120)
+
+    resp = client.get("/jobs")
+    assert resp.status_code == 200
+    # Rendered as e.g. `queued<span class="count">3</span>`
+    assert 'queued<span class="count">3</span>' in resp.text
+    assert 'done<span class="count">120</span>' in resp.text
+
+
+def test_jobs_page_ignores_unknown_status(client: TestClient):
+    _seed_jobs(client, queued=2, done=1)
+
+    resp = client.get("/jobs?status=bogus")
+    assert resp.status_code == 200
+    # Falls back to "all", so both statuses are listed.
+    assert 'class="badge badge-queued"' in resp.text
+    assert 'class="badge badge-done"' in resp.text
+
+
+def test_dashboard_shows_queue_card_and_polls(client: TestClient):
+    _seed_jobs(client, queued=4, done=2)
+
+    resp = client.get("/")
+    assert resp.status_code == 200
+    assert 'href="/jobs?status=queued"' in resp.text
+    assert 'hx-get="/stats/cards"' in resp.text
+
+
+def test_stats_cards_partial_reflects_queue_depth(client: TestClient):
+    _seed_jobs(client, queued=4, done=2)
+
+    resp = client.get("/stats/cards")
+    assert resp.status_code == 200
+    assert "In Queue" in resp.text
+    # The queue card shows the queued count.
+    assert ">4</div>" in resp.text
+    # The partial re-arms its own polling so the swap keeps refreshing.
+    assert 'hx-trigger="every 5s"' in resp.text
