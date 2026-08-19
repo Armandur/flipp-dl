@@ -1,5 +1,23 @@
 # Backlog Export
 
+## [P2][done] [flipp] Köa missade utgåvor när en publikation börjar bevakas
+
+Att kryssa Watch köar ingenting. Poll köar bara NYUPPTÄCKTA utgåvor (new_issues i poll_publications), så allt som redan fanns i databasen när bevakningen slogs på laddas aldrig ner. I praktiken får man leta upp publikationer där Downloaded X/Y har X != Y och trycka download manuellt på varje rad.
+
+Acceptanskriterier:
+- Watch på en publikation köar alla dess utgåvor som inte är nedladdade, inklusive tidigare felade, och skapar ett jobb per utgåva.
+- Redan köade eller pågående utgåvor dubbelköas inte.
+- Poll fyller på bevakade publikationer med utgåvor som aldrig laddats ner, så en missad utgåva självläker vid nästa poll. Felade utgåvor köas INTE om automatiskt - en utgåva som alltid failar ska inte köas om var sjätte timme.
+- Unwatch köar ingenting och avbryter inget pågående.
+
+Verifiering: riktade tester i tests/test_repository.py, tests/test_scheduler.py och tests/test_web_routes.py, plus klick på Watch i webbläsaren med kontroll av att kön faktiskt fylls.
+
+- ID: `01M0CZ6BXJP7W28D2YR2MNSCRZ`
+- Type: feature
+- Actor: ai:claude-opus-5
+
+---
+
 ## [P2][done] [flipp] Utgåvor fastnar i queued utan jobb och går inte att köa om
 
 Observerat i drift: Hälge "Nr 7 2026" står som Queued sedan 2026-06-25, men jobbtabellen har noll köade jobb. Utgåvans status och jobbtabellen har alltså glidit isär - troligen en containeromstart mitt i, eller ett jobb som felade efter att issue-statusen satts.
@@ -91,6 +109,25 @@ Rätt fix är troligen en riktig claim-fråga mot DB (SELECT ... WHERE status=qu
 
 - ID: `01M0BBXMEPZZWZVNYZR3SF7RWF`
 - Type: bug
+- Actor: ai:claude-opus-5
+
+---
+
+## [P3][todo] [flipp] Cachea omslag lokalt i stället för att hotlinka pagesuite
+
+Omslagen hämtas i dag direkt från pagesuite vid varje sidladdning: issue_row.html pekar på https://edition.pagesuite-professional.co.uk/get_image.aspx?w=100&eid=<issue-kod> och publikationsraden på publication.cover_url. Det gör gränssnittet beroende av en extern tjänst, läcker vilka sidor som besöks, och blir långsamt när många rader renderas.
+
+Cachea i stället lokalt för både publikationer och utgåvor: hämta bilden en gång, spara på disk (utanför output_root så den inte förväxlas med nedladdade PDF:er) eller i databasen, och servera från en egen endpoint. Utgåvornas omslag kan hämtas när utgåvan upptäcks vid poll.
+
+Behåll dagens beteende på Publications: raden visar publikationens senaste omslag, inte ett fast.
+
+Att tänka igenom:
+- Hämtning får inte ske synkront i renderingen - det skulle göra sidan lika långsam som den externa tjänsten. Antingen vid poll, eller lat med en jobbtyp.
+- Rensning: omslagen för 17660 utgåvor blir en del data. Rimligen bara utgåvor som faktiskt visas, eller en storleksgräns.
+- Fallback när bilden saknas: dagens onerror-döljning duger.
+
+- ID: `01M0CZ3Y538K1Q6DF6Y0D30S2H`
+- Type: improvement
 - Actor: ai:claude-opus-5
 
 ---
