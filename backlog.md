@@ -1,5 +1,21 @@
 # Backlog Export
 
+## [P2][done] [flipp] Visa tider i lokal tidszon i stället för UTC
+
+Alla tidsstämplar lagras som naiv UTC (_now() i db/repository.py) och renderas rakt av i mallarna, så gränssnittet visar UTC. Sommartid gör att tiderna ligger två timmar fel mot svensk klocka, vilket är förvirrande på jobbsidan där man jämför mot när något faktiskt hände.
+
+Konvertera vid rendering: ett Jinja-filter som tolkar värdet som UTC och skriver ut i konfigurerad tidszon. Tidszonen ska gå att styra med env (FLIPP_TZ), med Europe/Stockholm som default. Databasen fortsätter lagra UTC - det är rätt lagringsform och ska inte röras.
+
+Berörda mallar: dashboard.html, jobs.html, job_detail.html, library.html. Dokumentera variabeln i .env.example, docker-compose.yml och README.
+
+Verifiering: test som renderar en känd UTC-tid och kontrollerar att utskriften är förskjuten rätt, inklusive ett vinterdatum och ett sommardatum så DST täcks.
+
+- ID: `01M0CY63XA8A4TN8CG5XG9NHJ5`
+- Type: bug
+- Actor: ai:claude-opus-5
+
+---
+
 ## [P2][done] [flipp] Kövy: statusfilter på /jobs, kökort och live-uppdaterad dashboard
 
 Jobbsidan hämtar list_jobs(limit=100) sorterat nyast först, utan statusfilter. Ligger det 100 färska jobb överst blir en kö med äldre queued-jobb osynlig i gränssnittet, även när schedulern plockar dem korrekt (jämför TASK-1282, där samma fönstertänk var själva buggen). Med 17660 kända utgåvor räcker en bulk-köläggning för att det ska hända.
