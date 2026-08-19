@@ -174,10 +174,10 @@ CI kör samma kommandon på Python 3.11 och 3.12 via GitHub Actions.
 
 ## Roadmap
 
-Se [`TODO.md`](TODO.md) för en prioriterad lista över planerade
-förbättringar. På sikt är målet att göra `flipp-dl` till en självhostad
-tjänst med webbgränssnitt, databas och schemalagd nedladdning, paketerad
-som en Docker-container.
+Öppna punkter spåras i backlog-verktyget och speglas till
+[`backlog.md`](backlog.md). På sikt är målet att göra `flipp-dl` till en
+självhostad tjänst med webbgränssnitt, databas och schemalagd nedladdning,
+paketerad som en Docker-container.
 
 ## Licens
 
