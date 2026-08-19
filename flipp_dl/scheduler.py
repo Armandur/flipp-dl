@@ -144,20 +144,31 @@ def poll_publications(
                 logger.info("Poll: cached %d cover image(s)", cached_covers)
 
             watched_pub_ids = {p.id for p in repo.list_publications(watched_only=True)}
+            # Publications with their own poll interval (TASK-1291) only
+            # have new issues queued/backfilled once their interval has
+            # elapsed; publications without an override are always due,
+            # matching today's behaviour. The metadata sync above already
+            # ran for every publication regardless - only the queuing
+            # below is gated.
+            due_pub_ids = repo.publications_due_for_poll(watched_pub_ids)
+
             queued = 0
             for db_issue in new_issues:
-                if db_issue.publication_id in watched_pub_ids:
+                if db_issue.publication_id in due_pub_ids:
                     repo.mark_issue_queued(db_issue.id)
                     repo.create_job("download", {"issue_id": db_issue.id})
                     queued += 1
 
-            # Catch up on anything a watched publication never got: an
-            # issue that existed before watching was turned on, or one
-            # that was lost to a restart. Failed issues stay out of this
-            # so a permanently broken issue isn't retried every poll.
+            # Catch up on anything a due, watched publication never got:
+            # an issue that existed before watching was turned on, one
+            # that was lost to a restart, or one skipped on an earlier
+            # tick because this publication wasn't due yet. Failed issues
+            # stay out of this so a permanently broken issue isn't
+            # retried every poll.
             backfilled = 0
-            for pub_id in watched_pub_ids:
+            for pub_id in due_pub_ids:
                 backfilled += repo.queue_missing_issues(pub_id, include_failed=False)
+                repo.mark_publication_poll_done(pub_id)
 
             repo.finish_job(job.id)
             logger.info(

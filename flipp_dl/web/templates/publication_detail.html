@@ -44,6 +44,28 @@
       >Queue missing issues</button>
       <span id="queue-missing-result" class="dim"></span>
     </div>
+    <form
+      class="detail-actions"
+      method="post"
+      action="/publications/{{ publication.custom_code }}/poll-interval"
+      style="margin-top:8px;"
+    >
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+      <label for="poll_interval_minutes" class="dim">
+        Own poll interval (minutes)
+      </label>
+      <input
+        id="poll_interval_minutes"
+        name="poll_interval_minutes"
+        type="number"
+        min="1"
+        step="1"
+        placeholder="Global default"
+        value="{{ publication.poll_interval_minutes or '' }}"
+        style="width:120px;"
+      >
+      <button class="btn btn-watch" type="submit">Save</button>
+    </form>
   </div>
 </div>
 

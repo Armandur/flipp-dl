@@ -202,6 +202,59 @@ def test_poll_does_not_retry_failed_issues(repo, session_factory):
         assert r.count_jobs_by_status()["queued"] == 0
 
 
+def test_poll_skips_backfill_for_publication_not_yet_due(repo, session_factory):
+    """A publication with its own interval is skipped until it's due (TASK-1291)."""
+    from flipp_dl.scheduler import poll_publications
+
+    issue_id = _seed_issue(repo)
+    pub = repo.get_publication("KA")
+    repo.set_watched("KA", True)
+    repo.set_setting("flipp_token", "test-token")
+    repo.set_publication_poll_interval("KA", 60)
+    repo.mark_publication_poll_done(pub.id)  # just checked - not due again yet
+    repo.session.commit()
+
+    class FakeClient:
+        def fetch_publications(self):
+            return []
+
+    poll_publications(FakeClient(), session_factory, Path("/tmp"), workers=1)
+
+    with get_session(session_factory) as session:
+        r = DownloadRepository(session)
+        # Backfill was skipped this tick - the issue stays NEW.
+        assert r.get_issue(issue_id).status == IssueStatus.NEW
+        assert r.count_jobs_by_status()["queued"] == 0
+
+
+def test_poll_backfills_publication_once_its_own_interval_elapses(
+    repo, session_factory
+):
+    """Once the override interval has passed, the publication is due again."""
+    from datetime import datetime, timedelta
+
+    from flipp_dl.scheduler import poll_publications
+
+    issue_id = _seed_issue(repo)
+    pub = repo.get_publication("KA")
+    repo.set_watched("KA", True)
+    repo.set_setting("flipp_token", "test-token")
+    repo.set_publication_poll_interval("KA", 60)
+    pub.next_poll_due_at = datetime.utcnow() - timedelta(minutes=1)
+    repo.session.commit()
+
+    class FakeClient:
+        def fetch_publications(self):
+            return []
+
+    poll_publications(FakeClient(), session_factory, Path("/tmp"), workers=1)
+
+    with get_session(session_factory) as session:
+        r = DownloadRepository(session)
+        assert r.get_issue(issue_id).status == IssueStatus.QUEUED
+        assert r.count_jobs_by_status()["queued"] == 1
+
+
 def test_poll_without_a_token_does_nothing(repo, session_factory):
     """No token yet: skip quietly instead of logging a failure every poll.
 

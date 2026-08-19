@@ -779,6 +779,75 @@ def test_queue_missing_requires_csrf(client: TestClient):
 
 
 # ---------------------------------------------------------------------------
+# Per-publication poll interval (TASK-1291)
+# ---------------------------------------------------------------------------
+
+
+def test_poll_interval_field_defaults_to_blank(client: TestClient):
+    resp = client.get("/publications/KA")
+    assert resp.status_code == 200
+    assert 'name="poll_interval_minutes"' in resp.text
+    assert 'value=""' in resp.text
+
+
+def test_set_poll_interval_persists_and_shows_on_reload(client: TestClient):
+    token = _csrf_for(client)
+    resp = client.post(
+        "/publications/KA/poll-interval",
+        data={"_csrf_token": token, "poll_interval_minutes": "90"},
+    )
+    assert resp.status_code == 200  # follow_redirects default True in TestClient
+
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        assert repo.get_publication("KA").poll_interval_minutes == 90
+
+    reloaded = client.get("/publications/KA")
+    assert 'value="90"' in reloaded.text
+
+
+def test_set_poll_interval_blank_clears_override(client: TestClient):
+    token = _csrf_for(client)
+    client.post(
+        "/publications/KA/poll-interval",
+        data={"_csrf_token": token, "poll_interval_minutes": "90"},
+    )
+    client.post(
+        "/publications/KA/poll-interval",
+        data={"_csrf_token": token, "poll_interval_minutes": ""},
+    )
+
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        assert repo.get_publication("KA").poll_interval_minutes is None
+
+
+def test_set_poll_interval_requires_csrf(client: TestClient):
+    resp = client.post(
+        "/publications/KA/poll-interval", data={"poll_interval_minutes": "90"}
+    )
+    assert resp.status_code == 400
+
+
+def test_set_poll_interval_rejects_non_numeric(client: TestClient):
+    token = _csrf_for(client)
+    resp = client.post(
+        "/publications/KA/poll-interval",
+        data={"_csrf_token": token, "poll_interval_minutes": "abc"},
+    )
+    assert resp.status_code == 400
+
+
+def test_set_poll_interval_unknown_publication_404(client: TestClient):
+    token = _csrf_for(client)
+    resp = client.post(
+        "/publications/NOPE/poll-interval",
+        data={"_csrf_token": token, "poll_interval_minutes": "90"},
+    )
+    assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
 # /metrics
 # ---------------------------------------------------------------------------
 

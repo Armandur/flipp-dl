@@ -260,6 +260,63 @@ class DownloadRepository:
         if db_pub:
             db_pub.last_polled_at = _now()
 
+    def set_publication_poll_interval(
+        self, custom_code: str, minutes: int | None
+    ) -> bool:
+        """Set (or clear) a publication's own poll interval override.
+
+        ``minutes=None`` reverts to the global default - the publication
+        is queued/backfilled on every poll tick again, same as before it
+        ever had an override. Also resets ``next_poll_due_at`` so a
+        shortened interval takes effect on the very next tick instead of
+        waiting out whatever the previous interval had scheduled.
+        Returns False if the publication doesn't exist.
+        """
+        db_pub = self.get_publication(custom_code)
+        if db_pub is None:
+            return False
+        db_pub.poll_interval_minutes = minutes
+        db_pub.next_poll_due_at = None
+        return True
+
+    def publications_due_for_poll(self, publication_ids: set[int]) -> set[int]:
+        """Return the subset of *publication_ids* due to be polled now.
+
+        A publication without an interval override is always due - that
+        keeps today's behaviour of being queued/backfilled on every
+        global poll tick. One with an override is due only once its own
+        interval has elapsed since :meth:`mark_publication_poll_done` was
+        last called for it.
+        """
+        if not publication_ids:
+            return set()
+        now = _now()
+        due: set[int] = set()
+        pubs = self.session.scalars(
+            select(DbPublication).where(DbPublication.id.in_(publication_ids))
+        )
+        for pub in pubs:
+            # Same truthiness test as mark_publication_poll_done: a stored
+            # 0 counts as "no override" in both places, so the two can't
+            # disagree about whether a publication has one.
+            if not pub.poll_interval_minutes:
+                due.add(pub.id)
+            elif pub.next_poll_due_at is None or pub.next_poll_due_at <= now:
+                due.add(pub.id)
+        return due
+
+    def mark_publication_poll_done(self, publication_id: int) -> None:
+        """Advance ``next_poll_due_at`` after processing a due publication.
+
+        No-op for a publication without its own override - it has
+        nothing to advance and stays due on every tick.
+        """
+        db_pub = self.get_publication_by_id(publication_id)
+        if db_pub is not None and db_pub.poll_interval_minutes:
+            db_pub.next_poll_due_at = _now() + timedelta(
+                minutes=db_pub.poll_interval_minutes
+            )
+
     def publications_needing_cover_refresh(self) -> list[DbPublication]:
         """Publications whose ``cover_url`` hasn't been cached yet (TASK-1345).
 

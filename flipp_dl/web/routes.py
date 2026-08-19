@@ -286,6 +286,35 @@ def register(app: FastAPI) -> None:
             DownloadRepository(session).set_watched(code, False)
         return await _publication_row(request, code)
 
+    @app.post("/publications/{code}/poll-interval", response_class=HTMLResponse)
+    async def set_poll_interval(
+        request: Request, code: str, poll_interval_minutes: str = Form("")
+    ):
+        """Set (or clear) this publication's own poll interval (TASK-1291).
+
+        A blank field clears the override and reverts to the global
+        default - queued/backfilled on every poll tick, same as a
+        publication that never had one.
+        """
+        if not await check_csrf_form(request):
+            return HTMLResponse("CSRF validation failed", status_code=400)
+        raw = poll_interval_minutes.strip()
+        minutes: int | None = None
+        if raw:
+            try:
+                minutes = int(raw)
+            except ValueError:
+                return HTMLResponse(
+                    "Poll interval must be a whole number", status_code=400
+                )
+            if minutes <= 0:
+                minutes = None
+        with get_session(request.app.state.session_factory) as session:
+            repo = DownloadRepository(session)
+            if not repo.set_publication_poll_interval(code, minutes):
+                return HTMLResponse("Publication not found", status_code=404)
+        return RedirectResponse(f"/publications/{code}", status_code=303)
+
     @app.get("/publications/{code}/cover")
     async def serve_publication_cover(request: Request, code: str):
         """Serve the locally cached cover for *code* (TASK-1345).

@@ -79,6 +79,17 @@ class DbPublication(Base):
     next_issue_date: Mapped[str | None] = mapped_column(String(20), nullable=True)
     watched: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     last_polled_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # Per-publication poll interval override, in minutes (TASK-1291). None
+    # means "use the global default" - today's behaviour, queued/backfilled
+    # on every poll tick. Set only when the user wants a slower cadence
+    # than the global default (e.g. a monthly magazine).
+    poll_interval_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Bookkeeping for the override above: when this publication is next
+    # allowed to have its new issues queued/backfilled. Distinct from
+    # ``last_polled_at``, which ``sync_publications()`` stamps on every
+    # publication every tick regardless of any override - reusing it here
+    # would make the override reset itself on every poll.
+    next_poll_due_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     issues: Mapped[list[DbIssue]] = relationship(
         "DbIssue", back_populates="publication", cascade="all, delete-orphan"

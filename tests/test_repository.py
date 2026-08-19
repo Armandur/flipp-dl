@@ -98,6 +98,85 @@ def test_set_watched_unknown_returns_false(repo):
     assert repo.set_watched("NOPE", True) is False
 
 
+# ---------------------------------------------------------------------------
+# Per-publication poll interval (TASK-1291)
+# ---------------------------------------------------------------------------
+
+
+def test_set_publication_poll_interval_unknown_returns_false(repo):
+    assert repo.set_publication_poll_interval("NOPE", 30) is False
+
+
+def test_set_publication_poll_interval_persists(repo):
+    repo.upsert_publication(_publication())
+    repo.session.commit()
+
+    assert repo.set_publication_poll_interval("KA", 90)
+    repo.session.commit()
+
+    db_pub = repo.get_publication("KA")
+    assert db_pub.poll_interval_minutes == 90
+
+
+def test_set_publication_poll_interval_clear_resets_next_due(repo):
+    db_pub = repo.upsert_publication(_publication())
+    repo.session.commit()
+    repo.set_publication_poll_interval("KA", 90)
+    repo.mark_publication_poll_done(db_pub.id)
+    repo.session.commit()
+    assert repo.get_publication("KA").next_poll_due_at is not None
+
+    repo.set_publication_poll_interval("KA", None)
+    repo.session.commit()
+
+    refreshed = repo.get_publication("KA")
+    assert refreshed.poll_interval_minutes is None
+    assert refreshed.next_poll_due_at is None
+
+
+def test_publications_due_for_poll_no_override_always_due(repo):
+    """A publication without an override is due on every tick."""
+    db_pub = repo.upsert_publication(_publication())
+    repo.session.commit()
+
+    assert repo.publications_due_for_poll({db_pub.id}) == {db_pub.id}
+
+
+def test_publications_due_for_poll_not_due_after_being_marked_done(repo):
+    """An override publication just marked done isn't due again immediately."""
+    db_pub = repo.upsert_publication(_publication())
+    repo.session.commit()
+    repo.set_publication_poll_interval("KA", 60)
+    repo.mark_publication_poll_done(db_pub.id)
+    repo.session.commit()
+
+    assert repo.publications_due_for_poll({db_pub.id}) == set()
+
+
+def test_publications_due_for_poll_due_once_interval_elapsed(repo):
+    """An override publication becomes due again once its interval passes."""
+    from datetime import datetime, timedelta
+
+    db_pub = repo.upsert_publication(_publication())
+    repo.session.commit()
+    repo.set_publication_poll_interval("KA", 60)
+    db_pub.next_poll_due_at = datetime.utcnow() - timedelta(minutes=1)
+    repo.session.commit()
+
+    assert repo.publications_due_for_poll({db_pub.id}) == {db_pub.id}
+
+
+def test_mark_publication_poll_done_noop_without_override(repo):
+    """No override means nothing to advance - stays always-due."""
+    db_pub = repo.upsert_publication(_publication())
+    repo.session.commit()
+
+    repo.mark_publication_poll_done(db_pub.id)
+    repo.session.commit()
+
+    assert repo.get_publication("KA").next_poll_due_at is None
+
+
 def test_list_publications_watched_only(repo):
     repo.upsert_publication(_publication("A"))
     repo.upsert_publication(_publication("B"))
@@ -809,3 +888,24 @@ def test_set_issue_cover_cache_stores_the_filename(repo):
     repo.session.commit()
 
     assert repo.get_issue(db_issue.id).cover_cache_path == "issue-KA-01.jpg"
+
+
+def test_zero_poll_interval_counts_as_no_override(session):
+    """A stored 0 must not make a publication permanently due-but-unmarked.
+
+    The route normalises 0 away, but the two call sites used to disagree
+    about what 0 means - due_for_poll treated it as an override while
+    mark_poll_done ignored it.
+    """
+    from flipp_dl.models import Publication
+
+    repo = DownloadRepository(session)
+    db_pub = repo.upsert_publication(Publication(custom_code="KA", name="Kalle Anka"))
+    db_pub.poll_interval_minutes = 0
+    session.flush()
+
+    assert repo.publications_due_for_poll({db_pub.id}) == {db_pub.id}
+    repo.mark_publication_poll_done(db_pub.id)
+    # Still due: 0 means "no override" on both sides.
+    assert repo.publications_due_for_poll({db_pub.id}) == {db_pub.id}
+    assert db_pub.next_poll_due_at is None
