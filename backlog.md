@@ -135,6 +135,50 @@ Rätt fix är troligen en riktig claim-fråga mot DB (SELECT ... WHERE status=qu
 
 ---
 
+## [P3][todo] [flipp] Slå på Komga-integrationen i flipp-dl
+
+BEROENDE: kräver att TASK-1358 (montera output-katalogen som bibliotek i Komga) är klar först. Utan bibliotek finns inget att välja i rullistan och inget att skanna.
+
+Koden är byggd och utrullad (TASK-1326, 1327, 1328) men allt är avstängt tills det konfigureras. Komga svarar på http://192.168.1.2:8097.
+
+Att göra på /settings i flipp-dl:
+- Fyll i Komga-URL och autentisering: användarnamn och lösenord, eller X-API-Key om Komga är 1.8 eller senare.
+- Klicka "Test connection" - den hämtar bibliotekslistan och fyller rullistan. Får du inget svar är det URL eller credentials som är fel, inte flipp-dl.
+- Välj biblioteket från TASK-1358 och slå på integrationen.
+
+Kontrollera efteråt:
+- Ladda ner en utgåva och se att ett komga_sync-jobb dyker upp på /jobs och blir done.
+- Kolla i Komga att serien fått titel, beskrivning, förlag Egmont, språk sv och Flipps omslag - inte PDF:ens första sida.
+- Läs en utgåva i Komga och se att läst-markeringen dyker upp i flipp-dl inom ett dygn (synken går en gång per dygn).
+
+Vill du inte att ett visst fält skrivs över kan det stängas av för sig: KOMGA_PUSH_TITLE, KOMGA_PUSH_SUMMARY, KOMGA_PUSH_COVER, KOMGA_PUSH_GENRES, KOMGA_PUSH_NUMBER, KOMGA_PUSH_RELEASE_DATE, KOMGA_PUSH_PUBLISHER, KOMGA_PUSH_LANGUAGE, KOMGA_PUSH_ISSUE_TITLE.
+
+- ID: `01M0DM1Z2W9NJ1GCK5X9ATBVY7`
+- Type: chore
+- Actor: ai:claude-opus-5
+
+---
+
+## [P3][todo] [flipp] Montera flipp-dl:s output-katalog som bibliotek i Komga
+
+Förutsättning för att Komga-integrationen ska kunna slås på. Utan ett bibliotek som faktiskt pekar på flipp-dl:s filer har en scan-trigger inget att skanna, och metadata-pushen hittar ingen serie att skriva till.
+
+Läget: Komga kör redan på TERVO2 (containern "Komga", gotson/komga, host-port 8097 mot 25600 i containern). flipp-dl skriver sina PDF:er till den katalog som är monterad som /output i containern flipp-dl-dev, i drift /mnt/user/Downloads/Flipp.
+
+Att göra:
+- Ge Komga läsåtkomst till samma katalog. Antingen genom att montera in den i Komga-containern, eller genom att peka om flipp-dl:s output till en katalog Komga redan ser.
+- Skapa ett bibliotek i Komga med den katalogen som rot. Enligt den ursprungliga planen ska det vara ett "Manuella"-bibliotek med extern metadata-matchning AVSTÄNGD - svenska serietidningar finns inte i Comicvine eller GCD, och Komgas providers skulle annars skriva över det flipp-dl pushar.
+- Kontrollera att Komga hittar serierna: layouten <publikationsnamn>/<utgåva>.pdf ska tolkas som serie och bok.
+- Notera bibliotekets id - det behövs i nästa steg.
+
+Klart när: biblioteket finns i Komga, serierna syns, och bibliotekets id är noterat.
+
+- ID: `01M0DM197KW11YDV4XDX1J2WN0`
+- Type: chore
+- Actor: ai:claude-opus-5
+
+---
+
 ## [P3][doing] [flipp] Verifiera OPDS-feeden mot en riktig läsare
 
 Feeden är byggd och verifierad strukturellt (XML/JSON parsas i tester, och drift svarar 200 på både /api/opds och /api/opds2, även med HTTP Basic). Det som återstår är det enda som inte går att simulera: att en verklig OPDS-klient accepterar katalogen.
