@@ -590,3 +590,47 @@ def test_unwatching_queues_nothing(client: TestClient):
         repo = DownloadRepository(session)
         assert repo.count_jobs_by_status()["queued"] == 0
         assert repo.get_publication("KA").watched is False
+
+
+def test_queue_missing_queues_without_watching(client: TestClient):
+    """Catching up must not change the watch flag."""
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        pub = repo.get_publication("KA")
+        for i in range(2):
+            repo.upsert_issue(
+                Issue(
+                    custom_code=f"miss{i}",
+                    issue_name=f"Nr {i}",
+                    issue_date="2023-01-01",
+                ),
+                pub.id,
+            )
+
+    token = _csrf_for(client)
+    resp = client.post("/publications/KA/queue-missing", data={"_csrf_token": token})
+    assert resp.status_code == 200
+    assert "Queued 2 issues" in resp.text
+
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        assert repo.count_jobs_by_status()["queued"] == 2
+        assert repo.get_publication("KA").watched is False
+
+
+def test_queue_missing_reports_when_there_is_nothing_to_do(client: TestClient):
+    token = _csrf_for(client)
+    # ka01 is already downloaded, gh01 belongs to another publication.
+    resp = client.post("/publications/KA/queue-missing", data={"_csrf_token": token})
+    assert resp.status_code == 200
+    assert "Nothing to queue" in resp.text
+
+
+def test_queue_missing_requires_csrf(client: TestClient):
+    assert client.post("/publications/KA/queue-missing", data={}).status_code == 400
+
+
+def test_queue_missing_unknown_publication_is_404(client: TestClient):
+    token = _csrf_for(client)
+    resp = client.post("/publications/NOPE/queue-missing", data={"_csrf_token": token})
+    assert resp.status_code == 404

@@ -283,6 +283,35 @@ def register(app: FastAPI) -> None:
         finally:
             repo.session.close()
 
+    @app.post("/publications/{code}/queue-missing", response_class=HTMLResponse)
+    async def queue_missing(request: Request, code: str):
+        """Queue every issue of *code* that isn't downloaded yet.
+
+        Separate from watching, so catching up on a publication doesn't
+        mean unwatching and re-watching it - which would leave a gap
+        where a poll could miss new issues.
+        """
+        if not await check_csrf_form(request):
+            return HTMLResponse("CSRF validation failed", status_code=400)
+        with get_session(request.app.state.session_factory) as session:
+            repo = DownloadRepository(session)
+            pub = repo.get_publication(code)
+            if pub is None:
+                return HTMLResponse("Publication not found", status_code=404)
+            queued = repo.queue_missing_issues(pub.id)
+        logger.info("Queue-missing %s: queued %d issue(s)", code, queued)
+        if queued:
+            label = "issue" if queued == 1 else "issues"
+            body = f"Queued {queued} {label}"
+        else:
+            body = "Nothing to queue"
+        # Reload so every affected row picks up its new status.
+        return HTMLResponse(
+            f'<span class="dim" hx-get="/publications/{code}" '
+            f'hx-trigger="load delay:1200ms" hx-target="body" '
+            f'hx-push-url="true">{body} – refreshing…</span>'
+        )
+
     @app.get(
         "/publications/{code}/issues/{issue_code}/row",
         response_class=HTMLResponse,

@@ -31,6 +31,19 @@
       {{ publication.categories | map(attribute="category_name") | join(", ") }}
     </div>
     {% endif %}
+    {# Catch up without touching the watch flag - unwatch/watch would
+       leave a window where a poll could miss new issues. #}
+    <div class="detail-actions">
+      <button
+        class="btn btn-watch"
+        hx-post="/publications/{{ publication.custom_code }}/queue-missing"
+        hx-target="#queue-missing-result"
+        hx-swap="innerHTML"
+        hx-vals='{"_csrf_token": "{{ csrf_token }}"}'
+        hx-confirm="Queue every issue that isn't downloaded yet?"
+      >Queue missing issues</button>
+      <span id="queue-missing-result" class="dim"></span>
+    </div>
   </div>
 </div>
 
