@@ -606,7 +606,7 @@ Bygg vidare på befintliga byggstenar i stället för att uppfinna nya: `list_is
 
 ---
 
-## [P4][todo] [flipp] Komga nivå 3: synka lässtatus tillbaka till flipp-dl
+## [P4][done] [flipp] Komga nivå 3: synka lässtatus tillbaka till flipp-dl
 
 ## Context
 Beror på att TASK-1327 (Komga nivå 2) landar först - den här tasken behöver bok-uppslaget (`book_id`) som nivå 2 bygger upp vid metadatapush. Utan det finns inget att fråga Komga om lässtatus för.
