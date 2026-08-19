@@ -720,7 +720,7 @@ Filer som väntas ändras: `flipp_dl/web/routes.py` (nya endpoints, t.ex. `/opds
 
 ---
 
-## [P4][todo] [flipp] Notiser vid nya nedladdningar via ntfy och webhook
+## [P4][done] [flipp] Notiser vid nya nedladdningar via ntfy och webhook
 
 ## Context
 Idag syns nya nedladdningar bara om man öppnar webb-UI:t. Ägaren vill kunna få en push-notis när en ny utgåva laddats ner (eller när nedladdning misslyckats), utan att aktivt behöva kolla dashboarden.
