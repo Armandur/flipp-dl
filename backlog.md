@@ -637,7 +637,7 @@ Filer som väntas ändras: flipp_dl/db/models.py, flipp_dl/db/migrations/version
 
 ---
 
-## [P4][todo] [flipp] i18n i webbgränssnittet med gettext
+## [P4][done] [flipp] i18n i webbgränssnittet med gettext
 
 ## Context
 Webb-UI:t (`flipp_dl/web/templates/*.html`) är idag helt engelskt - `<html lang="en">` och all UI-text hårdkodad i templates. Ägaren skriver och tänker på svenska, vilket gör i18n relevant trots att verktyget bara har en användare.
