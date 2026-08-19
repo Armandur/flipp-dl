@@ -398,6 +398,50 @@ def test_publications_list_shows_downloaded_count(client: TestClient):
     assert "/2" in resp.text
 
 
+def test_publications_list_does_not_query_the_issues_table(client: TestClient):
+    """TASK-1338: the list view must not load every issue row.
+
+    ``list_publications()`` used to selectinload the whole ``issues``
+    relationship for every publication just to compute two counters -
+    17660 rows on the production instance for a page that renders two
+    integers per row. Any SELECT that touches ``issues`` here (beyond the
+    aggregated GROUP BY, which is an acceptable single query) is the bug
+    coming back.
+    """
+    from sqlalchemy import event
+
+    engine = client.app.state.session_factory.kw["bind"]
+    statements: list[str] = []
+
+    def _capture(conn, cursor, statement, parameters, context, executemany):
+        statements.append(statement)
+
+    event.listen(engine, "before_cursor_execute", _capture)
+    try:
+        resp = client.get("/publications")
+    finally:
+        event.remove(engine, "before_cursor_execute", _capture)
+
+    assert resp.status_code == 200
+    select_statements = [
+        s for s in statements if s.strip().upper().startswith("SELECT")
+    ]
+    assert select_statements, "expected at least one SELECT for /publications"
+
+    issues_statements = [s for s in select_statements if "FROM issues" in s]
+    assert issues_statements, "expected the aggregated issue-count query to run"
+    for stmt in issues_statements:
+        # The only query touching ``issues`` may be the aggregated
+        # GROUP BY count/sum - anything else means a row-level SELECT
+        # (custom_code, issue_name, file_path, ...) of the whole table
+        # crept back in, which is exactly what this task removes.
+        assert "GROUP BY" in stmt, stmt
+        assert "issues.custom_code" not in stmt, stmt
+        assert "issues.issue_name" not in stmt, stmt
+        assert "issues.file_path" not in stmt, stmt
+        assert "issues.discovered_at" not in stmt, stmt
+
+
 # ---------------------------------------------------------------------------
 # Timestamp rendering (TASK-1339)
 # ---------------------------------------------------------------------------
@@ -590,6 +634,34 @@ def test_unwatching_queues_nothing(client: TestClient):
         repo = DownloadRepository(session)
         assert repo.count_jobs_by_status()["queued"] == 0
         assert repo.get_publication("KA").watched is False
+
+
+_RATIO_RE = re.compile(r"(\d+)\s*<span class=\"dim\">/(\d+)</span>")
+
+
+def test_watch_response_row_keeps_its_download_count(client: TestClient):
+    """The HTMX-swapped row after Watch must still show the ratio.
+
+    ``publication_row.html`` is rendered both by the list page and by
+    this endpoint's response - a fix that only threads the count through
+    ``list_publications()`` would leave this row blank (TASK-1338).
+    """
+    token = _csrf_for(client)
+    resp = client.post("/publications/KA/watch", data={"_csrf_token": token})
+    assert resp.status_code == 200
+    # The seeded KA publication has exactly one issue (ka01), downloaded.
+    match = _RATIO_RE.search(resp.text)
+    assert match, resp.text
+    assert (match.group(1), match.group(2)) == ("1", "1")
+
+
+def test_unwatch_response_row_keeps_its_download_count(client: TestClient):
+    token = _csrf_for(client)
+    resp = client.post("/publications/KA/unwatch", data={"_csrf_token": token})
+    assert resp.status_code == 200
+    match = _RATIO_RE.search(resp.text)
+    assert match, resp.text
+    assert (match.group(1), match.group(2)) == ("1", "1")
 
 
 def test_queue_missing_queues_without_watching(client: TestClient):

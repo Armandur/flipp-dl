@@ -1,10 +1,11 @@
 """Tests for DownloadRepository using an in-memory SQLite database."""
 
 import pytest
+from sqlalchemy import inspect as sa_inspect
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from flipp_dl.db.models import IssueStatus, JobStatus
+from flipp_dl.db.models import DbIssue, IssueStatus, JobStatus
 from flipp_dl.db.repository import DownloadRepository
 from flipp_dl.db.session import make_session_factory
 from flipp_dl.models import Category, Issue, Publication
@@ -101,6 +102,43 @@ def test_list_publications_watched_only(repo):
 
     watched = repo.list_publications(watched_only=True)
     assert [p.custom_code for p in watched] == ["A"]
+
+
+def test_list_publications_counts_issues_without_loading_the_relationship(repo):
+    """The counts must come from an aggregated query, not ``len(pub.issues)``.
+
+    ``_publication`` seeds two issues; mark one done so the ratio is 1/2 -
+    a plausible bug is reporting "0/2" or "2/2" if the wrong status is
+    counted (TASK-1338).
+    """
+    repo.sync_publications([_publication("KA")])
+    repo.session.commit()
+    issue = repo.session.scalar(select(DbIssue))
+
+    pubs = repo.list_publications()
+    assert len(pubs) == 1
+    pub = pubs[0]
+    # The relationship must still be unloaded - the counts came from the
+    # aggregated query, not from the ORM lazily fetching ``pub.issues``.
+    assert "issues" in sa_inspect(pub).unloaded
+    assert pub.num_issues == 2
+    assert pub.num_downloaded == 0
+
+    repo.mark_issue_done(issue.id, "/tmp/whatever.pdf")
+    repo.session.commit()
+
+    pubs2 = repo.list_publications()
+    assert pubs2[0].num_downloaded == 1
+    assert pubs2[0].num_issues == 2
+
+
+def test_list_publications_zero_issues_reports_zero(repo):
+    repo.upsert_publication(Publication(custom_code="EMPTY", name="Empty", issues=[]))
+    repo.session.commit()
+
+    pubs = repo.list_publications()
+    assert pubs[0].num_issues == 0
+    assert pubs[0].num_downloaded == 0
 
 
 # ---------------------------------------------------------------------------

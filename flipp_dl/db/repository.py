@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import case, delete, func, select
 from sqlalchemy.orm import Session, selectinload
 
 from ..models import Issue as DomainIssue
@@ -91,13 +91,43 @@ class DownloadRepository:
         )
 
     def list_publications(self, watched_only: bool = False) -> list[DbPublication]:
-        q = select(DbPublication).options(
-            selectinload(DbPublication.categories),
-            selectinload(DbPublication.issues),
-        )
+        """Return publications with issue counts, without loading issues.
+
+        The list view only ever renders ``num_issues``/``num_downloaded``
+        per row - selectinload-ing the whole ``issues`` relationship used
+        to drag in every issue in the database (17660 rows on the
+        production instance) just to compute two integers (TASK-1338).
+        The counts are aggregated in the DB instead and handed to each
+        row via the ``num_issues``/``num_downloaded`` setters.
+        """
+        q = select(DbPublication).options(selectinload(DbPublication.categories))
         if watched_only:
             q = q.where(DbPublication.watched == True)  # noqa: E712
-        return list(self.session.scalars(q))
+        pubs = list(self.session.scalars(q))
+        counts = self._issue_counts_by_publication()
+        for pub in pubs:
+            total, done = counts.get(pub.id, (0, 0))
+            pub.num_issues = total
+            pub.num_downloaded = done
+        return pubs
+
+    def _issue_counts_by_publication(self) -> dict[int, tuple[int, int]]:
+        """Return ``{publication_id: (total_issues, done_issues)}``.
+
+        One grouped query over the issues table instead of one row per
+        issue - see :meth:`list_publications`.
+        """
+        rows = self.session.execute(
+            select(
+                DbIssue.publication_id,
+                func.count(DbIssue.id),
+                func.sum(case((DbIssue.status == IssueStatus.DONE, 1), else_=0)),
+            ).group_by(DbIssue.publication_id)
+        ).all()
+        return {
+            publication_id: (int(total), int(done or 0))
+            for publication_id, total, done in rows
+        }
 
     def set_watched(self, custom_code: str, enabled: bool) -> bool:
         """Toggle the watch flag. Returns False if publication not found."""

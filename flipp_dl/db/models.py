@@ -80,11 +80,31 @@ class DbPublication(Base):
 
     @property
     def num_issues(self) -> int:
+        override = getattr(self, "_num_issues_override", None)
+        if override is not None:
+            return override
         return len(self.issues)
+
+    @num_issues.setter
+    def num_issues(self, value: int) -> None:
+        """Let the repository hand in a pre-aggregated count (TASK-1338).
+
+        ``list_publications()`` no longer loads ``issues`` for every row,
+        so this lets it report the DB-side count without falling back to
+        the (now unloaded) relationship.
+        """
+        self._num_issues_override = value
 
     @property
     def num_downloaded(self) -> int:
+        override = getattr(self, "_num_downloaded_override", None)
+        if override is not None:
+            return override
         return sum(1 for issue in self.issues if issue.status == IssueStatus.DONE)
+
+    @num_downloaded.setter
+    def num_downloaded(self, value: int) -> None:
+        self._num_downloaded_override = value
 
     def __repr__(self) -> str:
         return f"<Publication {self.custom_code!r} watched={self.watched}>"
