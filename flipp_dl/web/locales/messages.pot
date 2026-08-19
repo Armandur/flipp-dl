@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-08-19 18:24+0200\n"
+"POT-Creation-Date: 2026-08-19 18:38+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -50,7 +50,7 @@ msgid "Sign out"
 msgstr ""
 
 #: flipp_dl/web/templates/base.html:254
-#: flipp_dl/web/templates/issue_row.html:63
+#: flipp_dl/web/templates/issue_row.html:74
 msgid "Cancel"
 msgstr ""
 
@@ -63,7 +63,7 @@ msgid "Recent Downloads"
 msgstr ""
 
 #: flipp_dl/web/templates/dashboard.html:17
-#: flipp_dl/web/templates/publication_detail.html:115
+#: flipp_dl/web/templates/publication_detail.html:120
 msgid "Issue"
 msgstr ""
 
@@ -77,7 +77,7 @@ msgstr ""
 
 #: flipp_dl/web/templates/dashboard.html:20
 #: flipp_dl/web/templates/library.html:41
-#: flipp_dl/web/templates/publication_detail.html:118
+#: flipp_dl/web/templates/publication_detail.html:124
 msgid "File"
 msgstr ""
 
@@ -98,7 +98,7 @@ msgstr ""
 #: flipp_dl/web/templates/dashboard.html:67
 #: flipp_dl/web/templates/job_detail.html:19
 #: flipp_dl/web/templates/jobs.html:28
-#: flipp_dl/web/templates/publication_detail.html:117
+#: flipp_dl/web/templates/publication_detail.html:122
 msgid "Status"
 msgstr ""
 
@@ -115,7 +115,7 @@ msgid "Finished"
 msgstr ""
 
 #: flipp_dl/web/templates/dashboard.html:70
-#: flipp_dl/web/templates/issue_row.html:33
+#: flipp_dl/web/templates/issue_row.html:35
 #: flipp_dl/web/templates/job_detail.html:70
 #: flipp_dl/web/templates/jobs.html:32
 #: flipp_dl/web/templates/publication_detail.html:104
@@ -194,71 +194,82 @@ msgstr ""
 msgid "No drift found - the database and the output folder agree."
 msgstr ""
 
-#: flipp_dl/web/templates/issue_row.html:23
+#: flipp_dl/web/templates/issue_row.html:25
 #: flipp_dl/web/templates/publication_detail.html:103
 #: flipp_dl/web/templates/publications.html:35
 #: flipp_dl/web/templates/stats_cards.html:15
 msgid "Downloaded"
 msgstr ""
 
-#: flipp_dl/web/templates/issue_row.html:26
+#: flipp_dl/web/templates/issue_row.html:28
 #: flipp_dl/web/templates/publication_detail.html:102
 msgid "Downloading"
 msgstr ""
 
-#: flipp_dl/web/templates/issue_row.html:28
+#: flipp_dl/web/templates/issue_row.html:30
 msgid "Downloading…"
 msgstr ""
 
-#: flipp_dl/web/templates/issue_row.html:31
+#: flipp_dl/web/templates/issue_row.html:33
 #: flipp_dl/web/templates/publication_detail.html:101
 msgid "Queued"
 msgstr ""
 
-#: flipp_dl/web/templates/issue_row.html:35
+#: flipp_dl/web/templates/issue_row.html:37
 #: flipp_dl/web/templates/publication_detail.html:100
 msgid "Not downloaded"
 msgstr ""
 
-#: flipp_dl/web/templates/issue_row.html:51
-msgid "View the first pages without marking this issue as downloaded"
+#: flipp_dl/web/templates/issue_row.html:43
+#: flipp_dl/web/templates/publication_detail.html:108
+#: flipp_dl/web/templates/publication_detail.html:123
+msgid "Read"
 msgstr ""
 
-#: flipp_dl/web/templates/issue_row.html:52
-msgid "Preview"
+#: flipp_dl/web/templates/issue_row.html:45
+#: flipp_dl/web/templates/publication_detail.html:109
+msgid "Unread"
 msgstr ""
 
 #: flipp_dl/web/templates/issue_row.html:62
+msgid "View the first pages without marking this issue as downloaded"
+msgstr ""
+
+#: flipp_dl/web/templates/issue_row.html:63
+msgid "Preview"
+msgstr ""
+
+#: flipp_dl/web/templates/issue_row.html:73
 msgid "Cancel this download? The issue goes back to not downloaded."
 msgstr ""
 
-#: flipp_dl/web/templates/issue_row.html:71
+#: flipp_dl/web/templates/issue_row.html:82
 msgid "Open"
 msgstr ""
 
-#: flipp_dl/web/templates/issue_row.html:79
+#: flipp_dl/web/templates/issue_row.html:90
 msgid "Re-download this issue?"
 msgstr ""
 
-#: flipp_dl/web/templates/issue_row.html:80
+#: flipp_dl/web/templates/issue_row.html:91
 msgid "Re-download"
 msgstr ""
 
-#: flipp_dl/web/templates/issue_row.html:88
+#: flipp_dl/web/templates/issue_row.html:99
 msgid ""
 "Delete the downloaded PDF from disk? The issue will be marked as not "
 "downloaded."
 msgstr ""
 
-#: flipp_dl/web/templates/issue_row.html:89
+#: flipp_dl/web/templates/issue_row.html:100
 msgid "Delete"
 msgstr ""
 
-#: flipp_dl/web/templates/issue_row.html:98
+#: flipp_dl/web/templates/issue_row.html:109
 msgid "Retry"
 msgstr ""
 
-#: flipp_dl/web/templates/issue_row.html:106
+#: flipp_dl/web/templates/issue_row.html:117
 msgid "Download"
 msgstr ""
 
@@ -440,19 +451,23 @@ msgstr ""
 msgid "All statuses"
 msgstr ""
 
-#: flipp_dl/web/templates/publication_detail.html:116
+#: flipp_dl/web/templates/publication_detail.html:107
+msgid "Read/unread"
+msgstr ""
+
+#: flipp_dl/web/templates/publication_detail.html:121
 msgid "Date"
 msgstr ""
 
-#: flipp_dl/web/templates/publication_detail.html:119
+#: flipp_dl/web/templates/publication_detail.html:125
 msgid "Action"
 msgstr ""
 
-#: flipp_dl/web/templates/publication_detail.html:129
+#: flipp_dl/web/templates/publication_detail.html:135
 msgid "No issues match the current filters."
 msgstr ""
 
-#: flipp_dl/web/templates/publication_detail.html:133
+#: flipp_dl/web/templates/publication_detail.html:139
 msgid "No issues for this publication yet. Run a poll to refresh."
 msgstr ""
 

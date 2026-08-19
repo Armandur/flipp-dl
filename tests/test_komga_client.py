@@ -321,6 +321,53 @@ def test_list_series_books_raises_on_http_failure():
 
 
 # ---------------------------------------------------------------------------
+# get_book_read_progress (TASK-1328)
+# ---------------------------------------------------------------------------
+
+
+def test_get_book_read_progress_completed():
+    session = FakeSession(
+        FakeResponse(200, {"id": 7, "readProgress": {"page": 24, "completed": True}})
+    )
+    client = KomgaClient("http://localhost:25600", api_key="k", session=session)
+
+    progress = client.get_book_read_progress(7)
+
+    call = session.calls[0]
+    assert call["method"] == "get"
+    assert call["url"] == "http://localhost:25600/api/v1/books/7"
+    assert progress == {"read": True, "page": 24, "completed": True}
+
+
+def test_get_book_read_progress_never_opened():
+    session = FakeSession(FakeResponse(200, {"id": 7, "readProgress": None}))
+    client = KomgaClient("http://localhost:25600", api_key="k", session=session)
+
+    progress = client.get_book_read_progress(7)
+
+    assert progress == {"read": False, "page": 0, "completed": False}
+
+
+def test_get_book_read_progress_in_progress_not_completed():
+    session = FakeSession(
+        FakeResponse(200, {"id": 7, "readProgress": {"page": 5, "completed": False}})
+    )
+    client = KomgaClient("http://localhost:25600", api_key="k", session=session)
+
+    progress = client.get_book_read_progress(7)
+
+    assert progress == {"read": False, "page": 5, "completed": False}
+
+
+def test_get_book_read_progress_raises_on_http_failure():
+    session = FakeSession(FakeResponse(500))
+    client = KomgaClient("http://localhost:25600", api_key="k", session=session)
+
+    with pytest.raises(KomgaError):
+        client.get_book_read_progress(7)
+
+
+# ---------------------------------------------------------------------------
 # upload_series_thumbnail
 # ---------------------------------------------------------------------------
 
@@ -445,3 +492,136 @@ def test_html_to_plain_text_strips_script_tags():
 def test_html_to_plain_text_handles_none_and_empty():
     assert html_to_plain_text(None) == ""
     assert html_to_plain_text("") == ""
+
+
+# ---------------------------------------------------------------------------
+# run_komga_read_status_sync (TASK-1328) - the scheduled job that drains
+# issues with a cached ``komga_book_id`` and writes back the read status.
+# Placed here rather than test_scheduler.py per this task's file scope.
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture()
+def _read_sync_repo():
+    from flipp_dl.db.repository import DownloadRepository
+    from flipp_dl.db.session import make_session_factory
+
+    factory = make_session_factory(":memory:")
+    session = factory()
+    repo = DownloadRepository(session)
+    yield factory, repo
+    session.close()
+
+
+def _read_sync_publication():
+    from flipp_dl.models import Issue, Publication
+
+    return Publication(
+        custom_code="KA",
+        name="Kalle Anka & Co",
+        issues=[
+            Issue(custom_code="KA-01", issue_name="Nr 1", issue_date="2024-01-01"),
+            Issue(custom_code="KA-02", issue_name="Nr 2", issue_date="2024-01-15"),
+        ],
+    )
+
+
+def test_run_komga_read_status_sync_is_noop_when_disabled(_read_sync_repo):
+    import flipp_dl.scheduler as scheduler_mod
+
+    factory, repo = _read_sync_repo
+    repo.upsert_publication(_read_sync_publication())
+    repo.session.commit()
+
+    processed = scheduler_mod.run_komga_read_status_sync(factory)
+
+    assert processed == 0
+
+
+def test_run_komga_read_status_sync_updates_mapped_issues(monkeypatch, _read_sync_repo):
+    import flipp_dl.scheduler as scheduler_mod
+
+    factory, repo = _read_sync_repo
+    repo.sync_publications([_read_sync_publication()])
+    repo.session.commit()
+    issue_id = repo.get_publication("KA").issues[0].id
+    repo.set_komga_book_id(issue_id, 77)
+    repo.session.commit()
+    repo.set_setting("komga_enabled", "true")
+    repo.set_setting("komga_url", "http://localhost:25600")
+    repo.session.commit()
+
+    class FakeClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def get_book_read_progress(self, book_id):
+            assert book_id == 77
+            return {"read": True, "page": 12, "completed": True}
+
+    monkeypatch.setattr(scheduler_mod, "KomgaClient", FakeClient)
+
+    processed = scheduler_mod.run_komga_read_status_sync(factory)
+
+    assert processed == 1
+    updated = repo.get_issue(issue_id)
+    assert updated.komga_read is True
+    assert updated.komga_read_page == 12
+    assert updated.komga_read_synced_at is not None
+
+
+def test_run_komga_read_status_sync_skips_issue_on_komga_error(
+    monkeypatch, _read_sync_repo
+):
+    import flipp_dl.scheduler as scheduler_mod
+    from flipp_dl.komga import KomgaError
+
+    factory, repo = _read_sync_repo
+    repo.sync_publications([_read_sync_publication()])
+    repo.session.commit()
+    issue_id = repo.get_publication("KA").issues[0].id
+    repo.set_komga_book_id(issue_id, 77)
+    repo.session.commit()
+    repo.set_setting("komga_enabled", "true")
+    repo.set_setting("komga_url", "http://localhost:25600")
+    repo.session.commit()
+
+    class FailingClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def get_book_read_progress(self, book_id):
+            raise KomgaError("Komga is down")
+
+    monkeypatch.setattr(scheduler_mod, "KomgaClient", FailingClient)
+
+    processed = scheduler_mod.run_komga_read_status_sync(factory)
+
+    assert processed == 0
+    assert repo.get_issue(issue_id).komga_read is None
+
+
+def test_run_komga_read_status_sync_ignores_unmapped_issues(
+    monkeypatch, _read_sync_repo
+):
+    import flipp_dl.scheduler as scheduler_mod
+
+    factory, repo = _read_sync_repo
+    repo.upsert_publication(_read_sync_publication())
+    repo.session.commit()
+    repo.set_setting("komga_enabled", "true")
+    repo.set_setting("komga_url", "http://localhost:25600")
+    repo.session.commit()
+
+    class ExplodingClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def get_book_read_progress(self, book_id):
+            raise AssertionError("should never be called - no book mapped")
+
+    monkeypatch.setattr(scheduler_mod, "KomgaClient", ExplodingClient)
+
+    processed = scheduler_mod.run_komga_read_status_sync(factory)
+
+    assert processed == 0

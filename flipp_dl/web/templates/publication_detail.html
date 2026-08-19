@@ -103,6 +103,11 @@
     <option value="done">{{ _("Downloaded") }}</option>
     <option value="error">{{ _("Error") }}</option>
   </select>
+  <select id="issue-read-filter">
+    <option value="">{{ _("Read/unread") }}</option>
+    <option value="read">{{ _("Read") }}</option>
+    <option value="unread">{{ _("Unread") }}</option>
+  </select>
   <span id="issue-count" class="dim"></span>
 </div>
 
@@ -115,6 +120,7 @@
         <th>{{ _("Issue") }}</th>
         <th>{{ _("Date") }}</th>
         <th>{{ _("Status") }}</th>
+        <th>{{ _("Read") }}</th>
         <th>{{ _("File") }}</th>
         <th>{{ _("Action") }}</th>
       </tr>
@@ -139,6 +145,7 @@
 (function () {
   const search = document.getElementById("issue-search");
   const statusSel = document.getElementById("issue-status");
+  const readSel = document.getElementById("issue-read-filter");
   const tbody = document.getElementById("issue-tbody");
   const empty = document.getElementById("issue-empty");
   const counter = document.getElementById("issue-count");
@@ -158,6 +165,7 @@
   function applyFilter() {
     const q = (search.value || "").trim().toLowerCase();
     const st = statusSel.value;
+    const rd = readSel ? readSel.value : "";
     let visible = 0;
     let total = 0;
     tbody.querySelectorAll("tr").forEach((row) => {
@@ -165,7 +173,11 @@
       const text = row.textContent.toLowerCase();
       const matchesText = !q || text.includes(q);
       const matchesStatus = !st || rowStatus(row) === st;
-      const show = matchesText && matchesStatus;
+      // Issues with no Komga book mapping (or not synced yet) have no
+      // read-status attribute at all - they only show up in "All", never
+      // when "Read"/"Unread" is picked (TASK-1328).
+      const matchesRead = !rd || row.dataset.readStatus === rd;
+      const show = matchesText && matchesStatus && matchesRead;
       row.style.display = show ? "" : "none";
       if (show) visible += 1;
     });
@@ -175,6 +187,7 @@
 
   search.addEventListener("input", applyFilter);
   statusSel.addEventListener("change", applyFilter);
+  if (readSel) readSel.addEventListener("change", applyFilter);
   document.body.addEventListener("htmx:afterSwap", (evt) => {
     if (evt.target && evt.target.closest && evt.target.closest("#issue-tbody")) {
       applyFilter();

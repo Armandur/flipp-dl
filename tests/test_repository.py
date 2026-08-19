@@ -139,6 +139,66 @@ def test_get_unmapped_publications_empty_when_all_mapped(repo):
 
 
 # ---------------------------------------------------------------------------
+# Komga read status (TASK-1328)
+# ---------------------------------------------------------------------------
+
+
+def test_set_komga_book_id(repo):
+    repo.sync_publications([_publication()])
+    repo.session.commit()
+    issue_id = repo.get_publication("KA").issues[0].id
+
+    assert repo.set_komga_book_id(issue_id, 99)
+    repo.session.commit()
+
+    assert repo.get_issue(issue_id).komga_book_id == 99
+
+
+def test_set_komga_book_id_unknown_returns_false(repo):
+    assert repo.set_komga_book_id(999999, 99) is False
+
+
+def test_get_issues_with_komga_book_id_only_returns_mapped(repo):
+    repo.sync_publications([_publication()])
+    repo.session.commit()
+    mapped_id = repo.get_publication("KA").issues[0].id
+    repo.set_komga_book_id(mapped_id, 99)
+    repo.session.commit()
+
+    mapped = repo.get_issues_with_komga_book_id()
+
+    assert [i.id for i in mapped] == [mapped_id]
+
+
+def test_set_issue_read_status(repo):
+    from datetime import datetime
+
+    repo.sync_publications([_publication()])
+    repo.session.commit()
+    issue_id = repo.get_publication("KA").issues[0].id
+    synced_at = datetime(2026, 8, 19, 12, 0, 0)
+
+    assert repo.set_issue_read_status(issue_id, read=True, page=24, synced_at=synced_at)
+    repo.session.commit()
+
+    db_issue = repo.get_issue(issue_id)
+    assert db_issue.komga_read is True
+    assert db_issue.komga_read_page == 24
+    assert db_issue.komga_read_synced_at == synced_at
+
+
+def test_set_issue_read_status_unknown_returns_false(repo):
+    from datetime import datetime
+
+    assert (
+        repo.set_issue_read_status(
+            999999, read=True, page=1, synced_at=datetime(2026, 8, 19)
+        )
+        is False
+    )
+
+
+# ---------------------------------------------------------------------------
 # Per-publication poll interval (TASK-1291)
 # ---------------------------------------------------------------------------
 

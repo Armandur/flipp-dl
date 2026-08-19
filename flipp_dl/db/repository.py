@@ -410,6 +410,46 @@ class DownloadRepository:
         if db_issue is not None:
             db_issue.cover_cache_path = cache_filename
 
+    def set_komga_book_id(self, issue_id: int, book_id: int) -> bool:
+        """Cache the Komga book an issue maps to (TASK-1328).
+
+        Written once, the moment the nivå-2 metadata push
+        (:mod:`flipp_dl.scheduler`) matches a book by filename stem - the
+        daily read-status sync reads this instead of redoing that lookup.
+        Returns False if the issue doesn't exist.
+        """
+        db_issue = self.get_issue(issue_id)
+        if db_issue is None:
+            return False
+        db_issue.komga_book_id = book_id
+        return True
+
+    def get_issues_with_komga_book_id(self) -> list[DbIssue]:
+        """Issues mapped to a Komga book - candidates for the daily
+        read-status sync (TASK-1328)."""
+        return list(
+            self.session.scalars(
+                select(DbIssue).where(DbIssue.komga_book_id.is_not(None))
+            )
+        )
+
+    def set_issue_read_status(
+        self, issue_id: int, *, read: bool, page: int, synced_at: datetime
+    ) -> bool:
+        """Store the read status the daily sync fetched from Komga.
+
+        A Komga failure never calls this - the caller skips the issue
+        and keeps whatever was cached last, so a flaky Komga instance
+        never regresses a known read status back to unknown.
+        """
+        db_issue = self.get_issue(issue_id)
+        if db_issue is None:
+            return False
+        db_issue.komga_read = read
+        db_issue.komga_read_page = page
+        db_issue.komga_read_synced_at = synced_at
+        return True
+
     def get_issue(self, issue_id: int) -> DbIssue | None:
         return self.session.get(DbIssue, issue_id)
 

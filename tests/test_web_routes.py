@@ -208,6 +208,34 @@ def test_publication_detail_never_hotlinks_and_uses_local_cover(client: TestClie
     assert "/publications/KA/issues/ka01/cover" in resp.text
 
 
+def test_publication_detail_shows_read_badge_and_filter(client: TestClient):
+    from datetime import datetime
+
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        issue = repo.get_issue_by_code("ka01", repo.get_publication("KA").id)
+        repo.set_komga_book_id(issue.id, 42)
+        repo.set_issue_read_status(
+            issue.id, read=True, page=24, synced_at=datetime(2026, 8, 19)
+        )
+
+    resp = client.get("/publications/KA")
+
+    assert resp.status_code == 200
+    assert 'id="issue-read-filter"' in resp.text
+    assert 'data-read-status="read"' in resp.text
+    assert "Read" in resp.text or "Läst" in resp.text
+
+
+def test_publication_detail_hides_read_badge_without_book_mapping(client: TestClient):
+    # No komga_book_id set for ka01 in the base fixture - no crash, and
+    # the row must not claim a read/unread status it doesn't have.
+    resp = client.get("/publications/KA")
+
+    assert resp.status_code == 200
+    assert 'data-read-status=""' in resp.text
+
+
 def test_issue_row_never_hotlinks_pagesuite(client: TestClient):
     resp = client.get("/publications/KA/issues/ka01/row")
     assert resp.status_code == 200
@@ -1475,3 +1503,31 @@ def test_issue_row_has_a_preview_link(client: TestClient):
     resp = client.get("/publications/KA/issues/ka01/row")
     assert resp.status_code == 200
     assert "/publications/KA/issues/ka01/preview" in resp.text
+
+
+def test_web_entrypoint_registers_every_scheduled_job():
+    """The Docker entrypoint must schedule the same jobs as the CLI.
+
+    A job registered only in build_scheduler() never runs in production,
+    which is exactly what happened to the daily Komga read-status sync
+    (TASK-1328).
+    """
+    import ast
+    from pathlib import Path
+
+    def job_ids(source: Path) -> set[str]:
+        tree = ast.parse(source.read_text())
+        found = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+                if node.func.attr != "add_job":
+                    continue
+                for kw in node.keywords:
+                    if kw.arg == "id" and isinstance(kw.value, ast.Constant):
+                        found.add(kw.value.value)
+        return found
+
+    cli_jobs = job_ids(Path("flipp_dl/scheduler.py"))
+    web_jobs = job_ids(Path("flipp_dl/web/main.py"))
+    assert cli_jobs, "no jobs found in scheduler.py - has add_job been renamed?"
+    assert cli_jobs <= web_jobs, f"only scheduled in the CLI: {cli_jobs - web_jobs}"

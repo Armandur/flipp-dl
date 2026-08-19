@@ -191,6 +191,20 @@ class DbIssue(Base):
     # when the issue is first discovered by a poll - an issue's cover
     # never changes afterwards, so there is nothing to invalidate.
     cover_cache_path: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    # Komga book id this issue maps to (TASK-1328), captured the first
+    # time the nivå-2 metadata push (:mod:`flipp_dl.scheduler`) matches a
+    # book by filename stem. Needed to ask Komga for read progress
+    # without redoing that lookup. ``None`` until pushed at least once.
+    komga_book_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Locally cached read status from Komga (TASK-1328), refreshed once a
+    # day by :func:`flipp_dl.scheduler.run_komga_read_status_sync` - never
+    # queried on page load. ``None`` means "not synced yet" (or no book
+    # mapped at all); the template must not render a badge for ``None``.
+    komga_read: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    komga_read_page: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    komga_read_synced_at: Mapped[datetime | None] = mapped_column(
+        DateTime, nullable=True
+    )
 
     publication: Mapped[DbPublication] = relationship(
         "DbPublication", back_populates="issues"

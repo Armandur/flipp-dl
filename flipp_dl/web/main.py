@@ -26,6 +26,7 @@ from ..scheduler import (
     poll_publications,
     recover_stuck_jobs,
     run_download_queue,
+    run_komga_read_status_sync,
     run_komga_sync_queue,
 )
 from .app import create_app
@@ -99,6 +100,15 @@ _scheduler.add_job(
     trigger="interval",
     seconds=30,
     id="komga_sync",
+    kwargs=dict(session_factory=_session_factory),
+)
+# This module is the Docker entrypoint, so every scheduled job has to be
+# registered here too - build_scheduler() only covers the CLI process.
+_scheduler.add_job(
+    run_komga_read_status_sync,
+    trigger="interval",
+    hours=24,
+    id="komga_read_status_sync",
     kwargs=dict(session_factory=_session_factory),
 )
 _scheduler.start()

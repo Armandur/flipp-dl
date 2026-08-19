@@ -309,6 +309,31 @@ class KomgaClient:
                 f"Failed to update metadata for book {book_id}: {exc}"
             ) from exc
 
+    def get_book_read_progress(self, book_id: int | str) -> dict:
+        """Return read status for *book_id* via ``GET /api/v1/books/{id}``.
+
+        Komga embeds the current user's progress in the book resource's
+        ``readProgress`` field, which is ``null``/absent until the book
+        has been opened at least once. Normalises that into
+        ``{"read": bool, "page": int, "completed": bool}`` - "read" is an
+        alias for "completed" so callers (the daily sync in
+        :mod:`flipp_dl.scheduler`, TASK-1328) don't need to know Komga's
+        exact field name. A book never opened returns
+        ``{"read": False, "page": 0, "completed": False}``.
+        """
+        response = self._request("get", f"/api/v1/books/{book_id}")
+        try:
+            response.raise_for_status()
+        except requests.HTTPError as exc:
+            raise KomgaError(
+                f"Failed to fetch read progress for book {book_id}: {exc}"
+            ) from exc
+        data = response.json()
+        progress = data.get("readProgress") or {}
+        completed = bool(progress.get("completed", False))
+        page = int(progress.get("page") or 0)
+        return {"read": completed, "page": page, "completed": completed}
+
     def upload_series_thumbnail(
         self, series_id: int | str, content: bytes, filename: str
     ) -> None:

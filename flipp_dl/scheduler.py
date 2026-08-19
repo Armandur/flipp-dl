@@ -24,6 +24,7 @@ import os
 import signal
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 from apscheduler.schedulers.blocking import BlockingScheduler
@@ -650,6 +651,13 @@ def _push_publication_and_issue_metadata(
     except KomgaError as exc:
         return f"Failed to push book metadata for book {book['id']}: {exc}"
 
+    # Cache the book id (TASK-1328) so the daily read-status sync can ask
+    # Komga about this exact book without redoing the filename-stem
+    # lookup - a metadata-push failure above means this line never runs,
+    # which is fine: the next successful sync sets it.
+    with get_session(session_factory) as session:
+        DownloadRepository(session).set_komga_book_id(issue_id, book["id"])
+
     return None
 
 
@@ -730,6 +738,69 @@ def run_komga_sync_queue(session_factory, *, max_jobs: int | None = None) -> int
     return processed
 
 
+def run_komga_read_status_sync(
+    session_factory, *, max_issues: int | None = None
+) -> int:
+    """Refresh cached read status for every issue mapped to a Komga book.
+
+    Scheduled once a day (TASK-1328) - never on page load, so a page
+    with a hundred rows never means a hundred calls to Komga. A no-op
+    (returns 0, touches nothing) whenever Komga isn't enabled, matching
+    :func:`run_komga_sync_queue`. A failure fetching one book's progress
+    is logged and skipped, leaving that issue's cached status untouched -
+    it never affects the issue's download status, which is a wholly
+    separate concern.
+    """
+    settings = resolve_komga_settings(session_factory)
+    if not settings["enabled"] or not settings["url"]:
+        return 0
+
+    client = KomgaClient(
+        settings["url"],
+        username=settings["username"],
+        password=settings["password"],
+        api_key=settings["api_key"],
+    )
+
+    with get_session(session_factory) as session:
+        issue_ids = [
+            issue.id
+            for issue in DownloadRepository(session).get_issues_with_komga_book_id()
+        ]
+    if max_issues is not None:
+        issue_ids = issue_ids[:max_issues]
+
+    synced = 0
+    for issue_id in issue_ids:
+        with get_session(session_factory) as session:
+            db_issue = DownloadRepository(session).get_issue(issue_id)
+            book_id = db_issue.komga_book_id if db_issue is not None else None
+        if book_id is None:
+            continue
+
+        try:
+            progress = client.get_book_read_progress(book_id)
+        except KomgaError as exc:
+            logger.warning(
+                "Komga read-status sync: failed for issue %d (book %s): %s",
+                issue_id,
+                book_id,
+                exc,
+            )
+            continue
+
+        with get_session(session_factory) as session:
+            DownloadRepository(session).set_issue_read_status(
+                issue_id,
+                read=progress["read"],
+                page=progress["page"],
+                synced_at=datetime.now(timezone.utc).replace(tzinfo=None),
+            )
+        synced += 1
+
+    return synced
+
+
 # ---------------------------------------------------------------------------
 # Scheduler setup
 # ---------------------------------------------------------------------------
@@ -792,6 +863,14 @@ def build_scheduler(
         trigger="interval",
         seconds=download_interval_seconds,
         id="komga_sync",
+        kwargs=dict(session_factory=session_factory),
+    )
+
+    scheduler.add_job(
+        run_komga_read_status_sync,
+        trigger="interval",
+        hours=24,
+        id="komga_read_status_sync",
         kwargs=dict(session_factory=session_factory),
     )
 
