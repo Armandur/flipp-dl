@@ -267,7 +267,7 @@ Filer som väntas ändras: flipp_dl/web/templates/publications.html
 
 ---
 
-## [P3][todo] [flipp] Sätt Flipp-token via gränssnittet
+## [P3][done] [flipp] Sätt Flipp-token via gränssnittet
 
 ## Context
 Settings-sidan säger i dag att token bara kan läsas från FLIPP_TOKEN eller token-filen vid uppstart och inte får ändras i gränssnittet "of security reasons". Det resonemanget hörde till CLI-tiden - nu är det en inloggad webbtjänst, och att behöva starta om containern för att byta token är sämre än att kunna klistra in den.
@@ -566,7 +566,7 @@ Beslutat av Rasmus: när migreringen är klar TAS TODO.md och TODO_KOMGA.md bort
 
 ---
 
-## [P3][todo] [flipp] Importera befintligt nuläge från nedladdade filer i output, med avvikelserapport i båda riktningarna
+## [P3][done] [flipp] Importera befintligt nuläge från nedladdade filer i output, med avvikelserapport i båda riktningarna
 
 ## Context
 En ny/tom databas kan inte skilja på "aldrig nedladdad" och "redan ligger på disk" - allt måste laddas ner om. Ett svep av driftinstansen (2026-08-18) hittade dessutom två avvikelser som en sådan import skulle ha fångat: en publikation där två utgåvor delade samma fil, och en utgåva som låg på disk men stod som `queued` i databasen. Importen ska alltså både fylla i saknad status och rapportera de avvikelser den ser, i båda riktningarna.
