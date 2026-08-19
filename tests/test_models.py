@@ -65,3 +65,16 @@ def test_publication_from_api_with_no_issues():
     )
     assert pub.num_issues == 0
     assert pub.categories == []
+
+
+def test_num_downloaded_counts_only_done_issues():
+    from flipp_dl.db.models import DbIssue, DbPublication, IssueStatus
+
+    pub = DbPublication(custom_code="KA", name="Kalle Anka")
+    pub.issues = [
+        DbIssue(custom_code="a", issue_name="Nr 1", status=IssueStatus.DONE),
+        DbIssue(custom_code="b", issue_name="Nr 2", status=IssueStatus.QUEUED),
+        DbIssue(custom_code="c", issue_name="Nr 3", status=IssueStatus.ERROR),
+    ]
+    assert pub.num_issues == 3
+    assert pub.num_downloaded == 1

@@ -378,3 +378,20 @@ def test_job_detail_links_a_downloaded_issue_to_its_file(client: TestClient):
     resp = client.get(f"/jobs/{job_id}")
     assert resp.status_code == 200
     assert "/publications/KA/issues/ka01/file" in resp.text
+
+
+def test_publications_list_shows_downloaded_count(client: TestClient):
+    """The publications table reports downloaded vs total issues."""
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        pub = repo.get_publication("KA")
+        # Second issue, not downloaded, so the ratio is 1/2 rather than 1/1.
+        repo.upsert_issue(
+            Issue(custom_code="ka02", issue_name="Nr 2", issue_date="2024-02-01"),
+            pub.id,
+        )
+
+    resp = client.get("/publications")
+    assert resp.status_code == 200
+    assert "Downloaded" in resp.text
+    assert "/2" in resp.text

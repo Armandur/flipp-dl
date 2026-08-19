@@ -34,7 +34,15 @@
       —
     {% endif %}
   </td>
-  <td style="text-align:center;" class="dim">{{ publication.num_issues }}</td>
+  <td style="text-align:center;">
+    {% if publication.num_issues %}
+      <span class="{{ 'dim' if not publication.num_downloaded }}">
+        {{ publication.num_downloaded }}<span class="dim">/{{ publication.num_issues }}</span>
+      </span>
+    {% else %}
+      <span class="dim">—</span>
+    {% endif %}
+  </td>
   <td class="dim">
     {% if publication.next_issue_date %}
       {{ publication.next_issue_date }}

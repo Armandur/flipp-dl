@@ -82,6 +82,10 @@ class DbPublication(Base):
     def num_issues(self) -> int:
         return len(self.issues)
 
+    @property
+    def num_downloaded(self) -> int:
+        return sum(1 for issue in self.issues if issue.status == IssueStatus.DONE)
+
     def __repr__(self) -> str:
         return f"<Publication {self.custom_code!r} watched={self.watched}>"
 
