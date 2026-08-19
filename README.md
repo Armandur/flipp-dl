@@ -181,5 +181,4 @@ paketerad som en Docker-container.
 
 ## Licens
 
-Ingen licens är satt ännu – tills vidare gäller "all rights reserved"
-enligt tysta defaulten. Kommer att formaliseras längre fram.
+MIT – se [`LICENSE`](LICENSE).

@@ -19,253 +19,29 @@ Rätt fix är troligen en riktig claim-fråga mot DB (SELECT ... WHERE status=qu
 
 ---
 
-## [P3][todo] [flipp] Komga: utreda PATCH mot redan handeditad metadata
+## [P3][todo] [flipp] Komga nivå 2: pusha metadata och omslag
 
-Från TODO_KOMGA.md, avsnitt Öppna frågor till Komga-API:t. Hur reagerar "Manuella"-library på PATCH:ad metadata när användaren redan editerat fältet i UI:t? Måste testas innan vi övertrampar handeditering. Relevant innan metadata-push i Nivå 2 aktiveras i produktion.
+Få Komga att visa korrekt titel, nummer, utgivningsdatum, omslag och beskrivning från Flipp-API:t i stället för gissningar ur filnamnet. Svenska serietidningar finns inte i Comicvine/GCD, så ingen extern provider fyller i detta åt oss.
 
-- ID: `01M0CPKH8R2CAXBVN2YS74TBDW`
-- Type: spike
-- Actor: ai:claude-code
+Beror på nivå 1. Stegen ligger i den fästa planen.
 
----
-
-## [P3][todo] [flipp] Komga: utreda titleSort-regler
-
-Från TODO_KOMGA.md, avsnitt Öppna frågor till Komga-API:t. Exakta reglerna för titleSort vid serier som "Kalle Anka & Co" vs. "Bamse" - Komgas egen sort-policy ska inte krocka med våra värden. Relevant för patch_series_metadata i Nivå 2.
-
-- ID: `01M0CPKH8D3B7APW0HEFJPM2ZN`
-- Type: spike
-- Actor: ai:claude-code
-
----
-
-## [P3][todo] [flipp] Komga: utreda snabbare uppslag än polling efter scan
-
-Från TODO_KOMGA.md, avsnitt Öppna frågor till Komga-API:t. Finns det ett snabbare sätt än att polla /api/v1/series/{id}/books för att se när boken dykt upp efter scan? Kolla om det finns en webhook/SSE-ström i Komgas API. Relevant för bok-uppslaget i Nivå 2.
-
-- ID: `01M0CPKH86WD18Z08PQRQBYZ3A`
-- Type: spike
-- Actor: ai:claude-code
-
----
-
-## [P3][todo] [flipp] Komga: designval - multi-library-stöd
-
-Från TODO_KOMGA.md, avsnitt Designval som behöver bekräftas. Behöver en användare kunna synka olika publikationer till olika Komga-libraries? Initialt nej enligt TODO:n - allt går till KOMGA_LIBRARY_ID. Per-publication-override är en senare iteration.
-
-- ID: `01M0CPKH80BQ8ZFTN6SHB8JYEK`
-- Type: chore
-- Actor: ai:claude-code
-
----
-
-## [P3][todo] [flipp] Komga: designval - error-policy vid upprepade fel
-
-Från TODO_KOMGA.md, avsnitt Designval som behöver bekräftas. Ska upprepade Komga-fel pausa komga_sync-jobben helt (backoff) eller bara logga och fortsätta? Förmodligen backoff med exponentiell delay, maxa vid 30 minuter enligt TODO:n. Beslutas innan/under Nivå 1-arbetet med komga_sync-handlern.
-
-- ID: `01M0CPKH7SVCRWWEQE1GB9MH8D`
-- Type: chore
-- Actor: ai:claude-code
-
----
-
-## [P3][todo] [flipp] Komga: designval - batchning av scan-jobb
-
-Från TODO_KOMGA.md, avsnitt Designval som behöver bekräftas. Vid bulk-downloads (t.ex. första polling för ny watched-publikation) skulle vi trigga en scan per issue. Debounce: om det redan finns ett queued komga_sync-jobb för samma library, merge:a dem. Kräver en flagga på jobbet eller en lookup i list_jobs(). Nice-to-have, inte blocker enligt TODO:n.
-
-- ID: `01M0CPKH7K76BWADXXVBKACEZW`
-- Type: chore
-- Actor: ai:claude-code
-
----
-
-## [P3][todo] [flipp] Komga: designval - scan blocking vs. fire-and-forget
-
-Från TODO_KOMGA.md, avsnitt Designval som behöver bekräftas. Ska komga_sync-jobbet vänta på att scan:en blir klar (enklare för metadata-push, men kan hänga länge vid en stor initial scan) eller bara trigga scan och stanna där (nivå 1 blir trivialt, metadata-push måste schemaläggas separat)? Lutning i TODO:n: vänta med kort timeout för metadata-push, fire-and-forget när KOMGA_PUSH_METADATA är av. Beslutas innan/under Nivå 2-arbetet.
-
-- ID: `01M0CPKH7EP608P4RFV43PVQR4`
-- Type: chore
-- Actor: ai:claude-code
-
----
-
-## [P3][todo] [flipp] Komga: feature-flagga KOMGA_PUSH_COVER
-
-Från TODO_KOMGA.md, Nivå 2 - Metadata-push, avsnitt Omslag. Feature-flagga KOMGA_PUSH_COVER så cover-uppladdningen kan slås av för användare som föredrar Komgas egna thumbnails. Beror på uppladdningen av omslag som thumbnail.
-
-- ID: `01M0CPJTVZVZ3HEMTC6SQE60NJ`
+- ID: `01M0CQ9B9PB268MKEXSA6Q6W9A`
 - Type: feature
-- Actor: ai:claude-code
+- Actor: ai:claude-opus-5
 
 ---
 
-## [P3][todo] [flipp] Komga: ladda upp omslag som thumbnail
+## [P3][todo] [flipp] Komga nivå 1: auto-scan vid ny nedladdning
 
-Från TODO_KOMGA.md, Nivå 2 - Metadata-push, avsnitt Omslag. POST /api/v1/series/{id}/thumbnails?selected=true med multipart, så Komga visar Flipps officiella omslag direkt i stället för första sidan av PDF:en. Beror på nedladdning av cover_url och series-mappningen.
+Få Komga att se nya nedladdningar direkt i stället för att vänta på nästa schemalagda filsystemsscan. Minst arbete och störst nytta av de tre Komga-nivåerna, och grunden de andra två bygger på.
 
-- ID: `01M0CPJTVS3S55X4XN52RWSV90`
+Utgångsläget är att output_root redan är monterat som rotkatalog för ett 'Manuella'-bibliotek i Komga, där extern metadata-matching är avstängd och användarredigerade fält behålls. Layouten <publikationsnamn>/<issue_name>.pdf matchar Komgas default-tolkning av serie och bok.
+
+Stegen ligger i den fästa planen. Fullständig ursprungstext finns i backlog-docen 'TODO-historik (migrerad från TODO.md)'.
+
+- ID: `01M0CQ9B98BGRYSPCVA6VRM1B6`
 - Type: feature
-- Actor: ai:claude-code
-
----
-
-## [P3][todo] [flipp] Komga: ladda ner cover_url i KomgaClient
-
-Från TODO_KOMGA.md, Nivå 2 - Metadata-push, avsnitt Omslag. Ladda ner publication.cover_url till bytes i KomgaClient (behöver ingen auth, pagesuite-CDN). Beror på grundläggande KomgaClient från Nivå 1, i övrigt fristående från metadata-push-arbetet.
-
-- ID: `01M0CPJTVHPJQP01CQM8G3K4V5`
-- Type: feature
-- Actor: ai:claude-code
-
----
-
-## [P3][todo] [flipp] Komga: konfigurerbara metadata-fält per setting
-
-Från TODO_KOMGA.md, Nivå 2 - Metadata-push, avsnitt Metadata-fält. PUBLICATION_METADATA_FIELDS/ISSUE_METADATA_FIELDS-kopplingar hålls i en enda dict så det är enkelt att stänga av enskilda fält via settings (t.ex. KOMGA_PUSH_SUMMARY=false) för användare som vill redigera själva i Komga-UI:t. Beror på patch_series_metadata och patch_book_metadata.
-
-- ID: `01M0CPJTVAAJMX7F7PM1MJTYP9`
-- Type: feature
-- Actor: ai:claude-code
-
----
-
-## [P3][todo] [flipp] Komga: bok-uppslag efter scan
-
-Från TODO_KOMGA.md, Nivå 2 - Metadata-push, avsnitt Metadata-fält. Efter scan: GET /api/v1/series/{id}/books och matcha på filnamnet (Path(file_path).stem). Om inte hittad - poll upp till KOMGA_WAIT_SECONDS (default 10) eftersom Komga-scannen är asynkron. Timeout = finish_job med error och uppmaning att köra om manuellt. Beror på series-mappningen och komga_sync-jobbet från Nivå 1.
-
-- ID: `01M0CPJTV37BGWE4W3636NF1MF`
-- Type: feature
-- Actor: ai:claude-code
-
----
-
-## [P3][todo] [flipp] Komga: patch_book_metadata i KomgaClient
-
-Från TODO_KOMGA.md, Nivå 2 - Metadata-push, avsnitt Metadata-fält. KomgaClient.patch_book_metadata(book_id, **fields) som PATCH:ar /api/v1/books/{id}/metadata: title=issue.issue_name, number + numberSort parsat ur "Nr 12" (regex r"(?:nr\.?\s*)?(\d+)", fall tillbaka på lexikografisk ordning om det misslyckas), releaseDate=issue.issue_date. Beror på bok-uppslaget efter scan (för att hitta rätt book_id).
-
-- ID: `01M0CPJTTWVYP2BY26YQN54WRF`
-- Type: feature
-- Actor: ai:claude-code
-
----
-
-## [P3][todo] [flipp] Komga: patch_series_metadata i KomgaClient
-
-Från TODO_KOMGA.md, Nivå 2 - Metadata-push, avsnitt Metadata-fält. KomgaClient.patch_series_metadata(series_id, **fields) som PATCH:ar /api/v1/series/{id}/metadata. Sätt bara de fält vi har: title, titleSort, summary (från publication.description, redan HTML-saniterad via flipp_dl/web/html_sanitize.py), publisher="Egmont", language="sv", genres/tags från Flipp-kategorierna. Beror på series-mappningen (komga_series_id).
-
-- ID: `01M0CPJTTMBX054K94XZN7ZZG9`
-- Type: feature
-- Actor: ai:claude-code
-
----
-
-## [P3][todo] [flipp] Komga: UI-indikator för series-mappning
-
-Från TODO_KOMGA.md, Nivå 2 - Metadata-push, avsnitt Mappning publikation <-> Komga-serie. På /publications/{code} visa "Komga: synkad ✓ · serie #1234" i headern när mappning finns, eller "Komga: okänd – söker nästa gång" annars, med en liten länk till Komga-serien. Beror på auto-matchningen (komga_series_id måste finnas för att visas).
-
-- ID: `01M0CPJTTD88CMKRVAQSH33JRX`
-- Type: feature
-- Actor: ai:claude-code
-
----
-
-## [P3][todo] [flipp] Komga: auto-matchning publikation mot Komga-serie
-
-Från TODO_KOMGA.md, Nivå 2 - Metadata-push, avsnitt Mappning publikation <-> Komga-serie. Matchning vid första sync: GET /api/v1/series?search=<folder>&library_id=<id>, välj träffen där metadata.title eller name-fältet exakt matchar _safe_name(publication.name). Träffen ska cachas i komga_series_id-kolumnen så vi aldrig söker om den. Beror på repository-metoderna för series-mappning.
-
-- ID: `01M0CPJTT6D4TN5MD9RPN2RWMZ`
-- Type: feature
-- Actor: ai:claude-code
-
----
-
-## [P3][todo] [flipp] Komga: repository-metoder för series-mappning
-
-Från TODO_KOMGA.md, Nivå 2 - Metadata-push, avsnitt Mappning publikation <-> Komga-serie. Repository: set_komga_series_id(custom_code, series_id) + get_unmapped_publications(). Beror på migrationen som lägger till publications.komga_series_id.
-
-- ID: `01M0CPJTSZ6MM2ZKV7C9EN7AAP`
-- Type: feature
-- Actor: ai:claude-code
-
----
-
-## [P3][todo] [flipp] Komga: migration för komga_series_id
-
-Från TODO_KOMGA.md, Nivå 2 - Metadata-push, avsnitt Mappning publikation <-> Komga-serie. Alembic-migration 0004_publication_komga.py som lägger till publications.komga_series_id INTEGER NULL. Nullable eftersom mappningen byggs upp lat. Beror på Nivå 1 (KomgaClient m.m.) vara på plats.
-
-- ID: `01M0CPJTSR3VXSPPJG10DBVY8Q`
-- Type: feature
-- Actor: ai:claude-code
-
----
-
-## [P3][todo] [flipp] Komga: tester för KomgaClient
-
-Från TODO_KOMGA.md, Nivå 1 - Auto-scan. Test: tests/test_komga_client.py med mockade HTTP-svar för list_libraries, scan_library och auth-headers (både HTTP Basic och X-API-Key). Beror på KomgaClient-implementationen.
-
-- ID: `01M0CPJ2KTND777TRR3XQDSR4V`
-- Type: feature
-- Actor: ai:claude-code
-
----
-
-## [P3][todo] [flipp] Komga: feature-flagga KOMGA_ENABLED
-
-Från TODO_KOMGA.md, Nivå 1 - Auto-scan. Feature-flagga KOMGA_ENABLED-setting; all Komga-funktionalitet ska vara no-op när den är av, så befintliga användare utan Komga inte märker skillnad. Bör gälla för hela Nivå 1-arbetet (KomgaClient, settings-sektion, komga_sync-jobbet).
-
-- ID: `01M0CPJ2KKX2WN7ZR7E979DFHS`
-- Type: feature
-- Actor: ai:claude-code
-
----
-
-## [P3][todo] [flipp] Komga: komga_sync-handler (scan + finish_job)
-
-Från TODO_KOMGA.md, Nivå 1 - Auto-scan. komga_sync-handler: POST /api/v1/libraries/{id}/scan + finish_job. Fel ska loggas som job-error men får inte påverka issue-status - Komga-nere ska aldrig röd-flagga en lyckad nedladdning. Beror på jobtypen komga_sync och KomgaClient.
-
-- ID: `01M0CPJ2KCQ25QH34YJ2AMMZ66`
-- Type: feature
-- Actor: ai:claude-code
-
----
-
-## [P3][todo] [flipp] Komga: jobtyp komga_sync
-
-Från TODO_KOMGA.md, Nivå 1 - Auto-scan. Ny jobtyp komga_sync. run_download_queue() ska köa ett komga_sync-jobb när en nedladdning lyckats, i stället för att blocka download-loopen. Beror på KomgaClient och Komga-DbSetting-nycklarna.
-
-- ID: `01M0CPJ2K39N7M2B47KMMF4VAV`
-- Type: feature
-- Actor: ai:claude-code
-
----
-
-## [P3][todo] [flipp] Komga: settings-sektion med Test connection
-
-Från TODO_KOMGA.md, Nivå 1 - Auto-scan. På /settings: ny "Komga"-sektion med URL/credentials-fält och en "Test connection"-knapp som anropar list_libraries() och populerar en dropdown för library-valet. Inga secrets ska renderas tillbaka (skicka tom sträng + placeholder="•••"). Beror på KomgaClient och Komga-DbSetting-nycklarna.
-
-- ID: `01M0CPJ2JWEKEF79HRP20GY46X`
-- Type: feature
-- Actor: ai:claude-code
-
----
-
-## [P3][todo] [flipp] Komga: nya DbSetting-nycklar för anslutning
-
-Från TODO_KOMGA.md, Nivå 1 - Auto-scan. Lägg till nya DbSetting-nycklar (env-overridable): KOMGA_URL, KOMGA_USERNAME, KOMGA_PASSWORD/KOMGA_API_KEY, KOMGA_LIBRARY_ID. Beror på KomgaClient (se separat task 'Komga: KomgaClient med list_libraries och scan_library').
-
-- ID: `01M0CPJ2JMYAGVX649NN5GYH2D`
-- Type: feature
-- Actor: ai:claude-code
-
----
-
-## [P3][todo] [flipp] Komga: KomgaClient med list_libraries och scan_library
-
-Från TODO_KOMGA.md, Nivå 1 - Auto-scan. Bygg flipp_dl/komga.py: KomgaClient(url, auth) med list_libraries() och scan_library(library_id). Ska stödja både HTTP Basic (äldre Komga) och X-API-Key-header (Komga >= 1.8). Detta är grundbyggstenen för alla övriga Komga-tasks - beroendefri, ska göras först.
-
-- ID: `01M0CPJ2JDDVRJENAT1RAMKPWG`
-- Type: feature
-- Actor: ai:claude-code
+- Actor: ai:claude-opus-5
 
 ---
 
@@ -317,33 +93,13 @@ Bör kunna köras både som CLI-kommando och som knapp i webbgränssnittet.
 
 ---
 
-## [P4][todo] [flipp] Komga: Läst-badge i issue-tabellen
+## [P4][todo] [flipp] Komga nivå 3: synka lässtatus tillbaka till flipp-dl
 
-Från TODO_KOMGA.md, Nivå 3 - Read-state-sync (valfri, långt fram). UI: liten "Läst"-badge i issue-tabellen på /publications/{code}; filter i filter-baren. Beror på den cachade lässtatusen.
+Visa lästa/olästa utgåvor i flipp-dl:s eget gränssnitt genom att hämta läsprogress från Komga. Valfri och långt fram - beror på bok-uppslaget i nivå 2.
 
-- ID: `01M0CPKH799X6ACF53H2BCBJT6`
+- ID: `01M0CQ9BA2GVHXHYXAHEB3GGFD`
 - Type: feature
-- Actor: ai:claude-code
-
----
-
-## [P4][todo] [flipp] Komga: cacha lässtatus lokalt
-
-Från TODO_KOMGA.md, Nivå 3 - Read-state-sync (valfri, långt fram). Cacha i ny kolumn issues.komga_read eller separat issue_read_state-tabell. Uppdateras schemalagt en gång om dagen, inte vid varje request. Beror på get_book_read_progress.
-
-- ID: `01M0CPKH735ZVSEGZTA341PSR4`
-- Type: feature
-- Actor: ai:claude-code
-
----
-
-## [P4][todo] [flipp] Komga: get_book_read_progress i KomgaClient
-
-Från TODO_KOMGA.md, Nivå 3 - Read-state-sync (valfri, långt fram). KomgaClient.get_book_read_progress(book_id) -> {read: bool, page: int, completed: bool}. Beror på bok-uppslaget från Nivå 2 (behöver book_id).
-
-- ID: `01M0CPKH6WG7TV9RQN2NAK47AC`
-- Type: feature
-- Actor: ai:claude-code
+- Actor: ai:claude-opus-5
 
 ---
 
@@ -367,9 +123,11 @@ Från TODO.md, avsnitt P11 (Trevligt att ha). Lägg till en Prometheus-metrics-e
 
 ---
 
-## [P4][todo] [flipp] Integrering med Calibre/Kavita/Komga
+## [P4][todo] [flipp] Integrering med Calibre eller Kavita
 
-Från TODO.md, avsnitt P11 (Trevligt att ha). Integrering med Calibre, Kavita eller Komga som post-processing-steg efter nedladdning. Se även TODO_KOMGA.md-tasks för den mer utarbetade Komga-varianten av detta (nivå 1-3).
+Post-processing mot andra bibliotekstjänster än Komga: lägga in nedladdade PDF:er i Calibre eller Kavita.
+
+Från TODO.md, P11 - trevligt att ha. Komga-delen av den ursprungliga punkten har brutits ut till TASK-1326/1327/1328 (nivå 1-3), som är genomarbetade var för sig. Den här tasken är alltså bara Calibre/Kavita, och bör bygga på samma jobb- och hook-mönster som Komga-integrationen landar i.
 
 - ID: `01M0CPHHZQD0P9HEJTK71YX2CM`
 - Type: feature
