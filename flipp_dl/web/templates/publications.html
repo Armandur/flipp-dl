@@ -19,7 +19,7 @@
     {% endfor %}
   </select>
   <label class="watch-filter">
-    <input id="pub-watched" type="checkbox"> Watched only
+    <input id="pub-watched" type="checkbox" checked> Watched only
   </label>
   <span id="pub-count" class="dim"></span>
 </div>
@@ -64,6 +64,27 @@
   const counter = document.getElementById("pub-count");
   if (!tbody) return;
 
+  // An explicit ?watched= flag in the URL always wins over the
+  // "watched only" default (checked="checked" in the HTML above).
+  const initialParams = new URLSearchParams(window.location.search);
+  if (initialParams.has("watched")) {
+    watchedOnly.checked = initialParams.get("watched") !== "0";
+  }
+
+  // Search text and the category dropdown stay pure client-side state -
+  // deliberately not synced to the URL. They change on every
+  // keystroke/selection, so mirroring them would spam replaceState calls
+  // and produce noisy, hard-to-share URLs for filters that are rarely the
+  // thing worth bookmarking. "Watched only" is the one filter dimension
+  // worth persisting/sharing, since it's the default view people expect.
+  function syncWatchedUrl() {
+    const params = new URLSearchParams(window.location.search);
+    params.set("watched", watchedOnly.checked ? "1" : "0");
+    const newUrl =
+      window.location.pathname + "?" + params.toString() + window.location.hash;
+    window.history.replaceState(null, "", newUrl);
+  }
+
   function applyFilter() {
     const q = (searchInput.value || "").trim().toLowerCase();
     const cat = categorySelect.value;
@@ -91,7 +112,10 @@
 
   searchInput.addEventListener("input", applyFilter);
   categorySelect.addEventListener("change", applyFilter);
-  watchedOnly.addEventListener("change", applyFilter);
+  watchedOnly.addEventListener("change", () => {
+    syncWatchedUrl();
+    applyFilter();
+  });
 
   // Re-apply after HTMX swaps a row (watch/unwatch replaces the <tr>).
   document.body.addEventListener("htmx:afterSwap", (evt) => {
@@ -100,6 +124,7 @@
     }
   });
 
+  syncWatchedUrl();
   applyFilter();
 })();
 </script>
