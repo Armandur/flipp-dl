@@ -455,7 +455,7 @@ Filer som väntas ändras: flipp_dl/db/migrations/versions/0007_komga_series_id.
 
 ---
 
-## [P3][todo] [flipp] Komga nivå 1: auto-scan vid ny nedladdning
+## [P3][done] [flipp] Komga nivå 1: auto-scan vid ny nedladdning
 
 ## Context
 Komga hittar i dag nya nedladdningar först vid nästa schemalagda filsystemsscan, vilket kan dröja timmar. Detta är nivå 1 av tre Komga-integrationer och grunden nivå 2 (metadatapush) och nivå 3 (lässtatus) bygger på. Se den fästa planen "Genomförandeplan nivå 1" på tasken för de sju genomförandestegen - den här beskrivningen lägger bara till kriterier och verifiering ovanpå den planen, den ersätter den inte.
@@ -637,7 +637,7 @@ Filer som väntas ändras: flipp_dl/db/models.py, flipp_dl/db/migrations/version
 
 ---
 
-## [P4][todo] [flipp] i18n i webbgränssnittet (mekanism och språkomfattning öppet)
+## [P4][todo] [flipp] i18n i webbgränssnittet med gettext
 
 ## Context
 Webb-UI:t (`flipp_dl/web/templates/*.html`) är idag helt engelskt - `<html lang="en">` och all UI-text hårdkodad i templates. Ägaren skriver och tänker på svenska, vilket gör i18n relevant trots att verktyget bara har en användare.
@@ -691,7 +691,7 @@ Filer som väntas ändras: `flipp_dl/web/routes.py` (ny `/metrics`-endpoint, tro
 
 ---
 
-## [P4][todo] [flipp] OPDS-feed (versionsval öppet: 1.2 vs 2.0)
+## [P4][todo] [flipp] OPDS-feed i både 1.2 och 2.0
 
 ## Context
 En OPDS-feed låter en PDF-läsare (t.ex. en surfplatta) upptäcka och hämta nya utgåvor automatiskt i stället för att ägaren manuellt kopierar filer. Feeden behöver exponera publikationer/utgåvor och länka till de befintliga filnedladdningsvägarna i `flipp_dl/web/routes.py`.
@@ -720,7 +720,7 @@ Filer som väntas ändras: `flipp_dl/web/routes.py` (nya endpoints, t.ex. `/opds
 
 ---
 
-## [P4][todo] [flipp] Notiser vid nya nedladdningar (kanalval öppet)
+## [P4][todo] [flipp] Notiser vid nya nedladdningar via ntfy och webhook
 
 ## Context
 Idag syns nya nedladdningar bara om man öppnar webb-UI:t. Ägaren vill kunna få en push-notis när en ny utgåva laddats ner (eller när nedladdning misslyckats), utan att aktivt behöva kolla dashboarden.
