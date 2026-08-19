@@ -515,12 +515,15 @@ def register(app: FastAPI) -> None:
         try:
             jobs = repo.list_jobs(limit=100, status=selected or None)
             counts = repo.count_jobs_by_status()
+            targets = _job_targets(repo, jobs)
+            # Lets the template link a finished issue straight to its PDF.
+            _annotate_file_exists(targets.values(), request.app.state.output_root)
             return _templates(request).TemplateResponse(
                 request,
                 "jobs.html",
                 {
                     "jobs": jobs,
-                    "targets": _job_targets(repo, jobs),
+                    "targets": targets,
                     "counts": counts,
                     "total_jobs": sum(counts.values()),
                     "selected_status": selected,
@@ -539,6 +542,8 @@ def register(app: FastAPI) -> None:
                 return HTMLResponse("Job not found", status_code=404)
             issue_id = _job_issue_id(job)
             issue = repo.get_issue(issue_id) if issue_id is not None else None
+            if issue is not None:
+                _annotate_file_exists([issue], request.app.state.output_root)
             try:
                 payload = json.dumps(json.loads(job.payload or "{}"), indent=2)
             except (TypeError, ValueError):

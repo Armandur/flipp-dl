@@ -43,7 +43,17 @@
             <a class="job-link" href="/publications/{{ issue.publication.custom_code }}">
               {{ issue.publication.name }}
             </a>
-            <span class="dim">· {{ issue.issue_name }}</span>
+            <span class="dim">·</span>
+            {% if issue.file_exists %}
+              <a
+                class="job-link"
+                href="/publications/{{ issue.publication.custom_code }}/issues/{{ issue.custom_code }}/file"
+                target="_blank"
+                rel="noopener"
+              >{{ issue.issue_name }}</a>
+            {% else %}
+              <span class="dim">{{ issue.issue_name }}</span>
+            {% endif %}
           {% else %}
             <span class="dim">—</span>
           {% endif %}

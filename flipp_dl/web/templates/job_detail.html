@@ -26,7 +26,17 @@
             <a class="job-link" href="/publications/{{ issue.publication.custom_code }}">
               {{ issue.publication.name }}
             </a>
-            <span class="dim">·</span> {{ issue.issue_name }}
+            <span class="dim">·</span>
+            {% if issue.file_exists %}
+              <a
+                class="job-link"
+                href="/publications/{{ issue.publication.custom_code }}/issues/{{ issue.custom_code }}/file"
+                target="_blank"
+                rel="noopener"
+              >{{ issue.issue_name }}</a>
+            {% else %}
+              {{ issue.issue_name }}
+            {% endif %}
             <span class="dim">({{ issue.issue_date }})</span>
             <div class="dim">Issue status: {{ issue.status }}</div>
           {% else %}

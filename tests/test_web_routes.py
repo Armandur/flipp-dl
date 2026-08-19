@@ -342,3 +342,39 @@ def test_job_detail_handles_broken_payload(client: TestClient):
 
 def test_job_detail_returns_404_for_unknown_job(client: TestClient):
     assert client.get("/jobs/424242").status_code == 404
+
+
+def test_jobs_list_links_a_downloaded_issue_to_its_file(client: TestClient):
+    """When the target is on disk, the issue name links to the PDF."""
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        issue_id = repo.get_issue_by_code("ka01", repo.get_publication("KA").id).id
+    _seed_download_job(client, f'{{"issue_id": {issue_id}}}')
+
+    resp = client.get("/jobs")
+    assert resp.status_code == 200
+    assert "/publications/KA/issues/ka01/file" in resp.text
+
+
+def test_jobs_list_does_not_link_a_missing_file(client: TestClient):
+    """The ghost issue is marked done but its file is gone - no link."""
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        issue_id = repo.get_issue_by_code("gh01", repo.get_publication("GH").id).id
+    _seed_download_job(client, f'{{"issue_id": {issue_id}}}')
+
+    resp = client.get("/jobs")
+    assert resp.status_code == 200
+    assert "/publications/GH/issues/gh01/file" not in resp.text
+    assert "Nr 1" in resp.text  # namnet visas ändå, bara inte som länk
+
+
+def test_job_detail_links_a_downloaded_issue_to_its_file(client: TestClient):
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        issue_id = repo.get_issue_by_code("ka01", repo.get_publication("KA").id).id
+    job_id = _seed_download_job(client, f'{{"issue_id": {issue_id}}}')
+
+    resp = client.get(f"/jobs/{job_id}")
+    assert resp.status_code == 200
+    assert "/publications/KA/issues/ka01/file" in resp.text
