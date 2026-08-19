@@ -1,5 +1,24 @@
 # Backlog Export
 
+## [P2][done] [flipp] Utgåvor fastnar i queued utan jobb och går inte att köa om
+
+Observerat i drift: Hälge "Nr 7 2026" står som Queued sedan 2026-06-25, men jobbtabellen har noll köade jobb. Utgåvans status och jobbtabellen har alltså glidit isär - troligen en containeromstart mitt i, eller ett jobb som felade efter att issue-statusen satts.
+
+Det går inte att ta sig ur läget från gränssnittet: issue_row.html visar en inaktiverad knapp för queued/downloading, och download_issue_manual i routes.py hoppar dessutom över utgåvor i de statusarna för att inte skapa dubbletter. Raden är därmed permanent låst.
+
+Acceptanskriterier:
+- Vid uppstart återställs utgåvor i queued/downloading som saknar ett aktivt jobb (queued eller running) till not downloaded, tillsammans med den befintliga återställningen av hängande running-jobb.
+- Gränssnittet har en väg ut för en rad som står i queued/downloading: en knapp som avbryter och nollställer utgåvan.
+- Ett aktivt jobb för utgåvan avslutas som avbrutet, så det inte plockas upp efteråt.
+
+Verifiering: riktade tester i tests/test_scheduler.py och tests/test_web_routes.py, plus browser-verifiering av knappen (klicka den, inte bara rendera den).
+
+- ID: `01M0CYTVJZDKYKPFG27M6RG981`
+- Type: bug
+- Actor: ai:claude-opus-5
+
+---
+
 ## [P2][done] [flipp] database is locked när progress skrivs under nedladdning
 
 Jobb 1016 på driftinstansen (Agent X9, Nr 7 2023, 2026-06-24) dog med:
@@ -72,6 +91,50 @@ Rätt fix är troligen en riktig claim-fråga mot DB (SELECT ... WHERE status=qu
 
 - ID: `01M0BBXMEPZZWZVNYZR3SF7RWF`
 - Type: bug
+- Actor: ai:claude-opus-5
+
+---
+
+## [P3][todo] [flipp] Preview av en utgåva utan att den räknas som nedladdad
+
+Kunna titta på en utgåva utan att den hamnar i biblioteket: hämta PDF:en till en temporär plats, servera den inline i webbläsarens visare, och låt utgåvans status stå kvar som inte nedladdad. Filen städas efter en tid eller efter visning.
+
+Att tänka igenom:
+- Temporärkatalogen får inte ligga under output_root, annars plockar Library och den kommande filimporten (TASK-1283) upp den som en riktig nedladdning.
+- En preview kostar lika mycket bandbredd som en vanlig nedladdning. Rimligt att bara hämta de första sidorna? Isåfall blir det en egen väg genom downloadern, inte samma merge-av-alla-sidor.
+- Städning: enklast en TTL som röjs vid nästa poll, i stil med purge_old_jobs.
+- Statusen får inte gå via issues-tabellens status-fält, då blir den synlig som en pågående nedladdning i kön.
+
+- ID: `01M0CZ0FB389XF2V4FSH45FB0A`
+- Type: feature
+- Actor: ai:claude-opus-5
+
+---
+
+## [P3][todo] [flipp] Watched only ska vara förkryssad som default
+
+Kryssrutan Watched only på /publications är omarkerad vid sidladdning, så listan visar alla 94 publikationer trots att bara 19 är bevakade. Bevakade är det man normalt vill se.
+
+Gör den förkryssad som default. Hänger ihop med TASK-1329 (behåll filtret i URL:en) - en explicit URL-flagga ska vinna över defaulten, så en delad länk utan filter fortfarande kan visa allt. Ta de två tillsammans.
+
+- ID: `01M0CYZAAQV6KCRKY8YCVC258H`
+- Type: improvement
+- Actor: ai:claude-opus-5
+
+---
+
+## [P3][todo] [flipp] Sätt Flipp-token via gränssnittet, med userscript som hämtar den
+
+Settings-sidan säger i dag att token bara kan läsas från FLIPP_TOKEN eller token-filen vid uppstart och inte får ändras i gränssnittet "of security reasons". Det resonemanget hörde till CLI-tiden - nu är det en inloggad webbtjänst, och att behöva starta om containern för att byta token är sämre än att kunna klistra in den.
+
+Två delar:
+1. Token blir en inställning som kan sparas från /settings, och som klienten läser vid nästa anrop utan omstart. Env-variabeln fortsätter gälla som utgångsvärde. Rendera aldrig tillbaka värdet - visa maskerat och spara bara vid ändring. Fundera på lagring: klartext i settings-tabellen är samma nivå som dagens token-fil, men det bör vara ett medvetet val.
+2. Ett userscript (Tampermonkey) som körs på tidningar.flipp.se, plockar tokenen ur sidans anrop eller lagring, och postar den till flipp-dl:s /settings. Länken till skriptet ligger lämpligen på settings-sidan tillsammans med en kort instruktion, så flödet blir: installera skriptet, logga in på Flipp, klicka knappen.
+
+Mottagningen av token från userscriptet behöver en egen genomtänkt väg in: CSRF-skyddad POST med samma inloggning som resten av gränssnittet, eller en engångsnyckel som visas på settings-sidan.
+
+- ID: `01M0CYVE7SCF7220W9FPTSWJCM`
+- Type: feature
 - Actor: ai:claude-opus-5
 
 ---
