@@ -60,6 +60,17 @@ class DbPublication(Base):
     # (``latestCoverImageUrl``). Nullable because older rows predate this
     # column and the API may omit it for some publications.
     cover_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # Filename of the locally cached copy of ``cover_url``, relative to
+    # ``default_cover_cache_root()`` (TASK-1345). ``None`` until the poll
+    # tick that discovers/refreshes this publication has fetched it -
+    # the template falls back to the missing-cover placeholder until then.
+    cover_cache_path: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    # The ``cover_url`` value that was last successfully cached, so a poll
+    # tick only re-downloads when Flipp actually published a new cover
+    # instead of hitting the network every six hours for nothing.
+    cover_cache_source_url: Mapped[str | None] = mapped_column(
+        String(500), nullable=True
+    )
     # HTML blurb returned by Flipp in the ``description`` field. Kept raw
     # so the detail page can render it – sanitised before output.
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -159,6 +170,11 @@ class DbIssue(Base):
     # columns are 0 when no download is in flight.
     progress_current: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     progress_total: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    # Filename of the locally cached cover thumbnail for this issue,
+    # relative to ``default_cover_cache_root()`` (TASK-1345). Fetched once
+    # when the issue is first discovered by a poll - an issue's cover
+    # never changes afterwards, so there is nothing to invalidate.
+    cover_cache_path: Mapped[str | None] = mapped_column(String(300), nullable=True)
 
     publication: Mapped[DbPublication] = relationship(
         "DbPublication", back_populates="issues"

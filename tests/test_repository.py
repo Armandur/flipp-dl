@@ -7,7 +7,11 @@ from sqlalchemy.orm import Session
 
 from flipp_dl import storage
 from flipp_dl.db.models import DbIssue, IssueStatus, JobStatus
-from flipp_dl.db.repository import DownloadRepository
+from flipp_dl.db.repository import (
+    DownloadRepository,
+    default_cover_cache_root,
+    fetch_and_cache_cover,
+)
 from flipp_dl.db.session import make_session_factory
 from flipp_dl.models import Category, Issue, Publication
 
@@ -661,3 +665,147 @@ def test_import_existing_ignores_a_symlink_that_escapes_output_root(repo, tmp_pa
     assert report.backfilled == []
     assert report.orphan_files == []
     assert repo.get_issue(db_issue.id).status == IssueStatus.QUEUED
+
+
+# ---------------------------------------------------------------------------
+# Cover cache (TASK-1345)
+# ---------------------------------------------------------------------------
+
+
+class _FakeCoverResponse:
+    def __init__(self, content: bytes, content_type: str, status: int = 200):
+        self.content = content
+        self.headers = {"Content-Type": content_type}
+        self.status_code = status
+
+    def raise_for_status(self):
+        if self.status_code >= 400:
+            import requests
+
+            raise requests.HTTPError(f"status {self.status_code}")
+
+
+class _FakeCoverSession:
+    """Stand-in for requests.Session - no network access in tests."""
+
+    def __init__(self, response=None, exc=None):
+        self._response = response
+        self._exc = exc
+        self.requested_urls: list[str] = []
+
+    def get(self, url, timeout=None):
+        self.requested_urls.append(url)
+        if self._exc is not None:
+            raise self._exc
+        return self._response
+
+
+def test_default_cover_cache_root_honours_env_var(monkeypatch, tmp_path):
+    monkeypatch.setenv("FLIPP_COVER_CACHE", str(tmp_path / "covers"))
+    assert default_cover_cache_root() == tmp_path / "covers"
+
+
+def test_default_cover_cache_root_falls_back_next_to_the_db(monkeypatch, tmp_path):
+    monkeypatch.delenv("FLIPP_COVER_CACHE", raising=False)
+    monkeypatch.setenv("FLIPP_DB", str(tmp_path / "flipp.db"))
+    assert default_cover_cache_root() == tmp_path / "flipp-dl-covers"
+
+
+def test_fetch_and_cache_cover_saves_the_file(tmp_path):
+    session = _FakeCoverSession(_FakeCoverResponse(b"\xff\xd8\xff", "image/jpeg"))
+    filename = fetch_and_cache_cover(
+        "https://example.invalid/cover.jpg",
+        tmp_path,
+        "pub-KA",
+        http_session=session,
+    )
+    assert filename == "pub-KA.jpg"
+    assert (tmp_path / filename).read_bytes() == b"\xff\xd8\xff"
+    # No leftover temp file.
+    assert list(tmp_path.glob("*.tmp")) == []
+
+
+def test_fetch_and_cache_cover_rejects_non_image_content_type(tmp_path):
+    session = _FakeCoverSession(_FakeCoverResponse(b"<html>", "text/html"))
+    filename = fetch_and_cache_cover(
+        "https://example.invalid/cover.jpg",
+        tmp_path,
+        "pub-KA",
+        http_session=session,
+    )
+    assert filename is None
+    assert list(tmp_path.glob("*")) == []
+
+
+def test_fetch_and_cache_cover_returns_none_on_network_error(tmp_path):
+    import requests
+
+    session = _FakeCoverSession(exc=requests.ConnectionError("boom"))
+    filename = fetch_and_cache_cover(
+        "https://example.invalid/cover.jpg",
+        tmp_path,
+        "pub-KA",
+        http_session=session,
+    )
+    assert filename is None
+
+
+def test_fetch_and_cache_cover_returns_none_on_http_error(tmp_path):
+    session = _FakeCoverSession(_FakeCoverResponse(b"", "image/jpeg", status=404))
+    filename = fetch_and_cache_cover(
+        "https://example.invalid/cover.jpg",
+        tmp_path,
+        "pub-KA",
+        http_session=session,
+    )
+    assert filename is None
+
+
+def test_publications_needing_cover_refresh_finds_uncached(repo):
+    pub = _publication()
+    pub.cover_url = "https://example.invalid/a.jpg"
+    db_pub = repo.upsert_publication(pub)
+    repo.session.commit()
+
+    stale = repo.publications_needing_cover_refresh()
+    assert [p.id for p in stale] == [db_pub.id]
+
+
+def test_publications_needing_cover_refresh_skips_already_cached(repo):
+    pub = _publication()
+    pub.cover_url = "https://example.invalid/a.jpg"
+    db_pub = repo.upsert_publication(pub)
+    repo.session.commit()
+    repo.set_publication_cover_cache(db_pub.id, "pub-KA.jpg", pub.cover_url)
+    repo.session.commit()
+
+    assert repo.publications_needing_cover_refresh() == []
+
+
+def test_publications_needing_cover_refresh_picks_up_a_changed_url(repo):
+    pub = _publication()
+    pub.cover_url = "https://example.invalid/a.jpg"
+    db_pub = repo.upsert_publication(pub)
+    repo.session.commit()
+    repo.set_publication_cover_cache(db_pub.id, "pub-KA.jpg", pub.cover_url)
+    repo.session.commit()
+
+    pub.cover_url = "https://example.invalid/b.jpg"
+    repo.upsert_publication(pub)
+    repo.session.commit()
+
+    stale = repo.publications_needing_cover_refresh()
+    assert [p.id for p in stale] == [db_pub.id]
+
+
+def test_set_issue_cover_cache_stores_the_filename(repo):
+    pub = _publication()
+    db_pub = repo.upsert_publication(pub)
+    repo.session.commit()
+    db_issue, _ = repo.upsert_issue(pub.issues[0], db_pub.id)
+    repo.session.commit()
+
+    repo.set_issue_cover_cache(db_issue.id, "issue-KA-01.jpg")
+    repo.session.commit()
+
+    assert repo.get_issue(db_issue.id).cover_cache_path == "issue-KA-01.jpg"

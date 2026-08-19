@@ -21,7 +21,7 @@ from .. import storage
 from ..api import FlippClient, FlippError
 from ..config import load_token
 from ..db.models import IssueStatus, JobStatus
-from ..db.repository import DownloadRepository
+from ..db.repository import DownloadRepository, default_cover_cache_root
 from ..db.session import get_session
 from ..downloader import IssueDownloader
 from ..models import Issue as DomainIssue
@@ -44,6 +44,18 @@ def _templates(request: Request):
 def _safe_output_file(output_root: Path, candidate: str | None) -> Path | None:
     """Resolve *candidate* under *output_root* - see storage.resolve_safe_path."""
     return storage.resolve_safe_path(output_root, candidate)
+
+
+def _safe_cover_file(candidate: str | None) -> Path | None:
+    """Resolve a cached-cover filename under the cover cache root.
+
+    ``candidate`` is a filename this code generated itself
+    (``fetch_and_cache_cover``'s return value, stored verbatim in the
+    DB) rather than user input, but it still goes through the same
+    containment guard as ``output_root`` files - cheap insurance against
+    a stray ``../`` ever making it into the column.
+    """
+    return storage.resolve_safe_path(default_cover_cache_root(), candidate)
 
 
 def _annotate_file_exists(issues, output_root: Path) -> None:
@@ -274,6 +286,26 @@ def register(app: FastAPI) -> None:
             DownloadRepository(session).set_watched(code, False)
         return await _publication_row(request, code)
 
+    @app.get("/publications/{code}/cover")
+    async def serve_publication_cover(request: Request, code: str):
+        """Serve the locally cached cover for *code* (TASK-1345).
+
+        Never hits pagesuite/Flipp directly - the cache is populated by
+        the poll tick (``scheduler._cache_covers``), not on request, so
+        this stays cheap even when a page renders a hundred rows.
+        """
+        repo = _repo(request)
+        try:
+            pub = repo.get_publication(code)
+        finally:
+            repo.session.close()
+        if pub is None:
+            return HTMLResponse("Publication not found", status_code=404)
+        resolved = _safe_cover_file(pub.cover_cache_path)
+        if resolved is None:
+            return HTMLResponse("Cover not cached", status_code=404)
+        return FileResponse(resolved)
+
     async def _publication_row(request: Request, code: str) -> HTMLResponse:
         repo = _repo(request)
         try:
@@ -463,6 +495,24 @@ def register(app: FastAPI) -> None:
             repo.reset_issue(issue.id)
 
         return await _issue_row(request, code, issue_code)
+
+    @app.get("/publications/{code}/issues/{issue_code}/cover")
+    async def serve_issue_cover(request: Request, code: str, issue_code: str):
+        """Serve the locally cached cover thumbnail for one issue (TASK-1345)."""
+        repo = _repo(request)
+        try:
+            pub = repo.get_publication(code)
+            if pub is None:
+                return HTMLResponse("Publication not found", status_code=404)
+            issue = repo.get_issue_by_code(issue_code, pub.id)
+        finally:
+            repo.session.close()
+        if issue is None:
+            return HTMLResponse("Issue not found", status_code=404)
+        resolved = _safe_cover_file(issue.cover_cache_path)
+        if resolved is None:
+            return HTMLResponse("Cover not cached", status_code=404)
+        return FileResponse(resolved)
 
     @app.get("/publications/{code}/issues/{issue_code}/file")
     async def serve_issue_file(request: Request, code: str, issue_code: str):

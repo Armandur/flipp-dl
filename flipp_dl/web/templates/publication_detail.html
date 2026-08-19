@@ -5,10 +5,10 @@
 <a class="back-link" href="/publications">← All publications</a>
 
 <div class="detail-header">
-  {% if publication.cover_url %}
+  {% if publication.cover_cache_path %}
     <img
       class="detail-cover"
-      src="{{ publication.cover_url | replace('__b600m.', '__b300m.') }}"
+      src="/publications/{{ publication.custom_code }}/cover"
       alt=""
       referrerpolicy="no-referrer"
       onerror="this.style.display='none';"

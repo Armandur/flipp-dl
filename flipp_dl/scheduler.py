@@ -25,14 +25,24 @@ from pathlib import Path
 
 from apscheduler.schedulers.blocking import BlockingScheduler
 
-from .api import FlippClient, FlippError
+from .api import FlippClient, FlippError, build_session
 from .config import default_output_path, load_token
 from .db.models import DbIssue
-from .db.repository import DownloadRepository
+from .db.repository import (
+    DownloadRepository,
+    default_cover_cache_root,
+    fetch_and_cache_cover,
+)
 from .db.session import get_session, make_session_factory
 from .downloader import DEFAULT_WORKERS, IssueDownloader, purge_old_previews
 from .models import Issue as DomainIssue
 from .models import Publication as DomainPublication
+
+# Cover images are hosted at fixed resolution suffixes. Requesting the
+# "300m" variant once and caching it is enough for both the publications
+# list thumbnail (rendered at 44x60 via CSS) and the detail page (110x150) -
+# no need to fetch two sizes per publication.
+_COVER_SIZE_VARIANT = "__b300m."
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +66,45 @@ def resolve_current_token(session_factory) -> str:
     with get_session(session_factory) as session:
         saved = DownloadRepository(session).get_setting("flipp_token", "").strip()
     return saved or load_token()
+
+
+def _cache_covers(repo: DownloadRepository, new_issues: list[DbIssue]) -> int:
+    """Fetch and store local copies of new/changed covers (TASK-1345).
+
+    Runs once per poll tick, never during page rendering. Publication
+    covers only refetch when ``cover_url`` actually changed since the
+    last cache (:meth:`DownloadRepository.publications_needing_cover_refresh`),
+    and issue covers are fetched exactly once, at discovery time - so the
+    cache grows with what a poll actually finds, not with the full
+    17660-issue back catalogue already sitting in the DB. Returns the
+    number of covers newly cached, for logging.
+    """
+    cache_root = default_cover_cache_root()
+    http = build_session()
+    cached = 0
+
+    for pub in repo.publications_needing_cover_refresh():
+        url = pub.cover_url.replace("__b600m.", _COVER_SIZE_VARIANT)
+        filename = fetch_and_cache_cover(
+            url, cache_root, f"pub-{pub.custom_code}", http_session=http
+        )
+        if filename:
+            repo.set_publication_cover_cache(pub.id, filename, pub.cover_url)
+            cached += 1
+
+    for issue in new_issues:
+        url = (
+            "https://edition.pagesuite-professional.co.uk/get_image.aspx"
+            f"?w=100&eid={issue.custom_code}"
+        )
+        filename = fetch_and_cache_cover(
+            url, cache_root, f"issue-{issue.custom_code}", http_session=http
+        )
+        if filename:
+            repo.set_issue_cover_cache(issue.id, filename)
+            cached += 1
+
+    return cached
 
 
 def poll_publications(
@@ -89,6 +138,10 @@ def poll_publications(
                 len(publications),
                 len(new_issues),
             )
+
+            cached_covers = _cache_covers(repo, new_issues)
+            if cached_covers:
+                logger.info("Poll: cached %d cover image(s)", cached_covers)
 
             watched_pub_ids = {p.id for p in repo.list_publications(watched_only=True)}
             queued = 0

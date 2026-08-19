@@ -83,7 +83,17 @@ def test_safe_output_file_rejects_directory(output_tree: Path):
 
 
 @pytest.fixture()
-def client(tmp_path: Path, output_tree: Path, monkeypatch) -> TestClient:
+def cover_cache_root(tmp_path: Path, monkeypatch) -> Path:
+    """Point the cover cache at a temp dir well outside output_tree."""
+    root = tmp_path / "covers"
+    monkeypatch.setenv("FLIPP_COVER_CACHE", str(root))
+    return root
+
+
+@pytest.fixture()
+def client(
+    tmp_path: Path, output_tree: Path, cover_cache_root: Path, monkeypatch
+) -> TestClient:
     """Spin up a fresh FastAPI app wired to a temp DB and output dir."""
     # Make sure no leftover FLIPP_PASSWORD forces auth on us.
     monkeypatch.delenv("FLIPP_PASSWORD", raising=False)
@@ -93,17 +103,26 @@ def client(tmp_path: Path, output_tree: Path, monkeypatch) -> TestClient:
 
     # Seed a watched publication with one downloaded issue pointing at the
     # real file under output_tree so the file-serving route has something
-    # to find.
+    # to find. Also seed a cached cover for both the publication and the
+    # issue (TASK-1345) - the cache is populated by the poll tick in
+    # production, so tests write the file + DB pointer directly instead
+    # of exercising the network fetch here.
     pub = Publication(
         custom_code="KA",
         name="Kalle Anka",
+        cover_url="https://reader.flipp.se/covers/ka__b600m.jpg",
         issues=[Issue(custom_code="ka01", issue_name="Nr 1", issue_date="2024-01-01")],
     )
+    cover_cache_root.mkdir(parents=True, exist_ok=True)
+    (cover_cache_root / "pub-KA.jpg").write_bytes(b"\xff\xd8\xff-pub-cover")
+    (cover_cache_root / "issue-ka01.jpg").write_bytes(b"\xff\xd8\xff-issue-cover")
     with get_session(app.state.session_factory) as session:
         repo = DownloadRepository(session)
         db_pub = repo.upsert_publication(pub)
         db_issue, _ = repo.upsert_issue(pub.issues[0], db_pub.id)
         repo.mark_issue_done(db_issue.id, str(output_tree / "Kalle Anka" / "ka01.pdf"))
+        repo.set_publication_cover_cache(db_pub.id, "pub-KA.jpg", pub.cover_url)
+        repo.set_issue_cover_cache(db_issue.id, "issue-ka01.jpg")
 
     # Also seed a "done" row whose file has since vanished, so we can
     # verify the route returns 404 rather than a stale FileResponse.
@@ -137,6 +156,63 @@ def test_serve_issue_file_404_for_missing_file(client: TestClient):
 def test_serve_issue_file_404_for_unknown_publication(client: TestClient):
     resp = client.get("/publications/NOPE/issues/ka01/file")
     assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Cover cache (TASK-1345)
+# ---------------------------------------------------------------------------
+
+
+def test_serve_publication_cover_returns_the_cached_file(client: TestClient):
+    resp = client.get("/publications/KA/cover")
+    assert resp.status_code == 200
+    assert resp.content == b"\xff\xd8\xff-pub-cover"
+
+
+def test_serve_publication_cover_404_when_not_cached(client: TestClient):
+    resp = client.get("/publications/GH/cover")
+    assert resp.status_code == 404
+
+
+def test_serve_publication_cover_404_for_unknown_publication(client: TestClient):
+    resp = client.get("/publications/NOPE/cover")
+    assert resp.status_code == 404
+
+
+def test_serve_issue_cover_returns_the_cached_file(client: TestClient):
+    resp = client.get("/publications/KA/issues/ka01/cover")
+    assert resp.status_code == 200
+    assert resp.content == b"\xff\xd8\xff-issue-cover"
+
+
+def test_serve_issue_cover_404_when_not_cached(client: TestClient):
+    resp = client.get("/publications/GH/issues/gh01/cover")
+    assert resp.status_code == 404
+
+
+def test_publications_list_never_hotlinks_pagesuite_or_flipp(client: TestClient):
+    """The whole point of TASK-1345: no direct requests to the source CDN."""
+    resp = client.get("/publications")
+    assert resp.status_code == 200
+    assert "pagesuite" not in resp.text.lower()
+    assert "reader.flipp.se" not in resp.text
+    assert "/publications/KA/cover" in resp.text
+
+
+def test_publication_detail_never_hotlinks_and_uses_local_cover(client: TestClient):
+    resp = client.get("/publications/KA")
+    assert resp.status_code == 200
+    assert "pagesuite" not in resp.text.lower()
+    assert "reader.flipp.se" not in resp.text
+    assert "/publications/KA/cover" in resp.text
+    assert "/publications/KA/issues/ka01/cover" in resp.text
+
+
+def test_issue_row_never_hotlinks_pagesuite(client: TestClient):
+    resp = client.get("/publications/KA/issues/ka01/row")
+    assert resp.status_code == 200
+    assert "pagesuite" not in resp.text.lower()
+    assert "/publications/KA/issues/ka01/cover" in resp.text
 
 
 def test_library_index_lists_pdfs(client: TestClient):

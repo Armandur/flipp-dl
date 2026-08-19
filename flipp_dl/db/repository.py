@@ -9,11 +9,15 @@ boundaries.
 from __future__ import annotations
 
 import json
+import logging
+import os
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from sqlalchemy import case, delete, func, select
+import requests
+from sqlalchemy import case, delete, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from .. import storage
@@ -28,6 +32,87 @@ from .models import (
     IssueStatus,
     JobStatus,
 )
+
+logger = logging.getLogger(__name__)
+
+# Content-Type -> filename extension for cached cover images. Anything not
+# in this map is treated as "not actually an image" and rejected.
+_COVER_CONTENT_TYPES = {
+    "image/jpeg": ".jpg",
+    "image/jpg": ".jpg",
+    "image/png": ".png",
+    "image/webp": ".webp",
+    "image/gif": ".gif",
+}
+_DEFAULT_COVER_TIMEOUT = 15
+
+
+def default_cover_cache_root() -> Path:
+    """Where locally cached publication/issue covers live on disk.
+
+    ``FLIPP_COVER_CACHE`` wins if set; otherwise the cache lives next to
+    the database file (``FLIPP_DB``, default ``flipp.db``). Deliberately
+    never under ``output_root``: the Library view and the disk importer
+    (``import_existing_files``) scan that directory for PDFs and would
+    otherwise mistake a cached cover for a download - the same trap the
+    preview cache (``downloader.default_preview_root``) already avoids.
+    """
+    env = os.environ.get("FLIPP_COVER_CACHE")
+    if env:
+        return Path(env)
+    db_path = Path(os.environ.get("FLIPP_DB", "flipp.db"))
+    return db_path.resolve().parent / "flipp-dl-covers"
+
+
+def fetch_and_cache_cover(
+    url: str,
+    cache_root: Path,
+    filename_stem: str,
+    *,
+    http_session: requests.Session | None = None,
+    timeout: int = _DEFAULT_COVER_TIMEOUT,
+) -> str | None:
+    """Download *url* and save it under *cache_root*, returning the filename.
+
+    Returns ``None`` (and logs a warning) on any network error, non-200
+    response, or a Content-Type that doesn't look like an image - callers
+    treat that as "leave the cache as it was" rather than a hard failure,
+    since a poll tick covers many publications/issues and one bad cover
+    shouldn't abort the rest.
+
+    Writes to a temp file first and renames into place so a request that
+    arrives mid-download never sees a half-written file.
+    """
+    session = http_session or requests
+    try:
+        resp = session.get(url, timeout=timeout)
+        resp.raise_for_status()
+    except requests.RequestException as exc:
+        logger.warning("Cover fetch failed for %s: %s", url, exc)
+        return None
+
+    content_type = resp.headers.get("Content-Type", "").split(";")[0].strip().lower()
+    ext = _COVER_CONTENT_TYPES.get(content_type)
+    if ext is None:
+        logger.warning(
+            "Cover fetch for %s returned unexpected Content-Type %r - skipping",
+            url,
+            content_type,
+        )
+        return None
+
+    cache_root.mkdir(parents=True, exist_ok=True)
+    filename = f"{filename_stem}{ext}"
+    dest = cache_root / filename
+    tmp_dest = cache_root / f".{filename}.{uuid.uuid4().hex}.tmp"
+    try:
+        tmp_dest.write_bytes(resp.content)
+        tmp_dest.replace(dest)
+    except OSError as exc:
+        logger.warning("Failed to write cached cover %s: %s", dest, exc)
+        tmp_dest.unlink(missing_ok=True)
+        return None
+    return filename
 
 
 def _now() -> datetime:
@@ -175,6 +260,37 @@ class DownloadRepository:
         if db_pub:
             db_pub.last_polled_at = _now()
 
+    def publications_needing_cover_refresh(self) -> list[DbPublication]:
+        """Publications whose ``cover_url`` hasn't been cached yet (TASK-1345).
+
+        A publication needs a (re)fetch when it has a ``cover_url`` that
+        either was never cached, or differs from what was cached last
+        time - i.e. Flipp published a new cover. Cheap to call every poll
+        tick since it's a plain column comparison, no join.
+        """
+        return list(
+            self.session.scalars(
+                select(DbPublication).where(
+                    DbPublication.cover_url.is_not(None),
+                    or_(
+                        DbPublication.cover_cache_source_url.is_(None),
+                        DbPublication.cover_url != DbPublication.cover_cache_source_url,
+                    ),
+                )
+            )
+        )
+
+    def set_publication_cover_cache(
+        self, publication_id: int, cache_filename: str, source_url: str
+    ) -> None:
+        db_pub = self.get_publication_by_id(publication_id)
+        if db_pub is not None:
+            db_pub.cover_cache_path = cache_filename
+            db_pub.cover_cache_source_url = source_url
+
+    def get_publication_by_id(self, publication_id: int) -> DbPublication | None:
+        return self.session.get(DbPublication, publication_id)
+
     # ------------------------------------------------------------------
     # Issues
     # ------------------------------------------------------------------
@@ -205,6 +321,11 @@ class DownloadRepository:
         self.session.add(db_issue)
         self.session.flush()
         return db_issue, True
+
+    def set_issue_cover_cache(self, issue_id: int, cache_filename: str) -> None:
+        db_issue = self.get_issue(issue_id)
+        if db_issue is not None:
+            db_issue.cover_cache_path = cache_filename
 
     def get_issue(self, issue_id: int) -> DbIssue | None:
         return self.session.get(DbIssue, issue_id)

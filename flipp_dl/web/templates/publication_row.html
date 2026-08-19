@@ -7,10 +7,10 @@
   data-watched="{{ '1' if publication.watched else '0' }}"
 >
   <td class="cover-cell">
-    {% if publication.cover_url %}
+    {% if publication.cover_cache_path %}
     <img
       class="pub-cover"
-      src="{{ publication.cover_url | replace('__b600m.', '__b100m.') }}"
+      src="/publications/{{ publication.custom_code }}/cover"
       alt=""
       loading="lazy"
       decoding="async"
