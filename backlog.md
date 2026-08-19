@@ -1,5 +1,24 @@
 # Backlog Export
 
+## [P2][done] [flipp] Kövy: statusfilter på /jobs, kökort och live-uppdaterad dashboard
+
+Jobbsidan hämtar list_jobs(limit=100) sorterat nyast först, utan statusfilter. Ligger det 100 färska jobb överst blir en kö med äldre queued-jobb osynlig i gränssnittet, även när schedulern plockar dem korrekt (jämför TASK-1282, där samma fönstertänk var själva buggen). Med 17660 kända utgåvor räcker en bulk-köläggning för att det ska hända.
+
+Acceptanskriterier:
+- /jobs har ett statusfilter (queued, running, done, error, alla) som filtrerar i DATABASEN, inte i JS över de redan hämtade raderna.
+- Antalet queued respektive running visas oberoende av hur många rader som listas, så köns djup syns även när den är större än sidstorleken.
+- Dashboarden har ett kökort med antal queued och running som länkar till motsvarande filter på /jobs.
+- Dashboardens siffror uppdateras asynkront (HTMX-polling mot en partial) så sidan inte behöver laddas om för att visa att kön krymper.
+- Repository får en räknemetod för jobb per status i stället för att sidan räknar på en hämtad lista.
+
+Verifiering: riktade tester i tests/test_web_routes.py och tests/test_repository.py, plus browser-verifiering vid 390px och 1280px enligt browser-verify-skillen.
+
+- ID: `01M0CR3XE1AF5T0EDE1ZGSVY8G`
+- Type: improvement
+- Actor: ai:claude-opus-5
+
+---
+
 ## [P2][done] [flipp] Hantera stallade jobb som fastnar i queued
 
 Jobb blir kvar med status queued utan att något händer. Observerat i drift (körs på TERVO2:8934).
@@ -15,6 +34,44 @@ Rätt fix är troligen en riktig claim-fråga mot DB (SELECT ... WHERE status=qu
 
 - ID: `01M0BBXMEPZZWZVNYZR3SF7RWF`
 - Type: bug
+- Actor: ai:claude-opus-5
+
+---
+
+## [P3][todo] [flipp] Navigeringsraden ger horisontell scroll vid 390px
+
+Alla sidor har horisontell overflow i mobilbredd: vid 390px viewport blir document.documentElement.scrollWidth 553px. Mätt på /, /jobs, /settings, /publications och /library, alltså befintligt och inte infört av kövyn (TASK-1330).
+
+Orsaken är navigeringsraden i base.html - länkarna plus spacer-elementet ligger på en rad som är 557px bred och wrappar inte. Verifiera med Playwright-mätningen i browser-verify-skillen: scrollWidth ska vara lika med viewport-bredden vid både 390px och 1280px.
+
+- ID: `01M0CRHTW8SEH2362Q0HFDKVA2`
+- Type: bug
+- Actor: ai:claude-opus-5
+
+---
+
+## [P3][todo] [flipp] Undersök om nedladdade PDF:er är vattenmärkta
+
+Skanna de nedladdade PDF:erna efter spår som kan knyta filen till kontot: synlig vattenstämpel i sidbilden, osynlig text i textlagret, XMP/DocInfo-metadata, unika objekt-ID:n eller kontospecifika URL:er i sidornas resurser.
+
+Utgå från filerna som redan ligger i output på driftinstansen. Jämför gärna samma utgåva hämtad vid två tillfällen - skiljer bytesekvenserna sig åt på ställen som inte är tidsstämplar är det ett tecken på per-nedladdning-märkning.
+
+Rent utredande task: resultatet avgör om det behövs någon åtgärd alls, och i så fall vilken.
+
+- ID: `01M0CR734QFWN9Z0M72HAVTJ99`
+- Type: spike
+- Actor: ai:claude-opus-5
+
+---
+
+## [P3][todo] [flipp] Behåll watched-only-filtret i URL:en
+
+Watched only-kryssrutan på /publications är i dag ren klientside-state (JS-filter över raderna, publications.html:61-94). Den nollställs så fort man navigerar bort och tillbaka, till exempel efter ett besök på en publikationssida.
+
+Lägg filtret i URL:en som en flagga (hash eller query-param) och läs tillbaka den vid sidladdning, så valet överlever navigering och går att bokmärka/dela. Samma resonemang gäller rimligen sökfältet och kategori-filtret på samma sida - ta ställning till om de ska med i samma mekanism.
+
+- ID: `01M0CQJMJ82SZJQWQE73XDM6P0`
+- Type: improvement
 - Actor: ai:claude-opus-5
 
 ---
