@@ -10,6 +10,7 @@
   <button type="button" class="btn btn-watch" id="json-copy-btn">Copy JSON</button>
   <button type="button" class="btn" id="json-expand-btn">Expand all</button>
   <button type="button" class="btn" id="json-collapse-btn">Collapse all</button>
+  <span id="json-copy-status" class="dim"></span>
 </div>
 
 <div id="json-tree" class="json-viewer"></div>
@@ -125,9 +126,16 @@
   render(data, root, 0);
 
   document.getElementById("json-copy-btn").addEventListener("click", () => {
+    // Inline status rather than alert() - copying is a minor action and
+    // doesn't warrant a browser dialog.
+    const status = document.getElementById("json-copy-status");
+    const say = (msg) => {
+      status.textContent = msg;
+      setTimeout(() => { status.textContent = ""; }, 3000);
+    };
     navigator.clipboard.writeText(raw).then(
-      () => { /* no-op */ },
-      () => { alert("Copy failed"); }
+      () => say("Copied"),
+      () => say("Copy failed - select the JSON and copy manually")
     );
   });
   document.getElementById("json-expand-btn").addEventListener("click", () => {
