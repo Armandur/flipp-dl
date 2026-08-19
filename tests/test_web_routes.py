@@ -630,7 +630,126 @@ def test_queue_missing_requires_csrf(client: TestClient):
     assert client.post("/publications/KA/queue-missing", data={}).status_code == 400
 
 
+# ---------------------------------------------------------------------------
+# /metrics
+# ---------------------------------------------------------------------------
+
+_METRIC_LINE_RE = re.compile(
+    r'^[a-zA-Z_][a-zA-Z0-9_]*(\{[a-zA-Z_][a-zA-Z0-9_]*="[^"]*"\})? -?\d+(\.\d+)?$'
+)
+
+
+def _parse_prometheus_text(body: str) -> dict[str, list[str]]:
+    """Structurally validate the exposition format and group lines by family.
+
+    Returns ``{metric_name: [help_line, type_line, data_line, ...]}`` in
+    the order the family appeared. Raises AssertionError on any line that
+    doesn't look like a HELP/TYPE comment or a well-formed sample.
+    """
+    families: dict[str, list[str]] = {}
+    seen_type: dict[str, str] = {}
+    seen_samples: set[str] = set()
+    current: str | None = None
+
+    for line in body.splitlines():
+        if not line:
+            continue
+        if line.startswith("# HELP "):
+            name = line.split()[2]
+            assert name not in families, f"duplicate HELP for {name}"
+            families[name] = [line]
+            current = name
+            continue
+        if line.startswith("# TYPE "):
+            _, _, name, kind = line.split(maxsplit=3)
+            assert current == name, f"TYPE for {name} not right after its HELP"
+            assert name not in seen_type, f"duplicate TYPE for {name}"
+            seen_type[name] = kind
+            families[name].append(line)
+            continue
+        assert _METRIC_LINE_RE.match(line), f"malformed sample line: {line!r}"
+        sample_name = line.split("{", 1)[0].split()[0]
+        assert sample_name in seen_type, f"sample without preceding TYPE: {line!r}"
+        assert line not in seen_samples, f"duplicate series: {line!r}"
+        seen_samples.add(line)
+        families[sample_name].append(line)
+
+    return families
+
+
+def test_metrics_is_valid_prometheus_text_format(client: TestClient):
+    resp = client.get("/metrics")
+    assert resp.status_code == 200
+    assert resp.headers["content-type"].startswith("text/plain")
+
+    families = _parse_prometheus_text(resp.text)
+    assert set(families) == {
+        "flipp_issues_total",
+        "flipp_jobs_total",
+        "flipp_publications_total",
+        "flipp_publications_watched",
+    }
+
+
+def test_metrics_reflects_actual_counts(client: TestClient):
+    # The client fixture seeds two publications (KA watched, GH not) and
+    # marks one issue "done" on each of them.
+    resp = client.get("/metrics")
+    body = resp.text
+
+    assert 'flipp_issues_total{status="done"} 2' in body
+    assert 'flipp_issues_total{status="new"} 0' in body
+    assert 'flipp_issues_total{status="error"} 0' in body
+    assert 'flipp_jobs_total{status="queued"} 0' in body
+    assert "flipp_publications_total 2" in body
+    assert "flipp_publications_watched 0" in body
+
+
+def test_metrics_excluded_from_openapi_schema(client: TestClient):
+    schema = client.get("/openapi.json").json()
+    assert "/metrics" not in schema["paths"]
+    assert "/healthz" not in schema["paths"]  # same pattern, sanity check
+
+
+def test_metrics_requires_auth_when_password_is_set(
+    tmp_path: Path, output_tree: Path, monkeypatch
+):
+    """/metrics is not in AuthMiddleware's public-path allowlist, so a
+    scrape without a session is redirected to /login exactly like any
+    other protected route when FLIPP_PASSWORD is configured."""
+    from flipp_dl.web.app import create_app as _create_app
+
+    monkeypatch.setenv("FLIPP_PASSWORD", "secret")
+    app = _create_app(db_path=tmp_path / "auth.db", output_root=output_tree)
+    protected_client = TestClient(app, follow_redirects=False)
+
+    resp = protected_client.get("/metrics")
+    assert resp.status_code == 302
+    assert resp.headers["location"].startswith("/login")
+
+
 def test_queue_missing_unknown_publication_is_404(client: TestClient):
     token = _csrf_for(client)
     resp = client.post("/publications/NOPE/queue-missing", data={"_csrf_token": token})
     assert resp.status_code == 404
+
+
+def test_metrics_can_be_scraped_without_login_when_opted_in(tmp_path, monkeypatch):
+    """A Prometheus scraper cannot log in, so the flag must open /metrics."""
+    monkeypatch.setenv("FLIPP_PASSWORD", "hemligt")
+    monkeypatch.setenv("FLIPP_METRICS_PUBLIC", "1")
+    app = create_app(db_path=tmp_path / "flipp.db", output_root=tmp_path / "out")
+    with TestClient(app) as client:
+        resp = client.get("/metrics", follow_redirects=False)
+        assert resp.status_code == 200
+        assert "flipp_issues_total" in resp.text
+        # Everything else still requires login.
+        assert client.get("/", follow_redirects=False).status_code == 302
+
+
+def test_metrics_stays_closed_by_default(tmp_path, monkeypatch):
+    monkeypatch.setenv("FLIPP_PASSWORD", "hemligt")
+    monkeypatch.delenv("FLIPP_METRICS_PUBLIC", raising=False)
+    app = create_app(db_path=tmp_path / "flipp.db", output_root=tmp_path / "out")
+    with TestClient(app) as client:
+        assert client.get("/metrics", follow_redirects=False).status_code == 302

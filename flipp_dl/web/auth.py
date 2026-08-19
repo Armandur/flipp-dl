@@ -23,6 +23,18 @@ from starlette.responses import RedirectResponse, Response
 # Routes that are always public (no login required)
 _PUBLIC_PATHS = frozenset(["/login", "/healthz"])
 
+
+def metrics_public() -> bool:
+    """Whether /metrics may be scraped without logging in.
+
+    A Prometheus scraper cannot log in, so an authenticated /metrics is
+    effectively unreachable. It stays closed by default because the
+    numbers describe the instance, and opens with FLIPP_METRICS_PUBLIC
+    for the usual case: a scraper on the same trusted network.
+    """
+    return os.environ.get("FLIPP_METRICS_PUBLIC", "").lower() in ("1", "true", "yes")
+
+
 # HTTP methods that mutate state and require a CSRF check
 _UNSAFE_METHODS = frozenset(["POST", "PUT", "PATCH", "DELETE"])
 
@@ -93,6 +105,8 @@ class AuthMiddleware(BaseHTTPMiddleware):
         path = request.url.path
 
         # Always allow public paths and static assets
+        if path == "/metrics" and metrics_public():
+            return await call_next(request)
         if path in _PUBLIC_PATHS or path.startswith("/static"):
             return await call_next(request)
 

@@ -111,6 +111,7 @@ Volymer:
 | `FLIPP_DB`          | `flipp.db`  | Sökväg till SQLite-filen.                      |
 | `FLIPP_OUTPUT`      | `Output`    | Katalog där PDF:er sparas.                     |
 | `FLIPP_TZ`          | `Europe/Stockholm` | Tidszon som tider visas i. Databasen lagrar UTC. |
+| `FLIPP_METRICS_PUBLIC` | –      | `1` gör `/metrics` läsbar utan inloggning (för Prometheus). |
 | `FLIPP_POLL_INTERVAL` | `360`     | Minuter mellan API-polls (default 6 h).        |
 | `FLIPP_WORKERS`     | `4`         | Parallella sidnedladdningar per utgåva.        |
 | `FLIPP_SECRET_KEY`  | –           | Hemlighet för sessions (byt i produktion).     |
@@ -162,6 +163,7 @@ Webbgränssnittet nås sedan på `http://<unraid-ip>:8000`.
 | Jobb              | `/jobs`          | Jobblogg med statusfärger             |
 | Inställningar     | `/settings`      | Poll-intervall, workers               |
 | Healthcheck       | `/healthz`       | `{"status":"ok"}` för Docker          |
+| Metrics           | `/metrics`       | Prometheus-format, se `FLIPP_METRICS_PUBLIC` |
 
 ## Utveckling
 

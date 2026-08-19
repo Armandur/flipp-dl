@@ -9,7 +9,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import FastAPI, Form, Request
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import (
+    FileResponse,
+    HTMLResponse,
+    JSONResponse,
+    PlainTextResponse,
+    RedirectResponse,
+)
 
 from ..api import FlippClient, FlippError
 from ..config import load_token
@@ -72,6 +78,51 @@ def register(app: FastAPI) -> None:
     @app.get("/healthz", include_in_schema=False)
     async def healthz():
         return JSONResponse({"status": "ok"})
+
+    @app.get("/metrics", include_in_schema=False)
+    async def metrics(request: Request):
+        """Prometheus text-exposition metrics.
+
+        Requires login like every other route when FLIPP_PASSWORD is
+        set, unless FLIPP_METRICS_PUBLIC is on - a scraper cannot log
+        in, so that flag is what makes the endpoint usable. All counts
+        are computed in the DB, never by loading rows: this is a poll
+        target.
+        """
+        repo = _repo(request)
+        try:
+            issue_counts = repo.count_issues_by_status()
+            job_counts = repo.count_jobs_by_status()
+            total_pubs, watched_pubs = repo.count_publications()
+        finally:
+            repo.session.close()
+
+        lines: list[str] = []
+
+        lines.append("# HELP flipp_issues_total Number of issues by status.")
+        lines.append("# TYPE flipp_issues_total gauge")
+        for status, count in issue_counts.items():
+            lines.append(f'flipp_issues_total{{status="{status}"}} {count}')
+
+        lines.append("# HELP flipp_jobs_total Number of jobs by status.")
+        lines.append("# TYPE flipp_jobs_total gauge")
+        for status, count in job_counts.items():
+            lines.append(f'flipp_jobs_total{{status="{status}"}} {count}')
+
+        lines.append(
+            "# HELP flipp_publications_total Total number of known publications."
+        )
+        lines.append("# TYPE flipp_publications_total gauge")
+        lines.append(f"flipp_publications_total {total_pubs}")
+
+        lines.append(
+            "# HELP flipp_publications_watched Number of watched publications."
+        )
+        lines.append("# TYPE flipp_publications_watched gauge")
+        lines.append(f"flipp_publications_watched {watched_pubs}")
+
+        body = "\n".join(lines) + "\n"
+        return PlainTextResponse(body, media_type="text/plain; version=0.0.4")
 
     # ------------------------------------------------------------------
     # Auth – login / logout
