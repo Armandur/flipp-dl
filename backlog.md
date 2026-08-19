@@ -169,7 +169,7 @@ Lägg en knapp på publikationens detaljsida som köar allt som inte är nedladd
 
 ---
 
-## [P3][todo] [flipp] Cachea omslag lokalt i stället för att hotlinka pagesuite
+## [P3][done] [flipp] Cachea omslag lokalt i stället för att hotlinka pagesuite
 
 ## Context
 Omslagen hämtas i dag direkt från externa tjänster vid varje sidladdning: issue_row.html pekar på pagesuite (`get_image.aspx?w=100&eid=<issue-kod>`), och publication_row.html/publication_detail.html pekar på `publication.cover_url` (Flipp/pagesuite). Det gör gränssnittet beroende av en extern tjänst, läcker vilka sidor som besöks till en tredje part, och blir långsamt när många rader renderas (t.ex. 17 660 utgåvor).
@@ -519,7 +519,7 @@ Filer som väntas ändras:
 
 ---
 
-## [P3][todo] [flipp] Eget pollintervall per publikation
+## [P3][done] [flipp] Eget pollintervall per publikation
 
 ## Context
 Alla bevakade publikationer pollas i dag med samma globala intervall (APScheduler). En del publikationer ges ut en gång i månaden och behöver inte kollas lika ofta som en veckotidning - ett eget schema per publikation minskar onödiga körningar och gör det möjligt att lägga tunga publikationer på natten.
