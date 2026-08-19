@@ -113,6 +113,18 @@ Rätt fix är troligen en riktig claim-fråga mot DB (SELECT ... WHERE status=qu
 
 ---
 
+## [P3][done] [flipp] Knapp för att köa saknade utgåvor utan att röra bevakningen
+
+I dag är unwatch följt av watch enda sättet att köa om en publikations saknade utgåvor manuellt. Det är en omväg, och mellan klicken är publikationen faktiskt obevakad - landar en poll där missas nya utgåvor.
+
+Lägg en knapp på publikationens detaljsida som köar allt som inte är nedladdat, inklusive felade, utan att ändra watched-flaggan. Använder repo.queue_missing_issues som redan finns. Ska visa hur många som köades.
+
+- ID: `01M0CZDPNXRAD3N9GGHQNCMFDD`
+- Type: feature
+- Actor: ai:claude-opus-5
+
+---
+
 ## [P3][todo] [flipp] Cachea omslag lokalt i stället för att hotlinka pagesuite
 
 Omslagen hämtas i dag direkt från pagesuite vid varje sidladdning: issue_row.html pekar på https://edition.pagesuite-professional.co.uk/get_image.aspx?w=100&eid=<issue-kod> och publikationsraden på publication.cover_url. Det gör gränssnittet beroende av en extern tjänst, läcker vilka sidor som besöks, och blir långsamt när många rader renderas.
