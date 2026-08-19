@@ -9,11 +9,14 @@ boundaries.
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 from sqlalchemy import case, delete, func, select
 from sqlalchemy.orm import Session, selectinload
 
+from .. import storage
 from ..models import Issue as DomainIssue
 from ..models import Publication as DomainPublication
 from .models import (
@@ -29,6 +32,36 @@ from .models import (
 
 def _now() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def _issue_identity(issue: DbIssue) -> dict:
+    """A compact, JSON-friendly identity for *issue* used in reports."""
+    return {
+        "issue_id": issue.id,
+        "publication": issue.publication.name if issue.publication else None,
+        "issue_name": issue.issue_name,
+    }
+
+
+@dataclass
+class ImportReport:
+    """Result of reconciling on-disk files against the issues table.
+
+    Produced by :meth:`DownloadRepository.import_existing_files`
+    (TASK-1283). Covers both directions of drift a manual sweep of the
+    production instance found on 2026-08-18: an issue that sat on disk
+    while the DB still called it ``queued``, and two issues claiming the
+    same file - one of which was therefore never really downloaded.
+    """
+
+    backfilled: list[dict] = field(default_factory=list)
+    orphan_files: list[str] = field(default_factory=list)
+    missing_files: list[dict] = field(default_factory=list)
+    shared_files: list[dict] = field(default_factory=list)
+
+    @property
+    def has_findings(self) -> bool:
+        return bool(self.orphan_files or self.missing_files or self.shared_files)
 
 
 class DownloadRepository:
@@ -207,6 +240,114 @@ class DownloadRepository:
         for issue in rows:
             by_path.setdefault(issue.file_path, []).append(issue)
         return [group for group in by_path.values() if len(group) > 1]
+
+    def import_existing_files(self, output_root: Path) -> ImportReport:
+        """Reconcile issue status with what is actually on disk.
+
+        Read-only on the filesystem - only the DB is written. A file on
+        disk whose expected name matches an issue that isn't ``done``
+        yet backfills that issue (status, ``file_path``,
+        ``downloaded_at``) without re-downloading anything. A file only
+        ever backfills an issue if it resolves inside *output_root* -
+        the same containment check the web layer uses
+        (:func:`storage.resolve_safe_path`) - so a crafted or stale path
+        can never mark an issue done from outside the managed tree.
+
+        Everything the scan can't cleanly explain is reported rather
+        than silently fixed: files with no matching issue (orphans),
+        ``done`` issues whose file has disappeared, issues that already
+        share one file with another (see :meth:`list_issues_sharing_files`,
+        TASK-1349), and a not-yet-done issue whose expected filename is
+        already claimed by a *different* ``done`` issue - backfilling
+        that one blindly would recreate exactly the same bug instead of
+        catching it.
+        """
+        try:
+            root = Path(output_root).resolve()
+        except OSError:
+            root = Path(output_root)
+
+        issues = sorted(
+            self.session.scalars(
+                select(DbIssue).options(selectinload(DbIssue.publication))
+            ),
+            key=lambda i: i.id,
+        )
+
+        # Every path a real download could have produced for this issue:
+        # the plain name and the disambiguated form two issues get when
+        # they'd otherwise collide (TASK-1349). Lowest id wins a clash
+        # on the plain form so the result is deterministic.
+        by_path: dict[Path, DbIssue] = {}
+        for issue in issues:
+            pub = issue.publication
+            if pub is None:
+                continue
+            for disambiguate in (False, True):
+                path = storage.issue_path(root, pub, issue, disambiguate=disambiguate)
+                by_path.setdefault(path, issue)
+
+        report = ImportReport()
+
+        if root.is_dir():
+            for pdf in sorted(root.rglob("*.pdf")):
+                if not pdf.is_file():
+                    continue
+                try:
+                    resolved = pdf.resolve()
+                    resolved.relative_to(root)
+                except (OSError, ValueError):
+                    continue  # escapes output_root via a symlink - ignore
+                issue = by_path.get(resolved)
+                if issue is None:
+                    report.orphan_files.append(str(resolved.relative_to(root)))
+                    continue
+                if issue.status == IssueStatus.DONE:
+                    continue
+
+                # Another issue may already have this exact path recorded
+                # as its file_path - e.g. it was the one actually
+                # downloaded when two issues collided on the plain name
+                # (TASK-1349). Backfilling *this* issue on top of it would
+                # silently recreate that bug, so report it instead.
+                owner = self.get_issue_by_file_path(str(resolved))
+                if owner is not None and owner.id != issue.id:
+                    report.shared_files.append(
+                        {
+                            "file_path": str(resolved),
+                            "issues": [
+                                {**_issue_identity(owner), "status": owner.status},
+                                {**_issue_identity(issue), "status": issue.status},
+                            ],
+                        }
+                    )
+                    continue
+
+                self.mark_issue_done(issue.id, str(resolved))
+                report.backfilled.append(
+                    {**_issue_identity(issue), "file_path": str(resolved)}
+                )
+
+        for issue in issues:
+            if issue.status != IssueStatus.DONE or not issue.file_path:
+                continue
+            if storage.resolve_safe_path(root, issue.file_path) is None:
+                report.missing_files.append(
+                    {**_issue_identity(issue), "file_path": issue.file_path}
+                )
+
+        for group in self.list_issues_sharing_files():
+            report.shared_files.append(
+                {
+                    "file_path": group[0].file_path,
+                    "issues": [
+                        {**_issue_identity(issue), "status": issue.status}
+                        for issue in group
+                    ],
+                }
+            )
+
+        return report
 
     def list_issues(
         self,

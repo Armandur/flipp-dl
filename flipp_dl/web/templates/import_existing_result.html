@@ -1,0 +1,48 @@
+<div class="import-summary">
+  <p>Backfilled <strong>{{ report.backfilled | length }}</strong> issue(s) already on disk.</p>
+  {% if report.backfilled %}
+  <ul>
+    {% for item in report.backfilled %}
+    <li>{{ item.publication }} / {{ item.issue_name }} – {{ item.file_path }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+
+  <p>File(s) with no matching issue (orphans): <strong>{{ report.orphan_files | length }}</strong></p>
+  {% if report.orphan_files %}
+  <ul>
+    {% for path in report.orphan_files %}
+    <li>{{ path }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+
+  <p>Issue(s) marked done whose file is missing on disk: <strong>{{ report.missing_files | length }}</strong></p>
+  {% if report.missing_files %}
+  <ul>
+    {% for item in report.missing_files %}
+    <li>{{ item.publication }} / {{ item.issue_name }} – {{ item.file_path }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+
+  <p>File(s) shared by more than one issue: <strong>{{ report.shared_files | length }}</strong></p>
+  {% if report.shared_files %}
+  <ul>
+    {% for group in report.shared_files %}
+    <li>
+      {{ group.file_path }}
+      <ul>
+        {% for issue in group.issues %}
+        <li>{{ issue.publication }} / {{ issue.issue_name }} ({{ issue.status }})</li>
+        {% endfor %}
+      </ul>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+
+  {% if not report.backfilled and not report.orphan_files and not report.missing_files and not report.shared_files %}
+  <p class="dim">No drift found - the database and the output folder agree.</p>
+  {% endif %}
+</div>

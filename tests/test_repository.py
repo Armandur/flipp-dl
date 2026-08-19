@@ -5,6 +5,7 @@ from sqlalchemy import inspect as sa_inspect
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from flipp_dl import storage
 from flipp_dl.db.models import DbIssue, IssueStatus, JobStatus
 from flipp_dl.db.repository import DownloadRepository
 from flipp_dl.db.session import make_session_factory
@@ -484,3 +485,179 @@ def test_queue_missing_issues_is_idempotent(session):
 
     assert (first, second) == (2, 0)
     assert repo.count_jobs_by_status()["queued"] == 2
+
+
+# ---------------------------------------------------------------------------
+# import_existing_files (TASK-1283)
+# ---------------------------------------------------------------------------
+
+
+def test_import_existing_backfills_a_queued_issue_found_on_disk(repo, tmp_path):
+    pub = _publication()
+    db_pub = repo.upsert_publication(pub)
+    repo.session.commit()
+    issue = pub.issues[0]
+    db_issue, _ = repo.upsert_issue(issue, db_pub.id)
+    repo.mark_issue_queued(db_issue.id)
+    repo.session.commit()
+
+    target = storage.issue_path(tmp_path, pub, issue)
+    target.parent.mkdir(parents=True)
+    target.write_bytes(b"%PDF-1.4\n%dummy\n")
+
+    report = repo.import_existing_files(tmp_path)
+    repo.session.commit()
+
+    assert len(report.backfilled) == 1
+    assert report.backfilled[0]["issue_id"] == db_issue.id
+    refreshed = repo.get_issue(db_issue.id)
+    assert refreshed.status == IssueStatus.DONE
+    assert refreshed.file_path == str(target.resolve())
+    assert refreshed.downloaded_at is not None
+    assert report.orphan_files == []
+    assert report.missing_files == []
+    assert report.shared_files == []
+
+
+def test_import_existing_leaves_an_already_done_issue_alone(repo, tmp_path):
+    pub = _publication()
+    db_pub = repo.upsert_publication(pub)
+    repo.session.commit()
+    issue = pub.issues[0]
+    db_issue, _ = repo.upsert_issue(issue, db_pub.id)
+    repo.session.commit()
+
+    target = storage.issue_path(tmp_path, pub, issue)
+    target.parent.mkdir(parents=True)
+    target.write_bytes(b"%PDF-1.4\n%dummy\n")
+    repo.mark_issue_done(db_issue.id, str(target.resolve()))
+    repo.session.commit()
+
+    report = repo.import_existing_files(tmp_path)
+
+    assert report.backfilled == []
+    assert report.missing_files == []
+
+
+def test_import_existing_reports_orphan_files(repo, tmp_path):
+    """A file on disk that matches no issue - never downloaded via us."""
+    (tmp_path / "Unknown Publication").mkdir()
+    orphan = tmp_path / "Unknown Publication" / "Nr 1.pdf"
+    orphan.write_bytes(b"%PDF-1.4\n%dummy\n")
+
+    report = repo.import_existing_files(tmp_path)
+
+    assert report.orphan_files == ["Unknown Publication/Nr 1.pdf"]
+    assert report.backfilled == []
+
+
+def test_import_existing_reports_missing_files(repo, tmp_path):
+    """A 'done' issue whose file has vanished from disk (driftfynd 2026-08-18)."""
+    pub = _publication()
+    db_pub = repo.upsert_publication(pub)
+    repo.session.commit()
+    issue = pub.issues[0]
+    db_issue, _ = repo.upsert_issue(issue, db_pub.id)
+    repo.mark_issue_done(db_issue.id, str(tmp_path / "Kalle Anka och Co" / "gone.pdf"))
+    repo.session.commit()
+
+    report = repo.import_existing_files(tmp_path)
+
+    assert len(report.missing_files) == 1
+    assert report.missing_files[0]["issue_id"] == db_issue.id
+
+
+def test_import_existing_reports_issues_sharing_one_file(repo, tmp_path):
+    """Two issues pointing at the same file - one was never really downloaded."""
+    pub = _publication()
+    db_pub = repo.upsert_publication(pub)
+    repo.session.commit()
+    a, b = pub.issues
+    db_a, _ = repo.upsert_issue(a, db_pub.id)
+    db_b, _ = repo.upsert_issue(b, db_pub.id)
+    shared = str(tmp_path / "Kalle Anka och Co" / "shared.pdf")
+    repo.mark_issue_done(db_a.id, shared)
+    repo.mark_issue_done(db_b.id, shared)
+    repo.session.commit()
+
+    report = repo.import_existing_files(tmp_path)
+
+    assert len(report.shared_files) == 1
+    ids = {i["issue_id"] for i in report.shared_files[0]["issues"]}
+    assert ids == {db_a.id, db_b.id}
+
+
+def test_import_existing_does_not_hand_a_claimed_file_to_another_issue(repo, tmp_path):
+    """A file already owned by one issue must not be handed to a second.
+
+    Regression for the exact bug this task exists to catch: two issues
+    with the same name+date collide on the plain filename (TASK-1349).
+    The higher-id issue is the one that actually downloaded and owns
+    the file in the DB; the lower-id issue is still ``queued`` and has
+    no file of its own. Because ``by_path`` picks the lower-id issue as
+    the "canonical" candidate for that filename, a naive import would
+    mark the lower-id issue done on top of the real owner's file -
+    recreating the drift instead of reporting it.
+    """
+    pub = Publication(
+        custom_code="SHARE",
+        name="Shared Pub",
+        issues=[
+            Issue(
+                custom_code="share-01", issue_name="Nr 6 2024", issue_date="2024-03-01"
+            ),
+            Issue(
+                custom_code="share-02", issue_name="Nr 6 2024", issue_date="2024-03-01"
+            ),
+        ],
+    )
+    db_pub = repo.upsert_publication(pub)
+    repo.session.commit()
+    low, _ = repo.upsert_issue(pub.issues[0], db_pub.id)  # lower id, still queued
+    high, _ = repo.upsert_issue(pub.issues[1], db_pub.id)  # higher id, real owner
+    repo.mark_issue_queued(low.id)
+
+    target = storage.issue_path(tmp_path, pub, pub.issues[0])
+    target.parent.mkdir(parents=True)
+    target.write_bytes(b"%PDF-1.4\n%dummy\n")
+    repo.mark_issue_done(high.id, str(target.resolve()))
+    repo.session.commit()
+
+    report = repo.import_existing_files(tmp_path)
+    repo.session.commit()
+
+    assert report.backfilled == []
+    assert repo.get_issue(low.id).status == IssueStatus.QUEUED
+    assert repo.get_issue(low.id).file_path is None
+    assert len(report.shared_files) == 1
+    ids = {i["issue_id"] for i in report.shared_files[0]["issues"]}
+    assert ids == {low.id, high.id}
+
+
+def test_import_existing_ignores_a_symlink_that_escapes_output_root(repo, tmp_path):
+    """A path resolving outside output_root must never mark an issue done."""
+    output_root = tmp_path / "output"
+    output_root.mkdir()
+    pub = _publication()
+    db_pub = repo.upsert_publication(pub)
+    repo.session.commit()
+    issue = pub.issues[0]
+    db_issue, _ = repo.upsert_issue(issue, db_pub.id)
+    repo.mark_issue_queued(db_issue.id)
+    repo.session.commit()
+
+    secret = tmp_path / "secret.pdf"
+    secret.write_bytes(b"%PDF-1.4\n%dummy\n")
+    link = output_root / storage.publication_folder(output_root, pub).name
+    link.mkdir()
+    escaping = link / storage.issue_filename(pub, issue)
+    try:
+        escaping.symlink_to(secret)
+    except OSError:
+        pytest.skip("symlinks not supported in this environment")
+
+    report = repo.import_existing_files(output_root)
+
+    assert report.backfilled == []
+    assert report.orphan_files == []
+    assert repo.get_issue(db_issue.id).status == IssueStatus.QUEUED

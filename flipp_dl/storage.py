@@ -50,3 +50,34 @@ def issue_path(
     return publication_folder(output_root, publication) / issue_filename(
         publication, issue, disambiguate=disambiguate
     )
+
+
+def resolve_safe_path(output_root: Path, candidate: str | Path | None) -> Path | None:
+    """Resolve *candidate* relative to *output_root* and confirm containment.
+
+    Accepts either an absolute path (e.g. the ``file_path`` stored in the DB)
+    or a relative path (e.g. a library URL segment). Returns the resolved
+    :class:`Path` only if it points to an existing regular file that lives
+    under *output_root* - otherwise ``None``. This guards against
+    path-traversal (``../../etc/passwd``) and stale entries pointing at
+    files that have been removed from disk.
+
+    Shared by the web layer (serving/deleting a file) and the disk-import
+    reconciler (TASK-1283) - both need the same guarantee: never act on a
+    path that resolves outside the managed output tree.
+    """
+    if not candidate:
+        return None
+    try:
+        root = Path(output_root).resolve()
+        raw = Path(candidate)
+        resolved = (raw if raw.is_absolute() else (root / raw)).resolve()
+    except (OSError, RuntimeError):
+        return None
+    if not resolved.is_file():
+        return None
+    try:
+        resolved.relative_to(root)
+    except ValueError:
+        return None
+    return resolved

@@ -17,6 +17,7 @@ from fastapi.responses import (
     RedirectResponse,
 )
 
+from .. import storage
 from ..api import FlippClient, FlippError
 from ..config import load_token
 from ..db.models import IssueStatus, JobStatus
@@ -38,30 +39,8 @@ def _templates(request: Request):
 
 
 def _safe_output_file(output_root: Path, candidate: str | None) -> Path | None:
-    """Resolve *candidate* relative to *output_root* and confirm containment.
-
-    Accepts either an absolute path (e.g. the ``file_path`` stored in the DB)
-    or a relative path (e.g. a library URL segment). Returns the resolved
-    :class:`Path` only if it points to an existing regular file that lives
-    under *output_root* – otherwise ``None``. This guards against
-    path-traversal (``../../etc/passwd``) and stale DB entries pointing at
-    files that have been removed from disk.
-    """
-    if not candidate:
-        return None
-    try:
-        root = output_root.resolve()
-        raw = Path(candidate)
-        resolved = (raw if raw.is_absolute() else (root / raw)).resolve()
-    except (OSError, RuntimeError):
-        return None
-    if not resolved.is_file():
-        return None
-    try:
-        resolved.relative_to(root)
-    except ValueError:
-        return None
-    return resolved
+    """Resolve *candidate* under *output_root* - see storage.resolve_safe_path."""
+    return storage.resolve_safe_path(output_root, candidate)
 
 
 def _annotate_file_exists(issues, output_root: Path) -> None:
@@ -744,6 +723,25 @@ def register(app: FastAPI) -> None:
                 "csrf_token": csrf,
                 "saved": True,
             },
+        )
+
+    @app.post("/settings/import-existing", response_class=HTMLResponse)
+    async def import_existing(request: Request):
+        """Reconcile the DB against what's actually on disk (TASK-1283).
+
+        Read-only on the filesystem: a file that matches a not-yet-done
+        issue backfills that issue's status in the DB, it is never
+        re-downloaded or moved. Everything the scan can't cleanly
+        explain - orphan files, ``done`` issues missing their file, and
+        issues sharing one file - is reported instead of silently fixed.
+        """
+        if not await check_csrf_form(request):
+            return HTMLResponse("CSRF validation failed", status_code=400)
+        with get_session(request.app.state.session_factory) as session:
+            repo = DownloadRepository(session)
+            report = repo.import_existing_files(request.app.state.output_root)
+        return _templates(request).TemplateResponse(
+            request, "import_existing_result.html", {"report": report}
         )
 
     # ------------------------------------------------------------------

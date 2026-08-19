@@ -66,6 +66,32 @@
   </form>
 </div>
 
+<h2>Import existing files</h2>
+<div class="note">
+  Scan the output folder and reconcile it with the database: a file that
+  already sits on disk marks its issue downloaded without fetching it
+  again. Anything the scan can't explain - orphan files, a downloaded
+  issue whose file has vanished, or two issues sharing one file - is
+  reported below instead of being fixed silently.
+</div>
+
+<div class="form-card" style="max-width: 100%;">
+  <button
+    type="button"
+    class="btn btn-primary"
+    id="import-existing-btn"
+    hx-post="/settings/import-existing"
+    hx-target="#import-existing-output"
+    hx-swap="innerHTML"
+    hx-indicator="#import-existing-spinner"
+    hx-vals='{"_csrf_token": "{{ csrf_token }}"}'
+  >Import existing files</button>
+  <span id="import-existing-spinner" class="htmx-indicator dim" style="margin-left:12px;">
+    Scanning…
+  </span>
+  <div id="import-existing-output" style="margin-top:18px;"></div>
+</div>
+
 <h2>Debug</h2>
 <div class="note">
   Run a manual poll against the Flipp API and inspect the raw

@@ -94,6 +94,14 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Re-download issues even if the target file already exists.",
     )
+    parser.add_argument(
+        "--import-existing",
+        action="store_true",
+        help=(
+            "Reconcile the database against files already in --output "
+            "(no network calls), print a summary, and exit."
+        ),
+    )
 
     # Scheduler mode
     scheduler_group = parser.add_argument_group("scheduler mode")
@@ -194,6 +202,48 @@ def _print_publications(publications: list[Publication]) -> None:
         )
 
 
+def _print_import_report(report) -> None:
+    print(f"Backfilled {len(report.backfilled)} issue(s) already on disk.")
+    for item in report.backfilled:
+        print(
+            f"  done: {item['publication']} / {item['issue_name']} -> {item['file_path']}"
+        )
+
+    print(f"Orphan file(s) with no matching issue: {len(report.orphan_files)}")
+    for path in report.orphan_files:
+        print(f"  orphan: {path}")
+
+    print(f"Issue(s) marked done but missing on disk: {len(report.missing_files)}")
+    for item in report.missing_files:
+        print(
+            f"  missing: {item['publication']} / {item['issue_name']} -> {item['file_path']}"
+        )
+
+    print(f"File(s) shared by more than one issue: {len(report.shared_files)}")
+    for group in report.shared_files:
+        names = ", ".join(
+            f"{i['publication']} / {i['issue_name']} ({i['status']})"
+            for i in group["issues"]
+        )
+        print(f"  shared: {group['file_path']} <- {names}")
+
+    if not report.has_findings:
+        print("No drift found - the database and the output folder agree.")
+
+
+def _run_import_existing(args: argparse.Namespace) -> int:
+    """Reconcile the DB against --output without touching the network."""
+    from .db.repository import DownloadRepository
+    from .db.session import get_session
+
+    output_root = args.output or default_output_path()
+    session_factory = make_session_factory(args.db)
+    with get_session(session_factory) as session:
+        report = DownloadRepository(session).import_existing_files(output_root)
+    _print_import_report(report)
+    return 0
+
+
 # ----------------------------------------------------------------------
 # Main
 # ----------------------------------------------------------------------
@@ -202,6 +252,9 @@ def _print_publications(publications: list[Publication]) -> None:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     _configure_logging(args.verbose)
+
+    if args.import_existing:
+        return _run_import_existing(args)
 
     # ------------------------------------------------------------------
     # Scheduler mode – hand off and block

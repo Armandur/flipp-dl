@@ -949,3 +949,67 @@ def test_settings_get_shows_env_fallback_hint_when_no_token_saved(
     assert resp.status_code == 200
     assert "FLIPP_TOKEN" in resp.text
     assert "env-token" not in resp.text
+
+
+# ---------------------------------------------------------------------------
+# Import existing files (TASK-1283)
+# ---------------------------------------------------------------------------
+
+
+def test_import_existing_requires_csrf(client: TestClient):
+    resp = client.post("/settings/import-existing")
+    assert resp.status_code == 400
+
+
+def test_import_existing_backfills_a_queued_issue_found_on_disk(
+    client: TestClient, output_tree: Path
+):
+    from flipp_dl.models import Issue, Publication
+
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        pub = Publication(
+            custom_code="NEW",
+            name="Kalle Anka",
+            issues=[
+                Issue(custom_code="ka02", issue_name="Nr 2", issue_date="2024-02-01")
+            ],
+        )
+        db_pub = repo.upsert_publication(pub)
+        db_issue, _ = repo.upsert_issue(pub.issues[0], db_pub.id)
+        repo.mark_issue_queued(db_issue.id)
+        issue_id = db_issue.id
+
+    from flipp_dl import storage
+
+    target = storage.issue_path(output_tree, pub, pub.issues[0])
+    target.write_bytes(b"%PDF-1.4\n%dummy\n")
+
+    csrf = _csrf_for(client)
+    resp = client.post("/settings/import-existing", data={"_csrf_token": csrf})
+    assert resp.status_code == 200
+    assert "Backfilled" in resp.text
+    assert "1" in resp.text
+
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        assert repo.get_issue(issue_id).status == "done"
+
+
+def test_import_existing_reports_orphan_files(client: TestClient, output_tree: Path):
+    """The ``ka02.pdf`` file seeded by ``output_tree`` matches no issue."""
+    csrf = _csrf_for(client)
+    resp = client.post("/settings/import-existing", data={"_csrf_token": csrf})
+    assert resp.status_code == 200
+    assert "orphans" in resp.text
+    assert "ka02.pdf" in resp.text
+
+
+def test_import_existing_reports_a_missing_file(client: TestClient):
+    """The ``client`` fixture already seeds a ``done`` Ghost issue whose
+    file was never written to disk."""
+    csrf = _csrf_for(client)
+    resp = client.post("/settings/import-existing", data={"_csrf_token": csrf})
+    assert resp.status_code == 200
+    assert "missing on disk" in resp.text
+    assert "Ghost" in resp.text
