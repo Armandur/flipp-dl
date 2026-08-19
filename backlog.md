@@ -1,5 +1,27 @@
 # Backlog Export
 
+## [P2][done] [flipp] database is locked när progress skrivs under nedladdning
+
+Jobb 1016 på driftinstansen (Agent X9, Nr 7 2023, 2026-06-24) dog med:
+
+  (sqlite3.OperationalError) database is locked
+  [SQL: UPDATE issues SET progress_current=? WHERE issues.id = ?]
+
+update_issue_progress körs en gång per nedladdad sida från schedulertråden, medan webbtråden läser i samma SQLite-fil. Skrivlåset räcker inte till och hela sessionen rullas tillbaka, så jobbet failar trots att nedladdningen i sig kan ha gått bra.
+
+Att titta på:
+- timeout på anslutningen i db/session.py (SQLite default är 5 sekunder, och WAL hjälper läsare men inte två skrivare)
+- skriv inte progress per sida - skriv var N:e sida eller max en gång per sekund, det är ändå bara till för UI-räknaren
+- fånga OperationalError kring progress-skrivningen specifikt: en missad progressuppdatering får inte fälla hela nedladdningsjobbet
+
+Reproducera genom att ladda ner en publikation samtidigt som man klickar runt i webbgränssnittet.
+
+- ID: `01M0CYHH20D3DAKF8FSWNJFJDT`
+- Type: bug
+- Actor: ai:claude-opus-5
+
+---
+
 ## [P2][done] [flipp] Visa tider i lokal tidszon i stället för UTC
 
 Alla tidsstämplar lagras som naiv UTC (_now() i db/repository.py) och renderas rakt av i mallarna, så gränssnittet visar UTC. Sommartid gör att tiderna ligger två timmar fel mot svensk klocka, vilket är förvirrande på jobbsidan där man jämför mot när något faktiskt hände.
