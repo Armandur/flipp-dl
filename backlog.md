@@ -422,7 +422,7 @@ Allt sker i `<script>`-blocket i publications.html (funktionen `applyFilter` och
 
 ---
 
-## [P3][todo] [flipp] Komga nivå 2: pusha metadata och omslag
+## [P3][done] [flipp] Komga nivå 2: pusha metadata och omslag
 
 ## Context
 Komga visar i dag titel, nummer och omslag gissat ur filnamnet. Svenska serietidningar finns inte i Comicvine/GCD så ingen extern metadataprovider kan fylla i det åt oss - vi måste pusha det vi redan har från Flipp-API:t själva. Detta är nivå 2 av tre Komga-integrationer och förutsätter att nivå 1 (`KomgaClient`, settings, `komga_sync`-jobbet i TASK-1326) är på plats. Se den fästa planen "Genomförandeplan nivå 2" på tasken för de elva genomförandestegen - den här beskrivningen lägger bara till kriterier och verifiering ovanpå den planen, den ersätter den inte.
