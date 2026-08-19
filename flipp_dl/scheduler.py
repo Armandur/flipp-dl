@@ -27,7 +27,7 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 
 from .api import FlippClient, FlippError
 from .config import default_output_path, load_token
-from .db.models import DbIssue, JobStatus
+from .db.models import DbIssue
 from .db.repository import DownloadRepository
 from .db.session import get_session, make_session_factory
 from .downloader import DEFAULT_WORKERS, IssueDownloader
@@ -88,6 +88,22 @@ def poll_publications(
             logger.error("Poll failed: %s", exc)
 
 
+def recover_stuck_jobs(session_factory) -> int:
+    """Reset RUNNING download jobs left over from a crash/restart.
+
+    Must be called once at startup, before the download queue starts
+    draining, so previously-running jobs (and their issues) go back to
+    QUEUED instead of sitting forever unclaimed. Returns the number of
+    job rows reset.
+    """
+    with get_session(session_factory) as session:
+        repo = DownloadRepository(session)
+        reset = repo.reset_stuck_download_jobs()
+    if reset:
+        logger.info("Startup: reset %d stuck running download job(s) to queued", reset)
+    return reset
+
+
 def _claim_next_download_job(
     session_factory,
 ) -> tuple[int, DomainPublication, DomainIssue] | None:
@@ -102,15 +118,7 @@ def _claim_next_download_job(
 
     with get_session(session_factory) as session:
         repo = DownloadRepository(session)
-        jobs = repo.list_jobs(limit=200)
-        job = next(
-            (
-                j
-                for j in reversed(jobs)
-                if j.job_type == "download" and j.status == JobStatus.QUEUED
-            ),
-            None,
-        )
+        job = repo.get_oldest_queued_job("download")
         if job is None:
             return None
 
@@ -217,6 +225,7 @@ def build_scheduler(
     client = FlippClient(token)
     session_factory = make_session_factory(db_path)
     out = output_root or default_output_path()
+    recover_stuck_jobs(session_factory)
 
     scheduler = BlockingScheduler(timezone="UTC")
 
@@ -286,6 +295,7 @@ def run_scheduler(
     client = FlippClient(token)
     session_factory = make_session_factory(db_path)
     out = output_root or default_output_path()
+    recover_stuck_jobs(session_factory)
     poll_publications(client, session_factory, out, workers)
 
     scheduler.start()

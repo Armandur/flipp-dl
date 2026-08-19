@@ -291,6 +291,53 @@ class DownloadRepository:
         q = select(DbJob).order_by(DbJob.created_at.desc()).limit(limit)
         return list(self.session.scalars(q))
 
+    def get_oldest_queued_job(self, job_type: str) -> DbJob | None:
+        """Return the oldest queued job of *job_type*, or ``None``.
+
+        Queries the DB directly for the oldest match instead of
+        Python-filtering a fixed-size window of recent jobs – a
+        bulk-queue that pushes more than the window size of newer jobs
+        would otherwise permanently hide an older queued job (TASK-1282).
+
+        ``created_at`` isn't guaranteed millisecond resolution on
+        SQLite, so ``id`` is used as a deterministic tiebreaker.
+        """
+        stmt = (
+            select(DbJob)
+            .where(DbJob.job_type == job_type, DbJob.status == JobStatus.QUEUED)
+            .order_by(DbJob.created_at.asc(), DbJob.id.asc())
+            .limit(1)
+        )
+        return self.session.scalars(stmt).first()
+
+    def reset_stuck_download_jobs(self) -> int:
+        """Reset RUNNING download jobs (and their issues) back to QUEUED.
+
+        If the process crashes or is restarted mid-download, the job row
+        stays RUNNING and the issue stays DOWNLOADING forever – nothing
+        ever picks it up again, and the web UI's manual re-queue button
+        skips issues in that state. Called once at startup.
+
+        Returns the number of job rows reset.
+        """
+        stmt = select(DbJob).where(
+            DbJob.job_type == "download", DbJob.status == JobStatus.RUNNING
+        )
+        stuck_jobs = list(self.session.scalars(stmt))
+        for job in stuck_jobs:
+            job.status = JobStatus.QUEUED
+            job.started_at = None
+            try:
+                payload = json.loads(job.payload)
+            except (TypeError, ValueError):
+                payload = {}
+            issue_id = payload.get("issue_id")
+            if issue_id is not None:
+                issue = self.session.get(DbIssue, int(issue_id))
+                if issue is not None and issue.status == IssueStatus.DOWNLOADING:
+                    issue.status = IssueStatus.QUEUED
+        return len(stuck_jobs)
+
     def purge_old_jobs(
         self,
         *,

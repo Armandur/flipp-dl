@@ -165,10 +165,12 @@ class DbJob(Base):
     __tablename__ = "jobs"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    job_type: Mapped[str] = mapped_column(String(50), nullable=False)  # poll | download
+    job_type: Mapped[str] = mapped_column(
+        String(50), nullable=False, index=True
+    )  # poll | download
     payload: Mapped[str] = mapped_column(Text, default="{}")  # JSON blob
     status: Mapped[str] = mapped_column(
-        String(20), default=JobStatus.QUEUED, nullable=False
+        String(20), default=JobStatus.QUEUED, nullable=False, index=True
     )
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
     started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

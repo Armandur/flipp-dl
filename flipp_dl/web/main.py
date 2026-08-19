@@ -22,7 +22,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from ..api import FlippClient
 from ..config import load_token
 from ..db.session import make_session_factory
-from ..scheduler import poll_publications, run_download_queue
+from ..scheduler import poll_publications, recover_stuck_jobs, run_download_queue
 from .app import create_app
 
 logger = logging.getLogger(__name__)
@@ -52,6 +52,7 @@ _token = load_token()
 if _token:
     _client = FlippClient(_token)
     _session_factory = make_session_factory(_db_path)
+    recover_stuck_jobs(_session_factory)
 
     _scheduler = BackgroundScheduler(timezone="UTC")
     _scheduler.add_job(
