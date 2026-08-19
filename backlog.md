@@ -202,7 +202,7 @@ Dagens kolumn `cover_url` på `DbPublication` (flipp_dl/db/models.py:62) håller
 
 ---
 
-## [P3][todo] [flipp] Preview av en utgåva utan att den räknas som nedladdad
+## [P3][done] [flipp] Preview av en utgåva utan att den räknas som nedladdad
 
 ## Context
 I dag går enda vägen till en utgåvas PDF via en riktig nedladdning som markerar utgåvan `done` i biblioteket. Det finns inget sätt att bara titta på en utgåva utan att den räknas som nedladdad och tar plats i output-katalogen.
