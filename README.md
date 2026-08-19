@@ -181,4 +181,4 @@ paketerad som en Docker-container.
 
 ## Licens
 
-MIT – se [`LICENSE`](LICENSE).
+MIT - se [`LICENSE`](LICENSE).
