@@ -38,6 +38,24 @@ Rätt fix är troligen en riktig claim-fråga mot DB (SELECT ... WHERE status=qu
 
 ---
 
+## [P3][done] [flipp] Visa vad ett jobb gäller: målkolumn på /jobs och detaljvy
+
+Jobbtabellen visar bara id, typ, status, tider och ett avhugget felmeddelande. Vilken publikation eller utgåva jobbet gäller står bara som issue_id inuti payload-JSON:en, så raden är i praktiken oläsbar.
+
+Acceptanskriterier:
+- /jobs har en kolumn som visar publikation och utgåva för download-jobb, länkad till publikationssidan. Poll-jobb visar ett neutralt streck.
+- Uppslaget sker i en batchad fråga för hela sidan, inte en fråga per rad.
+- Detaljvy /jobs/{id} visar hela payloaden, alla tidsstämplar, hela felmeddelandet och länkar till utgåvan och publikationen.
+- Ett jobb vars issue har raderats, eller vars payload är trasig, renderar utan att spränga sidan.
+
+Verifiering: riktade tester i tests/test_web_routes.py, plus browser-verifiering vid 390px och 1280px.
+
+- ID: `01M0CRP8MHXHH7MY4194WE11G9`
+- Type: improvement
+- Actor: ai:claude-opus-5
+
+---
+
 ## [P3][todo] [flipp] Navigeringsraden ger horisontell scroll vid 390px
 
 Alla sidor har horisontell overflow i mobilbredd: vid 390px viewport blir document.documentElement.scrollWidth 553px. Mätt på /, /jobs, /settings, /publications och /library, alltså befintligt och inte infört av kövyn (TASK-1330).
