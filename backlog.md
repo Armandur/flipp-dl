@@ -171,16 +171,30 @@ Lägg en knapp på publikationens detaljsida som köar allt som inte är nedladd
 
 ## [P3][todo] [flipp] Cachea omslag lokalt i stället för att hotlinka pagesuite
 
-Omslagen hämtas i dag direkt från pagesuite vid varje sidladdning: issue_row.html pekar på https://edition.pagesuite-professional.co.uk/get_image.aspx?w=100&eid=<issue-kod> och publikationsraden på publication.cover_url. Det gör gränssnittet beroende av en extern tjänst, läcker vilka sidor som besöks, och blir långsamt när många rader renderas.
+## Context
+Omslagen hämtas i dag direkt från externa tjänster vid varje sidladdning: issue_row.html pekar på pagesuite (`get_image.aspx?w=100&eid=<issue-kod>`), och publication_row.html/publication_detail.html pekar på `publication.cover_url` (Flipp/pagesuite). Det gör gränssnittet beroende av en extern tjänst, läcker vilka sidor som besöks till en tredje part, och blir långsamt när många rader renderas (t.ex. 17 660 utgåvor).
 
-Cachea i stället lokalt för både publikationer och utgåvor: hämta bilden en gång, spara på disk (utanför output_root så den inte förväxlas med nedladdade PDF:er) eller i databasen, och servera från en egen endpoint. Utgåvornas omslag kan hämtas när utgåvan upptäcks vid poll.
+Alembic: den här tasken äger revision 0005 (down_revision = "0004_job_indexes"). Revisionsnumret är förtilldelat för att flera parallella tasks annars skapar var sin head - numret får inte ändras.
 
-Behåll dagens beteende på Publications: raden visar publikationens senaste omslag, inte ett fast.
+## Acceptance criteria
+- [ ] Omslag för publikationer och utgåvor cachas lokalt (disk utanför output_root, eller databasen) i stället för att laddas direkt från pagesuite/Flipp i renderad HTML
+- [ ] En egen endpoint serverar de cachade omslagen, och publication_row.html, publication_detail.html och issue_row.html pekar på den i stället för på externa URL:er
+- [ ] Publications-sidan visar fortfarande publikationens senaste omslag per rad, inte ett fast/statiskt omslag (dagens beteende bevaras)
+- [ ] Hämtning av omslag sker inte synkront under sidrendering - antingen vid poll (`poll_publications` i flipp_dl/scheduler.py) när en utgåva upptäcks, eller lat via en egen jobbtyp
+- [ ] Saknas ett cachat omslag hanteras det utan att sidan kraschar - dagens `onerror`-döljning duger som fallback
+- [ ] Det finns en rimlig gräns för hur mycket cachedata som sparas (t.ex. bara utgåvor som faktiskt visats, eller en storleksgräns) - inget krav på exakt mekanism, men den ska vara motiverad i koden/commiten
+- [ ] Ny Alembic-migration 0005 (down_revision = "0004_job_indexes") lägger till de kolumner/tabeller som krävs om omslagen lagras i databasen; `alembic upgrade head` går igenom rent på en tom databas
 
-Att tänka igenom:
-- Hämtning får inte ske synkront i renderingen - det skulle göra sidan lika långsam som den externa tjänsten. Antingen vid poll, eller lat med en jobbtyp.
-- Rensning: omslagen för 17660 utgåvor blir en del data. Rimligen bara utgåvor som faktiskt visas, eller en storleksgräns.
-- Fallback när bilden saknas: dagens onerror-döljning duger.
+## Implementation hints
+Filer som väntas ändras: flipp_dl/web/templates/issue_row.html, flipp_dl/web/templates/publication_row.html, flipp_dl/web/templates/publication_detail.html, flipp_dl/db/models.py, flipp_dl/db/repository.py, flipp_dl/db/migrations/versions/0005_*.py (ny fil, down_revision = "0004_job_indexes"), flipp_dl/web/routes.py, flipp_dl/scheduler.py, tests/test_web_routes.py
+
+Dagens kolumn `cover_url` på `DbPublication` (flipp_dl/db/models.py:62) håller kvar den externa URL:en - lägg troligen till en lokal cache-referens (path eller blob) bredvid, alternativt på `DbIssue`, och en ny endpoint i flipp_dl/web/routes.py (mönster: se `serve_issue_file` rad ~434 och `serve_library_file` rad ~507 för hur befintliga fil-serverande endpoints är byggda). `poll_publications` i flipp_dl/scheduler.py (rad ~45) är rätt ställe att trigga hämtning av utgåve-omslag vid upptäckt, i linje med hur nya issues redan upptäcks där.
+
+## Verification
+- `.venv/bin/python -m pytest tests/test_web_routes.py` - alla web-route-tester går igenom, inklusive nya/uppdaterade tester för cache-endpointen
+- `.venv/bin/python -m alembic upgrade head` (mot en tom testdatabas) - går igenom utan fel, och `alembic history` visar 0005 med down_revision 0004_job_indexes
+- `shot http://ubuntu-ai:PORT/publications ut-390.png --width 390 --height 780 --wait networkidle` och samma vid `--width 1280 --height 900` - omslagsbilderna ska synas och peka på den egna endpointen (inte pagesuite-domänen), verifiera med `curl -sI http://ubuntu-ai:PORT/<cache-endpoint>/<kod>` att den lokala endpointen svarar 200
+- Klicka in på en publikations detaljsida och verifiera i browser att omslaget där också laddas från den lokala endpointen, inte bara att det renderas
 
 - ID: `01M0CZ3Y538K1Q6DF6Y0D30S2H`
 - Type: improvement
@@ -190,13 +204,35 @@ Att tänka igenom:
 
 ## [P3][todo] [flipp] Preview av en utgåva utan att den räknas som nedladdad
 
-Kunna titta på en utgåva utan att den hamnar i biblioteket: hämta PDF:en till en temporär plats, servera den inline i webbläsarens visare, och låt utgåvans status stå kvar som inte nedladdad. Filen städas efter en tid eller efter visning.
+## Context
+I dag går enda vägen till en utgåvas PDF via en riktig nedladdning som markerar utgåvan `done` i biblioteket. Det finns inget sätt att bara titta på en utgåva utan att den räknas som nedladdad och tar plats i output-katalogen.
 
-Att tänka igenom:
-- Temporärkatalogen får inte ligga under output_root, annars plockar Library och den kommande filimporten (TASK-1283) upp den som en riktig nedladdning.
-- En preview kostar lika mycket bandbredd som en vanlig nedladdning. Rimligt att bara hämta de första sidorna? Isåfall blir det en egen väg genom downloadern, inte samma merge-av-alla-sidor.
-- Städning: enklast en TTL som röjs vid nästa poll, i stil med purge_old_jobs.
-- Statusen får inte gå via issues-tabellens status-fält, då blir den synlig som en pågående nedladdning i kön.
+## Acceptance criteria
+- [ ] En ny endpoint hämtar en utgåvas PDF till en temporär plats UTANFÖR `output_root`, så varken Library-vyn eller den kommande filimporten (TASK-1283) ser filen som en riktig nedladdning.
+- [ ] Preview-hämtningen går via en egen väg genom downloadern (inte `download_issue()`/`_target_path()`/`skip_existing` rakt av) - hämta bara de första sidorna i stället för att slå ihop alla sidor, så en preview inte kostar lika mycket bandbredd som en full nedladdning.
+- [ ] PDF:en serveras inline i webbläsarens visare (`Content-Disposition: inline`), inte som nedladdningsbar bilaga.
+- [ ] Utgåvans status i `issues`-tabellen ändras INTE av en preview - fältet `status` får inte gå via `mark_issue_downloading`/`mark_issue_done`, annars syns previewen felaktigt som en pågående eller klar nedladdning i /jobs och i publikationslistan.
+- [ ] Temporärfilen städas efter en TTL, i stil med `purge_old_jobs()` - t.ex. vid nästa poll/scheduler-tick eller vid en explicit "städa gamla previews"-runda.
+- [ ] En knapp på publikationens detaljsida (`publication_detail.html`) startar en preview för en given utgåva utan att sidan i övrigt ändrar utseende.
+
+## Implementation hints
+Filer som väntas ändras:
+- flipp_dl/downloader.py
+- flipp_dl/web/routes.py
+- flipp_dl/web/templates/issue_row.html
+- flipp_dl/web/templates/publication_detail.html
+- flipp_dl/scheduler.py
+- flipp_dl/db/repository.py
+- tests/test_downloader.py
+- tests/test_web_routes.py
+
+Läs `_target_path()` (downloader.py rad 161-184) och `download_issue()` (rad 54-135) noga innan du börjar - de använder `self.output_root` för att placera filen och för att avgöra ägarskap mellan utgåvor som delar filnamn (TASK-1349). En preview-fil får inte gå genom `issue_path()`/`publication_folder()` mot `output_root` - använd en separat temp-katalog (t.ex. under `output_root.parent` eller systemets temp-dir, konfigurerbar likt `output_root`). `skip_existing`-parametern och statusuppdateringarna (`mark_issue_downloading`, `mark_issue_done`, `mark_issue_error`) i `download_issue()` hör till den riktiga nedladdningsvägen - preview-vägen ska vara en egen metod som inte anropar dessa. `purge_old_jobs()` (repository.py rad 597) och dess anrop i scheduler.py (rad 95) är mönstret att följa för TTL-städning.
+
+## Verification
+- `.venv/bin/python -m pytest tests/test_downloader.py -k preview -v`
+- `.venv/bin/python -m pytest tests/test_web_routes.py -k preview -v`
+- Manuellt: starta en preview, kontrollera att filen hamnar utanför `output_root`, att `issues.status` i DB är oförändrad, och att filen försvinner efter TTL:en.
+- Browser: `shot` av publikationens detaljsida vid 390px och vid 1280px - preview-knappen ska synas per utgåva i båda bredderna, och ett klick ska öppna PDF:en inline utan att raden växlar till nedladdningsläge.
 
 - ID: `01M0CZ0FB389XF2V4FSH45FB0A`
 - Type: feature
@@ -204,11 +240,26 @@ Att tänka igenom:
 
 ---
 
-## [P3][todo] [flipp] Watched only ska vara förkryssad som default
+## [P3][done] [flipp] Watched only ska vara förkryssad som default på /publications
 
-Kryssrutan Watched only på /publications är omarkerad vid sidladdning, så listan visar alla 94 publikationer trots att bara 19 är bevakade. Bevakade är det man normalt vill se.
+## Context
+Kryssrutan "Watched only" på /publications är omarkerad vid sidladdning, så listan visar alla 94 publikationer trots att bara 19 är bevakade - vilket normalt är det man vill se. Hänger ihop med TASK-1329 (behåll filtret i URL:en) och ska genomföras tillsammans: en explicit URL-flagga ska alltid vinna över "watched only"-defaulten, så en delad länk utan filter fortfarande kan visa allt.
 
-Gör den förkryssad som default. Hänger ihop med TASK-1329 (behåll filtret i URL:en) - en explicit URL-flagga ska vinna över defaulten, så en delad länk utan filter fortfarande kan visa allt. Ta de två tillsammans.
+## Acceptance criteria
+- [ ] Kryssrutan "Watched only" är förkryssad vid vanlig sidladdning av /publications (utan URL-flagga)
+- [ ] Är URL-flaggan från TASK-1329 explicit satt (t.ex. `?watched=0` eller motsvarande "visa alla"), vinner den över defaulten - kryssrutan blir avmarkerad och alla publikationer visas
+- [ ] Räknaren `#pub-count` reflekterar rätt antal direkt vid sidladdning (ingen flimmer av 94 rader innan filtret slår till)
+- [ ] Befintliga tester i tests/test_web_routes.py för /publications fortsätter gå igenom
+
+## Implementation hints
+Filer som väntas ändras: flipp_dl/web/templates/publications.html
+
+Ändringen görs i publications.html: dels attributet `checked` på `#pub-watched` (rad ~22), dels initieringslogiken i `<script>`-blocket (funktionen `applyFilter`, rad ~61-94) så den läser en ev. URL-flagga innan defaulten sätts. Detta samordnas med TASK-1329 som lägger till själva URL-synkroniseringen - bygg på samma mekanism i stället för att lägga en egen parallell lösning.
+
+## Verification
+- `.venv/bin/python -m pytest tests/test_web_routes.py -k publications` - befintliga routetester går igenom
+- `shot http://ubuntu-ai:PORT/publications ut-390.png --width 390 --height 780 --wait networkidle` och samma med `--width 1280 --height 900` - kryssrutan "Watched only" ska synas förbockad och listan ska visa bara de bevakade raderna (19 av 94) i räknaren, vid båda bredderna
+- Ladda `/publications?<url-flagga-som-visar-alla>` (flaggan från TASK-1329) och verifiera med samma shot-kommando att kryssrutan i stället är avbockad och alla 94 rader visas - klicket/state ska alltså verifieras, inte bara att sidan renderar
 
 - ID: `01M0CYZAAQV6KCRKY8YCVC258H`
 - Type: improvement
@@ -216,15 +267,33 @@ Gör den förkryssad som default. Hänger ihop med TASK-1329 (behåll filtret i 
 
 ---
 
-## [P3][todo] [flipp] Sätt Flipp-token via gränssnittet, med userscript som hämtar den
+## [P3][todo] [flipp] Sätt Flipp-token via gränssnittet
 
+## Context
 Settings-sidan säger i dag att token bara kan läsas från FLIPP_TOKEN eller token-filen vid uppstart och inte får ändras i gränssnittet "of security reasons". Det resonemanget hörde till CLI-tiden - nu är det en inloggad webbtjänst, och att behöva starta om containern för att byta token är sämre än att kunna klistra in den.
 
-Två delar:
-1. Token blir en inställning som kan sparas från /settings, och som klienten läser vid nästa anrop utan omstart. Env-variabeln fortsätter gälla som utgångsvärde. Rendera aldrig tillbaka värdet - visa maskerat och spara bara vid ändring. Fundera på lagring: klartext i settings-tabellen är samma nivå som dagens token-fil, men det bör vara ett medvetet val.
-2. Ett userscript (Tampermonkey) som körs på tidningar.flipp.se, plockar tokenen ur sidans anrop eller lagring, och postar den till flipp-dl:s /settings. Länken till skriptet ligger lämpligen på settings-sidan tillsammans med en kort instruktion, så flödet blir: installera skriptet, logga in på Flipp, klicka knappen.
+SCOPE: bara gränssnittssidan. Själva userscriptet (Tampermonkey som plockar token från tidningar.flipp.se) byggs senare, men allt som behövs för att ta emot en token utifrån ska finnas på plats här.
 
-Mottagningen av token från userscriptet behöver en egen genomtänkt väg in: CSRF-skyddad POST med samma inloggning som resten av gränssnittet, eller en engångsnyckel som visas på settings-sidan.
+Vald väg in (redan avgjord, ändra inte): CSRF-skyddad POST mot befintliga `/settings`-routen, med samma sessionsinloggning och samma `check_csrf_form`-mekanism som resten av gränssnittet redan använder (se `flipp_dl/web/auth.py` och `/publications/{code}/watch` för mönstret). Ingen separat engångsnyckel - `/settings` är redan bakom inloggning när `FLIPP_PASSWORD` är satt, och att lägga till ännu en autentiseringsväg för samma formulär vore en onödig andra mekanism.
+
+## Acceptance criteria
+- [ ] Token kan sparas från /settings och används av FlippClient vid nästa anrop utan omstart. FLIPP_TOKEN fortsätter gälla som utgångsvärde när ingen token sparats.
+- [ ] Värdet renderas aldrig tillbaka - visa maskerat, spara bara vid ändring, och lämna oförändrat vid tom inmatning.
+- [ ] POST till token-fältet kräver giltig CSRF-token (samma `check_csrf_form`-mekanism som övriga formulär), och avvisas annars med samma mönster som t.ex. `/publications/{code}/watch`.
+- [ ] Schedulern ska plocka upp en nyligen sparad token utan omstart - i dag skapas FlippClient en gång vid modulladdning i web/main.py.
+
+## Implementation hints
+Filer som väntas ändras: flipp_dl/web/routes.py, flipp_dl/web/templates/settings.html, flipp_dl/scheduler.py, flipp_dl/web/main.py, tests/test_web_routes.py
+
+- Lagra token som en vanlig `DbSetting`-rad, t.ex. nyckeln `flipp_token`, via befintliga `repo.get_setting`/`repo.set_setting` (flipp_dl/db/repository.py:334-338) - samma mönster som `poll_interval`/`workers` i `settings_get`/`settings_post` (flipp_dl/web/routes.py:632-672). Ingen ny tabell eller kolumn behövs.
+- `settings_post` ska bara anropa `set_setting("flipp_token", ...)` när fältet faktiskt skickats icke-tomt - annars orört, enligt kravet "lämna oförändrat vid tom inmatning".
+- `settings.html` (flipp_dl/web/templates/settings.html): byt ut noten "It cannot be changed here..." mot ett formulärfält av typen `password` som aldrig fylls med det riktiga värdet - visa `placeholder="•••"` när en token redan är sparad, annars en hint om att FLIPP_TOKEN/token-filen används.
+- Att slippa omstart: `flipp_dl/scheduler.py` (`poll_publications`, `run_download_queue`) och `flipp_dl/web/main.py` bygger i dag en `FlippClient` en gång och återanvänder samma instans i APScheduler-kwargs. `FlippClient.token` är ett vanligt attribut som läses per anrop i `_refresh_sign_in_token` (flipp_dl/api.py:136-140) - enklast är att läsa aktuell token ur DB (fallback `load_token()`) i början av varje `poll_publications`/`run_download_queue`-körning och tilldela `client.token = ...` innan API-anropet, i stället för att bygga om klientobjektet eller ändra funktionssignaturerna.
+- `flipp_dl/web/routes.py` har ytterligare två ställen som bygger en `FlippClient` från `load_token()` direkt (`poll_single` runt rad 523, `debug_poll` runt rad 696) - dessa ska också läsa den sparade token-inställningen först, med `load_token()` som fallback.
+
+## Verification
+- `.venv/bin/python -m pytest tests/test_web_routes.py` - riktade tester för: spara token, maskering (svaret innehåller aldrig klartextvärdet), tom inmatning lämnar befintlig token orörd, och saknad/felaktig CSRF-token avvisas.
+- `shot` av `/settings` vid 390px och 1280px: token-fältet syns maskerat (aldrig klartext), och en sparning visar en bekräftelse utan att avslöja värdet.
 
 - ID: `01M0CYVE7SCF7220W9FPTSWJCM`
 - Type: feature
@@ -232,20 +301,32 @@ Mottagningen av token från userscriptet behöver en egen genomtänkt väg in: C
 
 ---
 
-## [P3][todo] [flipp] Publikationslistan laddar alla utgåvor för att räkna två tal
+## [P3][todo] [flipp] Publikationslistan gör en aggregerad räkning i stället för att ladda alla utgåvor
 
-list_publications() gör selectinload på DbPublication.issues, så en sidladdning av /publications drar in varje utgåva i databasen - 17660 rader på driftinstansen. Allt som faktiskt används per rad är två tal: antal utgåvor och antal nedladdade (num_issues och num_downloaded i db/models.py).
+## Context
+`/publications` laddar hela `issues`-relationen för alla publikationer (selectinload i `list_publications`) bara för att räkna två tal per rad. På driftinstansen är det 17660 rader som dras in vid varje sidladdning, trots att listvyn bara visar `num_issues` och `num_downloaded`.
 
-Ersätt med en aggregerad fråga som räknar per publikation i databasen, i stil med select(publication_id, count(*), count(*) filter (where status = done)) group by publication_id, och mata radmallen med de talen i stället för hela issues-relationen.
+## Acceptance criteria
+- [ ] `list_publications()` i repository.py laddar inte längre `DbPublication.issues` - antalet utgåvor och antalet nedladdade räknas i databasen (t.ex. en aggregerad query som grupperar per `publication_id` och räknar rader totalt respektive filtrerat på `status = done`).
+- [ ] `/publications`-listvyn visar samma tal som i dag i kolumnen Downloaded, för publikationer med och utan utgåvor.
+- [ ] `/publications/{code}/watch` och `/publications/{code}/unwatch` (som renderar `publication_row.html` via HTMX) visar också rätt tal efter swap.
+- [ ] `/publications/{code}`-detaljsidan är oförändrad och fortsätter ladda utgåvorna på riktigt (relationen får finnas kvar där, `get_publication()` rörs inte).
+- [ ] Ingen SQL-fråga i `/publications` laddar issues-tabellens rader (bara aggregatet).
 
-Rör även /publications/{code}-detaljsidan, som rimligen behöver utgåvorna på riktigt - där ska relationen vara kvar.
+## Implementation hints
+Filer som väntas ändras:
+- flipp_dl/db/repository.py
+- flipp_dl/db/models.py
+- flipp_dl/web/routes.py
+- tests/test_repository.py
+- tests/test_web_routes.py
 
-Acceptanskriterier:
-- /publications laddar inte längre issues-relationen för listvyn.
-- Kolumnen Downloaded visar samma tal som i dag.
-- Watch/unwatch-swappen (publication_row.html via HTMX) visar också rätt tal, den renderar samma partial.
+`DbPublication.num_issues` och `num_downloaded` (flipp_dl/db/models.py, rad ~82-88) är i dag `@property` som läser `self.issues` - det krockar med att sluta ladda relationen. Lösningen måste antingen ge dessa properties ett sätt att läsa ett förberäknat värde (satt av repository/route, likt hur `_annotate_file_exists` i web/routes.py sätter `issue.file_exists` som ett vanligt attribut) utan att skriva över en property utan setter, eller byta ut hur `publications.html`/`publication_row.html` hämtar talen. `list_issues_sharing_files()` (repository.py rad 165) och `count_issues_by_status()` (rad 193) är exempel på existerande gruppera/räkna-i-DB-mönster att följa.
 
-Verifiering: riktade tester i tests/test_web_routes.py och tests/test_repository.py. Mät gärna före och efter genom att räkna SQL-satser med en SQLAlchemy-event-lyssnare i testet.
+## Verification
+- `.venv/bin/python -m pytest tests/test_repository.py -k publications -v`
+- `.venv/bin/python -m pytest tests/test_web_routes.py -k publications -v`
+- Riktat test som registrerar en SQLAlchemy `before_cursor_execute`-lyssnare runt `GET /publications` och asserterar att ingen exekverad SQL innehåller `FROM issues` (eller motsvarande) - lägg till i tests/test_web_routes.py.
 
 - ID: `01M0CY4MQDY7X4E87NJ2V69G9S`
 - Type: improvement
@@ -271,11 +352,25 @@ Verifiering: riktade tester i tests/test_web_routes.py, plus browser-verifiering
 
 ---
 
-## [P3][todo] [flipp] Navigeringsraden ger horisontell scroll vid 390px
+## [P3][done] [flipp] Navigeringsraden ger horisontell scroll vid 390px
 
-Alla sidor har horisontell overflow i mobilbredd: vid 390px viewport blir document.documentElement.scrollWidth 553px. Mätt på /, /jobs, /settings, /publications och /library, alltså befintligt och inte infört av kövyn (TASK-1330).
+## Context
+Alla sidor har horisontell overflow i mobilbredd: vid 390px viewport blir `document.documentElement.scrollWidth` 553px, uppmätt på /, /jobs, /settings, /publications och /library. Orsaken är navigeringsraden i base.html - länkarna plus spacer-elementet ligger på en rad som är 557px bred och wrappar inte. Bekräftat befintligt fel, inte infört av kövyn i TASK-1330.
 
-Orsaken är navigeringsraden i base.html - länkarna plus spacer-elementet ligger på en rad som är 557px bred och wrappar inte. Verifiera med Playwright-mätningen i browser-verify-skillen: scrollWidth ska vara lika med viewport-bredden vid både 390px och 1280px.
+## Acceptance criteria
+- [ ] `document.documentElement.scrollWidth` är lika med viewport-bredden (ingen horisontell overflow) vid 390px på /, /jobs, /settings, /publications och /library
+- [ ] Samma sidor har fortsatt ingen horisontell overflow vid 1280px (regression ska inte införas på desktop)
+- [ ] Navigeringslänkarna (Dashboard, Publications, Library, Jobs, Settings, Sign out) förblir alla klickbara och läsbara vid 390px, antingen genom wrapping eller horisontell scroll begränsad till själva nav-raden
+
+## Implementation hints
+Filer som väntas ändras: flipp_dl/web/templates/base.html
+
+CSS-reglerna för `nav` ligger i `<style>`-blocket, rad ~14-22 (`nav`, `nav .brand`, `nav a`, `nav .spacer`, `nav .logout`). Navmarkupen är på rad ~215-226. Troligen behövs `flex-wrap: wrap` på `nav`, eventuellt kombinerat med mindre padding/gap vid smala viewports via en media query, eller ett `overflow-x: auto` begränsat till nav-elementet i stället för hela sidan.
+
+## Verification
+- Mät med Playwright-scriptet från browser-verify-skillen (`~/.local/share/shot-venv/bin/python`): loopa `[390, 1280]` över `/`, `/jobs`, `/settings`, `/publications`, `/library` och skriv ut `document.documentElement.scrollWidth` per sida/bredd - alla värden ska vara <= viewport-bredden
+- `shot http://ubuntu-ai:PORT/ ut-390.png --width 390 --height 780 --wait networkidle` och `shot http://ubuntu-ai:PORT/ ut-1280.png --width 1280 --height 900 --wait networkidle` - ingen horisontell scrollbar ska synas, nav-länkarna ska vara läsbara
+- Klicka igenom nav-länkarna i browser vid 390px (inte bara skärmdump) och verifiera att varje länk faktiskt navigerar till rätt sida
 
 - ID: `01M0CRHTW8SEH2362Q0HFDKVA2`
 - Type: bug
@@ -297,11 +392,29 @@ Rent utredande task: resultatet avgör om det behövs någon åtgärd alls, och 
 
 ---
 
-## [P3][todo] [flipp] Behåll watched-only-filtret i URL:en
+## [P3][done] [flipp] Behåll watched-only-filtret i URL:en på /publications
 
-Watched only-kryssrutan på /publications är i dag ren klientside-state (JS-filter över raderna, publications.html:61-94). Den nollställs så fort man navigerar bort och tillbaka, till exempel efter ett besök på en publikationssida.
+## Context
+"Watched only"-kryssrutan på /publications är i dag ren klientside-state (JS-filter över raderna i publications.html:61-94, ingen koppling till URL:en). Filtret nollställs så fort man navigerar bort och tillbaka, t.ex. efter ett besök på en publikationssida, och går inte att bokmärka eller dela. Hänger ihop med TASK-1343 (watched only ska vara förkryssad som default) och ska genomföras tillsammans: en explicit URL-flagga ska alltid vinna över defaulten, så en delad länk utan filter fortfarande kan visa allt.
 
-Lägg filtret i URL:en som en flagga (hash eller query-param) och läs tillbaka den vid sidladdning, så valet överlever navigering och går att bokmärka/dela. Samma resonemang gäller rimligen sökfältet och kategori-filtret på samma sida - ta ställning till om de ska med i samma mekanism.
+## Acceptance criteria
+- [ ] Watched-only-läget speglas i URL:en (query-param, t.ex. `?watched=1`/`?watched=0`) och läses tillbaka vid sidladdning
+- [ ] Att kryssa i/ur "Watched only" uppdaterar URL:en utan full sidomladdning (t.ex. `history.replaceState`)
+- [ ] Navigerar man till en annan sida och tillbaka med webbläsarens bakåtknapp, eller laddar en sparad/delad URL med flaggan, återställs filtret till det URL:en anger
+- [ ] En explicit URL-flagga vinner alltid över TASK-1343:s "förkryssad som default" - `?watched=0` visar alla publikationer trots defaulten
+- [ ] Sökfältet och kategori-filtret på samma sida är antingen inkluderade i samma URL-mekanism, eller så finns ett medvetet beslut dokumenterat i implementationen om varför de lämnas som ren klientstate (avgör vid implementation, inte ny scope)
+- [ ] Befintliga tester i tests/test_web_routes.py för /publications fortsätter gå igenom
+
+## Implementation hints
+Filer som väntas ändras: flipp_dl/web/templates/publications.html
+
+Allt sker i `<script>`-blocket i publications.html (funktionen `applyFilter` och event-lyssnarna för `searchInput`/`categorySelect`/`watchedOnly`, rad ~57-97). Lägg till läsning av `URLSearchParams` vid sidladdning för att sätta initialt state, och skriv tillbaka till URL:en (`history.replaceState`) i respektive change-lyssnare. Samordnas med TASK-1343 som lägger till `checked`-defaulten på `#pub-watched` - bygg vidare på samma URL-läsning i stället för att duplicera logiken.
+
+## Verification
+- `.venv/bin/python -m pytest tests/test_web_routes.py -k publications` - befintliga routetester går igenom
+- `shot "http://ubuntu-ai:PORT/publications?watched=1" ut-390.png --width 390 --height 780 --wait networkidle` och samma med `--width 1280 --height 900` - kryssrutan ska vara förbockad och bara bevakade rader synas vid båda bredderna
+- `shot "http://ubuntu-ai:PORT/publications?watched=0" ut2-390.png --width 390 --height 780 --wait networkidle` och samma vid 1280px - kryssrutan ska vara avbockad och alla publikationer synas
+- Klicka manuellt i kryssrutan i en riktig browser (obscura/Playwright) och verifiera att `location.search` faktiskt ändras efter klicket, inte bara att filtret renderas rätt vid laddning
 
 - ID: `01M0CQJMJ82SZJQWQE73XDM6P0`
 - Type: improvement
@@ -311,9 +424,30 @@ Lägg filtret i URL:en som en flagga (hash eller query-param) och läs tillbaka 
 
 ## [P3][todo] [flipp] Komga nivå 2: pusha metadata och omslag
 
-Få Komga att visa korrekt titel, nummer, utgivningsdatum, omslag och beskrivning från Flipp-API:t i stället för gissningar ur filnamnet. Svenska serietidningar finns inte i Comicvine/GCD, så ingen extern provider fyller i detta åt oss.
+## Context
+Komga visar i dag titel, nummer och omslag gissat ur filnamnet. Svenska serietidningar finns inte i Comicvine/GCD så ingen extern metadataprovider kan fylla i det åt oss - vi måste pusha det vi redan har från Flipp-API:t själva. Detta är nivå 2 av tre Komga-integrationer och förutsätter att nivå 1 (`KomgaClient`, settings, `komga_sync`-jobbet i TASK-1326) är på plats. Se den fästa planen "Genomförandeplan nivå 2" på tasken för de elva genomförandestegen - den här beskrivningen lägger bara till kriterier och verifiering ovanpå den planen, den ersätter den inte.
 
-Beror på nivå 1. Stegen ligger i den fästa planen.
+## Acceptance criteria
+- [ ] Ny nullable kolumn `publications.komga_series_id` mappar en publikation mot dess Komga-serie, satt lat vid första lyckade matchning (aldrig omslagen igen).
+- [ ] `/publications/{code}` visar Komga-status i headern: "Komga: synkad ✓ · serie #<id>" med länk till serien i Komga när mappning finns, annars "Komga: okänd - söker nästa gång".
+- [ ] `komga_sync`-handlern (från TASK-1326) pushar serie-metadata (`title`, `titleSort`, `summary`, `publisher`, `language`, genrer/taggar) och bok-metadata (`title`, `number`/`numberSort`, `releaseDate`) efter en lyckad scan, med bok-uppslag som pollar upp till `KOMGA_WAIT_SECONDS` innan det ger upp med ett tydligt job-error.
+- [ ] Fältpush kan stängas av per fält via en feature-flagga, t.ex. `KOMGA_PUSH_SUMMARY=false`, för den som hellre redigerar i Komgas UI.
+- [ ] Flipps officiella omslag (`publication.cover_url`) laddas ner och pushas som thumbnail till serien, avstängbart via `KOMGA_PUSH_COVER`.
+
+## Alembic: den här tasken äger revision 0007 (down_revision = "0006"). Revisionsnumret är förtilldelat och får inte ändras.
+
+## Implementation hints
+Filer som väntas ändras: flipp_dl/db/migrations/versions/0007_komga_series_id.py (nytt filnamn, revision-strängen är förtilldelad enligt ovan), flipp_dl/db/models.py, flipp_dl/db/repository.py, flipp_dl/komga.py, flipp_dl/scheduler.py, flipp_dl/web/routes.py, flipp_dl/web/templates/publication_detail.html, tests/test_repository.py, tests/test_komga_client.py, tests/test_scheduler.py
+
+- `set_komga_series_id(custom_code, series_id)` och `get_unmapped_publications()` i `flipp_dl/db/repository.py`, i samma stil som befintliga publikations-metoder (`set_watched`, `get_publication`).
+- Matchning: `GET /api/v1/series?search=<folder>&library_id=<id>` i `KomgaClient`, exakt match mot `_safe_name(publication.name)` (redan i `flipp_dl/storage.py`).
+- Sanering av `publication.description` för `summary` går via befintlig `flipp_dl/web/html_sanitize.py` - återanvänd, uppfinn inte en ny saneringsväg.
+- Håll fältmappningarna i en enda dict (`PUBLICATION_METADATA_FIELDS`/`ISSUE_METADATA_FIELDS`) i `flipp_dl/komga.py` så per-fält-flaggorna blir en enkel lookup.
+
+## Verification
+- `.venv/bin/python -m pytest tests/test_repository.py tests/test_komga_client.py tests/test_scheduler.py`
+- `.venv/bin/python -m alembic upgrade head` körs rent från en tom databas (ny kolumn skapas, ingen krock med parallella revisioner).
+- `shot` av `/publications/{code}` vid 390px och 1280px: Komga-statusraden ("synkad ✓ · serie #..." eller "okänd - söker nästa gång") syns i headern.
 
 - ID: `01M0CQ9B9PB268MKEXSA6Q6W9A`
 - Type: feature
@@ -323,11 +457,29 @@ Beror på nivå 1. Stegen ligger i den fästa planen.
 
 ## [P3][todo] [flipp] Komga nivå 1: auto-scan vid ny nedladdning
 
-Få Komga att se nya nedladdningar direkt i stället för att vänta på nästa schemalagda filsystemsscan. Minst arbete och störst nytta av de tre Komga-nivåerna, och grunden de andra två bygger på.
+## Context
+Komga hittar i dag nya nedladdningar först vid nästa schemalagda filsystemsscan, vilket kan dröja timmar. Detta är nivå 1 av tre Komga-integrationer och grunden nivå 2 (metadatapush) och nivå 3 (lässtatus) bygger på. Se den fästa planen "Genomförandeplan nivå 1" på tasken för de sju genomförandestegen - den här beskrivningen lägger bara till kriterier och verifiering ovanpå den planen, den ersätter den inte.
 
-Utgångsläget är att output_root redan är monterat som rotkatalog för ett 'Manuella'-bibliotek i Komga, där extern metadata-matching är avstängd och användarredigerade fält behålls. Layouten <publikationsnamn>/<issue_name>.pdf matchar Komgas default-tolkning av serie och bok.
+## Acceptance criteria
+- [ ] `KomgaClient` (ny klass i `flipp_dl/komga.py`) har `list_libraries()` och `scan_library(library_id)`, och stödjer både HTTP Basic-auth och `X-API-Key`-header.
+- [ ] Nya inställningar `KOMGA_URL`, `KOMGA_USERNAME`, `KOMGA_PASSWORD`/`KOMGA_API_KEY`, `KOMGA_LIBRARY_ID`, `KOMGA_ENABLED` lagras som `DbSetting`-rader (samma mönster som `poll_interval`/`workers`) och kan overridas av miljövariabler.
+- [ ] `/settings` har en Komga-sektion: URL/credential-fält samt en "Test connection"-knapp (HTMX) som anropar `list_libraries()` och fyller en dropdown för `KOMGA_LIBRARY_ID`. Secrets renderas aldrig tillbaka i klartext - tomt fält + `placeholder="•••"` när ett värde redan är sparat, och sparas bara vid faktisk ändring (samma mönster som ska användas i TASK-1342 för Flipp-token).
+- [ ] En lyckad nedladdning i `run_download_queue()` köar ett `komga_sync`-jobb (ny jobtyp i `jobs`-tabellen) i stället för att blockera download-loopen.
+- [ ] En handler dränerar `komga_sync`-jobb: `POST /api/v1/libraries/{id}/scan` följt av `finish_job`. Ett Komga-fel loggas som job-error men rör aldrig issue-statusen - en nedladdning som lyckades ska förbli `done` även om Komga ligger nere.
+- [ ] Är `KOMGA_ENABLED` av (default) görs inget Komga-arbete alls - varken UI-anrop eller jobbköande.
 
-Stegen ligger i den fästa planen. Fullständig ursprungstext finns i backlog-docen 'TODO-historik (migrerad från TODO.md)'.
+## Implementation hints
+Filer som väntas ändras: flipp_dl/komga.py, flipp_dl/db/repository.py, flipp_dl/scheduler.py, flipp_dl/web/routes.py, flipp_dl/web/templates/settings.html, flipp_dl/web/main.py, tests/test_komga_client.py, tests/test_scheduler.py, tests/test_web_routes.py
+
+- `flipp_dl/komga.py` är ny och följer samma stil som `flipp_dl/api.py` (session med retry, `KomgaError`-exception).
+- Jobbköet är redan generiskt per `job_type` (`create_job`, `get_oldest_queued_job`, `finish_job` i `flipp_dl/db/repository.py`) - `komga_sync` är bara ytterligare en `job_type`, ingen ny tabell eller kolumn behövs.
+- `run_download_queue()` i `flipp_dl/scheduler.py` är stället som köar `komga_sync` efter en lyckad `downloader.download_issue(...)`. En ny funktion (t.ex. `run_komga_sync_queue()`) dränerar den kön - se `_claim_next_download_job` som mall för atomärt claim.
+- Både `flipp_dl/scheduler.py` (CLI `build_scheduler`) och `flipp_dl/web/main.py` (in-process `BackgroundScheduler`) behöver koppla in det nya jobbet/den nya draineringen.
+- Följ designvalen i den fästa planen (blocking vs fire-and-forget, batchning, error-policy, multi-library) - de är öppna att avgöra under arbetet, dokumentera valet i PR/commit.
+
+## Verification
+- `.venv/bin/python -m pytest tests/test_komga_client.py tests/test_scheduler.py tests/test_web_routes.py`
+- `shot` av `/settings` vid 390px och 1280px: Komga-sektionen syns med URL/credential-fält, "Test connection"-knapp och en library-dropdown som fylls efter klick. Inga tidigare sparade secrets syns i klartext.
 
 - ID: `01M0CQ9B98BGRYSPCVA6VRM1B6`
 - Type: feature
@@ -335,9 +487,31 @@ Stegen ligger i den fästa planen. Fullständig ursprungstext finns i backlog-do
 
 ---
 
-## [P3][todo] [flipp] Fler REST/JSON API-endpoints
+## [P3][todo] [flipp] JSON-API-endpoints för publikationer, utgåvor och jobbstatus
 
-Från TODO.md, avsnitt P9 (Webbgränssnitt). Webbgränssnittet är byggt med FastAPI + Jinja2/HTMX och exponerar idag bara HTML-sidor, inga renodlade REST/JSON-endpoints utöver HTML-vyerna. Lägg till JSON-API-endpoints som komplement till HTML-sidorna, för programmatisk åtkomst (t.ex. publikationer, utgåvor, jobbstatus).
+## Context
+Webbgränssnittet (FastAPI + Jinja2/HTMX) exponerar i dag bara HTML-sidor - inga renodlade REST/JSON-endpoints för programmatisk åtkomst till publikationer, utgåvor eller jobbstatus. `flipp_dl/web/routes.py` är redan 737 rader, så nya JSON-endpoints hör hemma i en egen modul snarare än att växa den filen ytterligare.
+
+## Acceptance criteria
+- [ ] `GET /api/publications` returnerar JSON-lista över publikationer (custom_code, name, watched, num_issues, num_downloaded, next_issue_date) - samma data som `/publications`-sidan visar, utan HTML.
+- [ ] `GET /api/publications/{code}` returnerar JSON för en enskild publikation inklusive dess utgåvor (custom_code, issue_name, issue_date, status, downloaded_at) eller 404 med JSON-felkropp om koden inte finns.
+- [ ] `GET /api/jobs` returnerar JSON-lista över senaste jobb (id, job_type, status, created_at, started_at, finished_at, error_message), med samma `status`-filter som `/jobs`-sidan stödjer.
+- [ ] Alla nya endpoints svarar `Content-Type: application/json` och går genom samma `AuthMiddleware` som HTML-sidorna (ingen ny oskyddad yta).
+- [ ] Endpoints läggs i en egen modul, inte i den redan 737 rader stora `routes.py`.
+
+## Implementation hints
+Filer som väntas ändras:
+- flipp_dl/web/api_routes.py (ny fil)
+- flipp_dl/web/app.py
+- flipp_dl/db/repository.py (om ett nytt frågemönster behövs, t.ex. jobbfilter - `list_jobs`/`count_jobs_by_status` finns redan och kan sannolikt återanvändas rakt av)
+- tests/test_web_routes.py (eller ny tests/test_api_routes.py)
+
+Återanvänd befintliga repository-metoder rakt av i stället för att duplicera frågor: `list_publications()` (repository.py rad 93, se även TASK-1338 som ändrar hur den räknar `num_issues`/`num_downloaded`), `get_publication()` (rad 83), `list_jobs()`/`count_jobs_by_status()`. `_dashboard_stats()` i routes.py (rad 133) är ett exempel på hur siffrorna redan paketeras för UI:t - JSON-svaret kan spegla samma fält. Registrera den nya routern i `create_app()` (web/app.py, runt rad 78-102) efter att `AuthMiddleware` lagts till, så skyddet gäller även API:t.
+
+## Verification
+- `.venv/bin/python -m pytest tests/test_web_routes.py -k api -v` (eller motsvarande nya testfil)
+- `curl -s http://localhost:8000/api/publications | python -m json.tool` mot en lokalt körande instans - kontrollera fälten stämmer mot en publikation som också syns på `/publications`.
+- `curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8000/api/publications/finns-inte` ska ge 404.
 
 - ID: `01M0CPHHZ21BBEMWPE99Z8JJJN`
 - Type: feature
@@ -345,9 +519,32 @@ Från TODO.md, avsnitt P9 (Webbgränssnitt). Webbgränssnittet är byggt med Fas
 
 ---
 
-## [P3][todo] [flipp] Stöd för per-publikation-schema
+## [P3][todo] [flipp] Eget pollintervall per publikation
 
-Från TODO.md, avsnitt P8 (Schemaläggning / bakgrundsjobb). Idag pollas alla bevakade publikationer med samma globala intervall (APScheduler). Lägg till stöd för att sätta ett eget schema per publikation, t.ex. "kolla varje natt kl 03", i stället för ett enda gemensamt poll-intervall.
+## Context
+Alla bevakade publikationer pollas i dag med samma globala intervall (APScheduler). En del publikationer ges ut en gång i månaden och behöver inte kollas lika ofta som en veckotidning - ett eget schema per publikation minskar onödiga körningar och gör det möjligt att lägga tunga publikationer på natten.
+
+## Acceptance criteria
+- [ ] En publikation kan få ett eget pollintervall (minuter) som avviker från det globala default-intervallet i `/settings`. Blankt/ej satt = använd det globala intervallet som i dag - ingen ändring i beteende för publikationer utan override.
+- [ ] `poll_publications()` köar nya utgåvor (och kör backfill) för en publikation med eget intervall bara när tillräckligt lång tid gått sedan den senast kollades - inte vid varje global tick.
+- [ ] Publikationer utan eget intervall beter sig exakt som i dag: kollas vid varje global poll.
+- [ ] Metadatasynken (namn, omslag, beskrivning) från den befintliga globala API-hämtningen påverkas inte av per-publikations-schemat - flipp-dl gör fortfarande ett enda API-anrop per global tick, schemat styr bara vilka publikationer som får sina nya utgåvor köade för nedladdning den tick:en.
+- [ ] `/publications/{code}` visar och låter användaren ändra publikationens eget pollintervall (blankt fält = använd globalt default).
+
+## Alembic: den här tasken äger revision 0006 (down_revision = "0005"). Revisionsnumret är förtilldelat och får inte ändras. Landar tasken före 0005 ska den ändå behålla sitt nummer och sin down_revision.
+
+## Implementation hints
+Filer som väntas ändras: flipp_dl/db/models.py, flipp_dl/db/migrations/versions/0006_publication_poll_interval.py (nytt), flipp_dl/db/repository.py, flipp_dl/scheduler.py, flipp_dl/web/routes.py, flipp_dl/web/templates/publication_detail.html, tests/test_repository.py, tests/test_scheduler.py, tests/test_web_routes.py
+
+- `DbPublication` (flipp_dl/db/models.py) får en nullable `poll_interval_minutes: int | None` och en bokföringskolumn, t.ex. `next_poll_due_at: datetime | None`, för att veta när publikationen senast blev "kollad" oavsett den globala tickens takt.
+- `DownloadRepository.mark_polled()` (flipp_dl/db/repository.py:110) finns redan men anropas inte i dag - den är en rimlig utgångspunkt för bokföringen, men kolla att `sync_publications()` (rad 312-328) inte redan skriver över `last_polled_at` på ett sätt som krockar med den nya bokföringen; en separat kolumn är sannolikt tydligare än att återanvända `last_polled_at`.
+- `poll_publications()` i `flipp_dl/scheduler.py` (rad 45-100) bygger redan `watched_pub_ids` och loopar över `new_issues` samt kör `queue_missing_issues()` per bevakad publikation - lägg schemakontrollen där, som ett filter på vilka publikations-id:n som räknas som "due" den här ticken, innan köandet och backfillen körs.
+- Route-mönster att följa för UI-formuläret: `/publications/{code}/watch` i `flipp_dl/web/routes.py` (rad 216-235) - samma CSRF-check (`check_csrf_form`), samma sätt att hämta repo/session.
+
+## Verification
+- `.venv/bin/python -m pytest tests/test_repository.py tests/test_scheduler.py tests/test_web_routes.py`
+- `.venv/bin/python -m alembic upgrade head` körs rent från en tom databas.
+- `shot` av `/publications/{code}` vid 390px och 1280px: ett fält för eget pollintervall syns och går att spara; sparat värde visas efter reload.
 
 - ID: `01M0CPHHYVM6V22EQ1KRWYXERE`
 - Type: feature
@@ -369,13 +566,39 @@ Beslutat av Rasmus: när migreringen är klar TAS TODO.md och TODO_KOMGA.md bort
 
 ---
 
-## [P3][todo] [flipp] Importera befintligt nuläge från nedladdade filer i output
+## [P3][todo] [flipp] Importera befintligt nuläge från nedladdade filer i output, med avvikelserapport i båda riktningarna
 
-Skanna output_root och matcha filerna mot issues i DB, så att utgåvor som redan ligger på disk markeras som done (file_path + downloaded_at) i stället för att köas om. Gör det möjligt att bygga upp ett korrekt nuläge i en ny/tom databas utan att ladda ner om allt.
+## Context
+En ny/tom databas kan inte skilja på "aldrig nedladdad" och "redan ligger på disk" - allt måste laddas ner om. Ett svep av driftinstansen (2026-08-18) hittade dessutom två avvikelser som en sådan import skulle ha fångat: en publikation där två utgåvor delade samma fil, och en utgåva som låg på disk men stod som `queued` i databasen. Importen ska alltså både fylla i saknad status och rapportera de avvikelser den ser, i båda riktningarna.
 
-Layouten är <publikationsnamn>/<issue_name>.pdf via storage.py:s safe_name, så matchningen kan gå via samma namnregel. routes.py har redan _annotate_file_exists som gör en liknande koll för visning - den logiken finns alltså delvis.
+## Acceptance criteria
+- [ ] Ett nytt repository-/importsteg skannar `output_root` (samma katalogstruktur som `storage.py`: `<publikationsnamn>/<issue_name>.pdf` via `safe_name`) och matchar filer mot utgåvor i DB via samma namnregel som `issue_path()`.
+- [ ] En fil på disk vars namn matchar en utgåva som INTE står som `done` (t.ex. `queued`, `new`, `error`) uppdateras till `done` med `file_path` och `downloaded_at` satta - utan att filen laddas ner igen.
+- [ ] Importen rapporterar filer på disk som inte matchar någon utgåva i DB (orphan-filer) - antal och sökväg.
+- [ ] Importen rapporterar utgåvor vars `file_path` är satt i DB men filen saknas på disk - antal och issue-identitet (samma riktning som redan täcks delvis av `_annotate_file_exists` i routes.py, men nu som en samlad lista i stället för per-rad-flagga).
+- [ ] Två utgåvor som redan delar samma `file_path` (jfr `list_issues_sharing_files()`) flaggas i rapporten i stället för att importen tyst skriver över den ena.
+- [ ] Går att köra som ett CLI-flagga/-kommando (t.ex. `--import-existing`) som skriver en sammanfattning till stdout och avslutar.
+- [ ] Går att köra som en knapp i webbgränssnittet (t.ex. på settings-sidan) som kör samma logik och visar rapporten i UI:t.
 
-Bör kunna köras både som CLI-kommando och som knapp i webbgränssnittet.
+## Implementation hints
+Filer som väntas ändras:
+- flipp_dl/db/repository.py
+- flipp_dl/storage.py
+- flipp_dl/cli.py
+- flipp_dl/web/routes.py
+- flipp_dl/web/templates/settings.html
+- tests/test_repository.py
+- tests/test_cli.py
+- tests/test_web_routes.py
+
+Bygg vidare på befintliga byggstenar i stället för att uppfinna nya: `list_issues_sharing_files()` (repository.py rad 165) är redan en besläktad kontroll att läsa innan du börjar - dela gärna hjälpfunktion för att gruppera issues på `file_path`. `get_issue_by_file_path()` (rad 159) och `mark_issue_done()` (rad 277) finns redan. `_annotate_file_exists()` i web/routes.py (rad 61) gör disk-koll per-rad för visning - importen behöver samma kontroll fast som en batch-rapport. `storage.safe_name()`/`issue_path()` är namnregeln att matcha mot, inklusive `disambiguate`-varianten (två utgåvor kan dela namn - se TASK-1349). cli.py har i dag inga subkommandon, bara flaggor på huvudparsern (`build_parser()`) - följ det mönstret, t.ex. en `--import-existing`-flagga som körs och avslutar innan poll/download-flödet startar.
+
+## Verification
+- `.venv/bin/python -m pytest tests/test_repository.py -k import -v`
+- `.venv/bin/python -m pytest tests/test_cli.py -k import -v`
+- `.venv/bin/python -m pytest tests/test_web_routes.py -k import -v`
+- Manuellt: skapa en fil på disk som matchar en `queued`-utgåva, kör importen, kontrollera att utgåvan blir `done` utan nätverksanrop.
+- Browser: `shot` av /settings vid 390px och vid 1280px - knappen för att importera nuläge ska synas och vara klickbar i båda bredderna, och efter klick ska rapporten (orphan-filer, saknade filer, delade filer) renderas synligt på sidan.
 
 - ID: `01M0BBY3X4VKXXTRYY9T2EGDP4`
 - Type: feature
@@ -385,7 +608,28 @@ Bör kunna köras både som CLI-kommando och som knapp i webbgränssnittet.
 
 ## [P4][todo] [flipp] Komga nivå 3: synka lässtatus tillbaka till flipp-dl
 
-Visa lästa/olästa utgåvor i flipp-dl:s eget gränssnitt genom att hämta läsprogress från Komga. Valfri och långt fram - beror på bok-uppslaget i nivå 2.
+## Context
+Beror på att TASK-1327 (Komga nivå 2) landar först - den här tasken behöver bok-uppslaget (`book_id`) som nivå 2 bygger upp vid metadatapush. Utan det finns inget att fråga Komga om lässtatus för.
+
+Visa lästa/olästa utgåvor i flipp-dl:s eget gränssnitt genom att hämta läsprogress från Komga, i stället för att behöva öppna Komga för att se vad man redan läst. Valfri och långt fram bland de tre Komga-nivåerna. Se den fästa planen "Genomförandeplan nivå 3" på tasken för de tre genomförandestegen - den här beskrivningen lägger bara till kriterier och verifiering ovanpå den planen, den ersätter den inte.
+
+## Acceptance criteria
+- [ ] `KomgaClient.get_book_read_progress(book_id)` returnerar läst/oläst-status, sida och completed-flagga.
+- [ ] Lässtatus cachas lokalt (ny kolumn eller separat tabell, se planen) och uppdateras schemalagt en gång per dygn - inte vid varje sidladdning.
+- [ ] Issue-tabellen på `/publications/{code}` visar en "Läst"-badge per utgåva som har en Komga-bok-mappning.
+- [ ] Filter-baren på samma sida har ett läst/oläst-filter som fungerar tillsammans med befintlig sökning och kategorifilter.
+- [ ] Utgåvor utan Komga-bok-mappning (t.ex. innan nivå 2 hunnit synka dem) visar varken badge eller påverkas av filtret - inget krasch, bara frånvaro av status.
+
+## Implementation hints
+Filer som väntas ändras: flipp_dl/db/models.py, flipp_dl/db/migrations/versions/ (ny revision, nummer tilldelas när tasken plockas upp eftersom den beror på att TASK-1327 landar först och äger nästa lediga nummer efter 0007), flipp_dl/db/repository.py, flipp_dl/komga.py, flipp_dl/scheduler.py, flipp_dl/web/routes.py, flipp_dl/web/templates/publication_detail.html, flipp_dl/web/templates/issue_row.html, tests/test_repository.py, tests/test_komga_client.py, tests/test_web_routes.py
+
+- Läs `book_id`-mappningen som TASK-1327 bygger upp innan den här tasken påbörjas - utan den finns inget att fråga Komga om.
+- Det dagliga jobbet följer samma mönster som `poll_publications`/`run_download_queue` i `flipp_dl/scheduler.py`: en ny funktion, en ny APScheduler-registrering i både `flipp_dl/scheduler.py` (CLI) och `flipp_dl/web/main.py` (web-process).
+- Filtret i UI:t byggs vidare på det befintliga filter-bar-mönstret i `flipp_dl/web/templates/publication_detail.html` (samma HTMX-sök/kategori-filter som redan finns där).
+
+## Verification
+- `.venv/bin/python -m pytest tests/test_repository.py tests/test_komga_client.py tests/test_web_routes.py`
+- `shot` av `/publications/{code}` vid 390px och 1280px: "Läst"-badge syns på utgåvor med lässtatus, och läst/oläst-filtret går att klicka och faktiskt filtrerar listan.
 
 - ID: `01M0CQ9BA2GVHXHYXAHEB3GGFD`
 - Type: feature
@@ -393,9 +637,28 @@ Visa lästa/olästa utgåvor i flipp-dl:s eget gränssnitt genom att hämta läs
 
 ---
 
-## [P4][todo] [flipp] i18n i webbgränssnittet
+## [P4][todo] [flipp] i18n i webbgränssnittet (mekanism och språkomfattning öppet)
 
-Från TODO.md, avsnitt P11 (Trevligt att ha). Internationalisering av webb-UI:t, åtminstone svenska och engelska.
+## Context
+Webb-UI:t (`flipp_dl/web/templates/*.html`) är idag helt engelskt - `<html lang="en">` och all UI-text hårdkodad i templates. Ägaren skriver och tänker på svenska, vilket gör i18n relevant trots att verktyget bara har en användare.
+
+## Beslut (Rasmus, 2026-08-19)
+gettext/Babel, inte Jinja-ordlistor. Det innebär .po-filer, ett extraktionssteg och Babel som beroende - dokumentera kommandot för att extrahera och kompilera i README så det inte blir en tyst rutin. Engelska behålls som fallback-språk, svenska läggs till.
+
+
+## Acceptance criteria
+- [ ] All hårdkodad UI-text i `flipp_dl/web/templates/*.html` går via en översättningsmekanism i stället för att stå direkt i markupen.
+- [ ] Språk kan väljas (t.ex. via en `DbSetting`-nyckel eller en query-/session-parameter) och slår igenom på alla sidor, inte bara en delmängd.
+- [ ] `<html lang="...">` i `base.html` speglar det aktiva språket.
+- [ ] Saknas en översättning för en sträng i det valda språket faller UI:t tillbaka till den andra varianten i stället för att visa en tom sträng eller en nyckel som `missing.key`.
+- [ ] Om båda språken (svenska/engelska) implementeras: minst en sida per språk renderas testat och verifierat manuellt fri från kvarvarande hårdkodad text på fel språk.
+
+## Implementation hints
+Filer som väntas ändras: samtliga `flipp_dl/web/templates/*.html` (base.html, dashboard.html, publications.html, publication_detail.html, library.html, jobs.html, job_detail.html, settings.html, login.html, issue_row.html, publication_row.html, stats_cards.html, debug_poll_result.html), `flipp_dl/web/app.py` (registrera översättningsfilter/funktion i Jinja-miljön), en ny modul för själva ordlistorna (t.ex. `flipp_dl/web/i18n.py`), samt ev. `flipp_dl/web/routes.py` för språkval/settings. Tester: ny `tests/test_i18n.py`, ev. tillägg i `tests/test_web_routes.py`.
+
+## Verification
+- `pytest tests/test_i18n.py tests/test_web_routes.py -q`
+- Manuellt: väx mellan språken i UI:t och kontrollera att dashboard, publications och settings visar konsekvent språk, inklusive `<html lang>`.
 
 - ID: `01M0CPHJ034MCD47N7BEXB93EQ`
 - Type: feature
@@ -403,9 +666,24 @@ Från TODO.md, avsnitt P11 (Trevligt att ha). Internationalisering av webb-UI:t,
 
 ---
 
-## [P4][todo] [flipp] Metrics-endpoint (Prometheus)
+## [P4][done] [flipp] Metrics-endpoint (Prometheus)
 
-Från TODO.md, avsnitt P11 (Trevligt att ha). Lägg till en Prometheus-metrics-endpoint för antal nedladdningar, fel, köstorlek m.m.
+## Context
+flipp-dl har idag ingen extern observerbarhet utöver webb-UI:t (`/`, `/jobs`) och loggarna. En Prometheus-metrics-endpoint gör det möjligt att larma på (t.ex.) en växande felkö eller en stillastående nedladdningsprocess utan att manuellt öppna dashboarden.
+
+## Acceptance criteria
+- [ ] `GET /metrics` svarar med `text/plain` i Prometheus text-exposition-format, oskyddat av auth-middlewaren på samma sätt som `/healthz` (så ett Prometheus-scrape inte kräver inloggning) - eller uttryckligen dokumenterat om det ska kräva auth.
+- [ ] Exponerar antal utgåvor per status (new/queued/downloading/done/error) som en gauge, byggt ovanpå `DownloadRepository.count_issues_by_status()`.
+- [ ] Exponerar antal jobb per status (queued/running/done/error) som en gauge, byggt ovanpå `DownloadRepository.count_jobs_by_status()`.
+- [ ] Exponerar totalt antal watchade respektive totalt antal publikationer, byggt ovanpå `DownloadRepository.count_publications()`.
+- [ ] Endpointen läggs inte till i OpenAPI-schemat om övriga interna endpoints (`/healthz`) inte heller är det - samma `include_in_schema=False`-mönster.
+
+## Implementation hints
+Filer som väntas ändras: `flipp_dl/web/routes.py` (ny `/metrics`-endpoint, troligen med `prometheus-client`-biblioteket eller ett handskrivet text-svar), `requirements.txt` (nytt beroende om `prometheus-client` används). Tester: tillägg i `tests/test_web_routes.py`.
+
+## Verification
+- `pytest tests/test_web_routes.py -q -k metrics`
+- `curl http://localhost:8000/metrics` och kontrollera att svaret innehåller minst en rad per statusvärde (t.ex. `flipp_issues_total{status="done"} 3`).
 
 - ID: `01M0CPHHZX3Z3C8M5HMPX8YD0E`
 - Type: feature
@@ -413,21 +691,28 @@ Från TODO.md, avsnitt P11 (Trevligt att ha). Lägg till en Prometheus-metrics-e
 
 ---
 
-## [P4][todo] [flipp] Integrering med Calibre eller Kavita
+## [P4][todo] [flipp] OPDS-feed (versionsval öppet: 1.2 vs 2.0)
 
-Post-processing mot andra bibliotekstjänster än Komga: lägga in nedladdade PDF:er i Calibre eller Kavita.
+## Context
+En OPDS-feed låter en PDF-läsare (t.ex. en surfplatta) upptäcka och hämta nya utgåvor automatiskt i stället för att ägaren manuellt kopierar filer. Feeden behöver exponera publikationer/utgåvor och länka till de befintliga filnedladdningsvägarna i `flipp_dl/web/routes.py`.
 
-Från TODO.md, P11 - trevligt att ha. Komga-delen av den ursprungliga punkten har brutits ut till TASK-1326/1327/1328 (nivå 1-3), som är genomarbetade var för sig. Den här tasken är alltså bara Calibre/Kavita, och bör bygga på samma jobb- och hook-mönster som Komga-integrationen landar i.
+## Beslut (Rasmus, 2026-08-19)
+Båda formaten ska serveras: OPDS 1.2 (Atom-XML) för brett klientstöd och OPDS 2.0 (JSON). Lägg dem på var sin URL och dela all kataloglogik - bara serialiseringen skiljer, så feeden får aldrig byggas två gånger i koden.
 
-- ID: `01M0CPHHZQD0P9HEJTK71YX2CM`
-- Type: feature
-- Actor: ai:claude-code
 
----
+## Acceptance criteria
+- [ ] En feed-endpoint finns som listar watchade publikationer som OPDS-navigations-poster.
+- [ ] Varje publikation länkar till en acquisition-feed som listar dess nedladdade (status DONE) utgåvor, med länk till den faktiska PDF-filen.
+- [ ] Feeden svarar med rätt content-type för vald OPDS-version (`application/atom+xml;profile=opds-catalog` för 1.2, eller `application/opds+json` för 2.0).
+- [ ] Feeden är skyddad av samma auth-mekanism som resten av UI:t (eller ett separat token-baserat skydd om klienten inte kan hantera sessionscookies - avgörs vid implementation).
+- [ ] Feeden validerar mot vald OPDS-version (manuellt eller med en validator) och går att lägga till som katalog i minst en verklig OPDS-klient.
 
-## [P4][todo] [flipp] OPDS-feed
+## Implementation hints
+Filer som väntas ändras: `flipp_dl/web/routes.py` (nya endpoints, t.ex. `/opds` och `/opds/{code}`), eventuellt en ny modul `flipp_dl/web/opds.py` för feed-generering, samt `flipp_dl/db/repository.py` om en ny frågemetod behövs för "nedladdade utgåvor per publikation". Tester: ny `tests/test_opds.py`.
 
-Från TODO.md, avsnitt P11 (Trevligt att ha). Lägg till en OPDS-feed så att PDF-läsare kan plocka upp nya utgåvor automatiskt.
+## Verification
+- `pytest tests/test_opds.py -q`
+- `curl -u <basic-auth-eller-cookie> http://localhost:8000/opds` och kontrollera att svaret har rätt content-type och innehåller minst en watchad publikation.
 
 - ID: `01M0CPHHZHHC2TF38SJ0DF4Y7Z`
 - Type: feature
@@ -435,9 +720,28 @@ Från TODO.md, avsnitt P11 (Trevligt att ha). Lägg till en OPDS-feed så att PD
 
 ---
 
-## [P4][todo] [flipp] Notiser vid nya nedladdningar
+## [P4][todo] [flipp] Notiser vid nya nedladdningar (kanalval öppet)
 
-Från TODO.md, avsnitt P11 (Trevligt att ha). Skicka notiser när nya utgåvor har laddats ner, via webhook, ntfy, Discord eller e-post.
+## Context
+Idag syns nya nedladdningar bara om man öppnar webb-UI:t. Ägaren vill kunna få en push-notis när en ny utgåva laddats ner (eller när nedladdning misslyckats), utan att aktivt behöva kolla dashboarden.
+
+## Beslut (Rasmus, 2026-08-19)
+Två kanaler ska stödjas: ntfy som förstaval, plus en generisk webhook som POST:ar JSON till valfri URL. Bygg dem bakom ett gemensamt gränssnitt i notify.py så fler kanaler kan läggas till utan att anropsstället ändras. ntfy-token provisioneras enligt den etablerade rutinen och får aldrig hårdkodas - läses från env eller inställning.
+
+
+## Acceptance criteria
+- [ ] En notifieringsmekanism finns som triggas när en utgåva går från nedladdning till status DONE, och en variant (eller samma mekanism) triggas vid ERROR.
+- [ ] Notifieringskanalen/kanalerna är konfigurerbara via `DbSetting`-nycklar (samma mönster som `KOMGA_*` i TASK-1326), inte hårdkodade.
+- [ ] Ett fel i notifieringssteget (kanalen nere, felaktig token) får aldrig påverka issue- eller job-status - nedladdningen ska räknas som lyckad även om notisen inte gick fram.
+- [ ] Om fler kanaler väljs: varje kanal kan aktiveras/inaktiveras oberoende av de andra.
+- [ ] Settings-sidan har ett avsnitt för att konfigurera vald kanal, utan att rendera tillbaka existerande secrets i klartext (samma mönster som beskrivs för Komga: tom sträng + placeholder).
+
+## Implementation hints
+Filer som väntas ändras: `flipp_dl/scheduler.py`, `flipp_dl/db/repository.py`, `flipp_dl/db/models.py` (om nya settings-nycklar kräver det), `flipp_dl/web/routes.py`, `flipp_dl/web/templates/settings.html`, samt en ny modul (t.ex. `flipp_dl/notify.py`) för själva notifieringsklienten. Tester: en ny `tests/test_notify.py` och tillägg i `tests/test_scheduler.py`.
+
+## Verification
+- `pytest tests/test_notify.py tests/test_scheduler.py -q`
+- Manuellt: trigga en nedladdning i en testmiljö och bekräfta att notisen kommer fram på vald kanal, samt att en avstängd/felkonfigurerad kanal inte får jobbet att misslyckas (`repo.get_job(job_id).status == "done"`).
 
 - ID: `01M0CPHHZ89METGXNK2ASHZ2SQ`
 - Type: feature
