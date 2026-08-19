@@ -115,7 +115,7 @@ Volymer:
 | `FLIPP_POLL_INTERVAL` | `360`     | Minuter mellan API-polls (default 6 h).        |
 | `FLIPP_WORKERS`     | `4`         | Parallella sidnedladdningar per utgåva.        |
 | `FLIPP_SECRET_KEY`  | –           | Hemlighet för sessions (byt i produktion).     |
-| `FLIPP_PASSWORD`    | –           | Lösenord för inloggning. Tom = auth inaktiv.   |
+| `FLIPP_PASSWORD`    | –           | Lösenord för inloggning. Tom = auth inaktiv. Fungerar även som HTTP Basic-lösenord för API och OPDS. |
 
 ### Unraid
 
@@ -165,6 +165,7 @@ Webbgränssnittet nås sedan på `http://<unraid-ip>:8000`.
 | Healthcheck       | `/healthz`       | `{"status":"ok"}` för Docker          |
 | Metrics           | `/metrics`       | Prometheus-format, se `FLIPP_METRICS_PUBLIC` |
 | JSON-API          | `/api/…`         | `publications`, `publications/{code}`, `jobs` |
+| OPDS              | `/api/opds`, `/api/opds2` | Atom 1.2 respektive JSON 2.0, för PDF-läsare |
 
 ## Utveckling
 

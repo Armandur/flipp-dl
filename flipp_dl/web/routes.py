@@ -15,6 +15,7 @@ from fastapi.responses import (
     JSONResponse,
     PlainTextResponse,
     RedirectResponse,
+    Response,
 )
 
 from .. import storage
@@ -32,6 +33,7 @@ from ..scheduler import (
     resolve_current_token,
     resolve_komga_settings_from_repo,
 )
+from . import opds
 from .auth import auth_enabled, check_csrf_form, generate_csrf_token, verify_password
 
 logger = logging.getLogger(__name__)
@@ -376,6 +378,66 @@ def register(app: FastAPI) -> None:
             )
         finally:
             repo.session.close()
+
+    # ------------------------------------------------------------------
+    # OPDS catalog feeds (TASK-1294) – Atom 1.2 and JSON 2.0, same
+    # catalog logic shared via flipp_dl.web.opds. Mounted under /api/
+    # so AuthMiddleware answers an unauthenticated request with a JSON
+    # 401 instead of an HTML redirect an OPDS client can't follow (see
+    # opds.py's module docstring / the task report for the auth
+    # trade-off this implies).
+    # ------------------------------------------------------------------
+
+    @app.get("/api/opds")
+    async def opds_root_atom(request: Request):
+        repo = _repo(request)
+        try:
+            feed = opds.build_root_feed(repo, request, json_format=False)
+        finally:
+            repo.session.close()
+        return Response(
+            content=opds.render_atom(feed), media_type=opds.ATOM_CONTENT_TYPE
+        )
+
+    @app.get("/api/opds2")
+    async def opds_root_json(request: Request):
+        repo = _repo(request)
+        try:
+            feed = opds.build_root_feed(repo, request, json_format=True)
+        finally:
+            repo.session.close()
+        return JSONResponse(opds.render_json(feed), media_type=opds.JSON_CONTENT_TYPE)
+
+    @app.get("/api/opds/{code}")
+    async def opds_publication_atom(request: Request, code: str):
+        repo = _repo(request)
+        try:
+            feed = opds.build_publication_feed(
+                repo, request, request.app.state.output_root, code, json_format=False
+            )
+        finally:
+            repo.session.close()
+        if feed is None:
+            return PlainTextResponse("Publication not found", status_code=404)
+        return Response(
+            content=opds.render_atom(feed),
+            media_type=opds.ATOM_ACQUISITION_CONTENT_TYPE,
+        )
+
+    @app.get("/api/opds2/{code}")
+    async def opds_publication_json(request: Request, code: str):
+        repo = _repo(request)
+        try:
+            feed = opds.build_publication_feed(
+                repo, request, request.app.state.output_root, code, json_format=True
+            )
+        finally:
+            repo.session.close()
+        if feed is None:
+            return JSONResponse(
+                {"error": "publication not found", "custom_code": code}, status_code=404
+            )
+        return JSONResponse(opds.render_json(feed), media_type=opds.JSON_CONTENT_TYPE)
 
     # ------------------------------------------------------------------
     # Publication detail – per-issue list and manual downloads

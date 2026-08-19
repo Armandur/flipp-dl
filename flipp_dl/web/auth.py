@@ -11,6 +11,7 @@ CSRF protection is provided by:
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import hmac
 import os
@@ -98,6 +99,25 @@ async def check_csrf_form(request: Request) -> bool:
     return hmac.compare_digest(session_token, str(form_token))
 
 
+def _basic_auth_ok(request: Request) -> bool:
+    """Whether the request carries valid HTTP Basic credentials.
+
+    The username is ignored - there is one password for the whole
+    instance. This is what makes /api and the OPDS feeds usable from
+    clients that have no way to log in through the HTML form.
+    """
+    header = request.headers.get("authorization", "")
+    scheme, _, encoded = header.partition(" ")
+    if scheme.lower() != "basic" or not encoded:
+        return False
+    try:
+        decoded = base64.b64decode(encoded).decode("utf-8")
+    except (ValueError, UnicodeDecodeError):
+        return False
+    _, _, supplied = decoded.partition(":")
+    return verify_password(supplied)
+
+
 class AuthMiddleware(BaseHTTPMiddleware):
     """Redirect unauthenticated requests to /login when auth is enabled."""
 
@@ -114,6 +134,10 @@ class AuthMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         if not request.session.get("authenticated"):
+            if _basic_auth_ok(request):
+                # OPDS readers and scripts can send Basic credentials but
+                # cannot fill in a login form.
+                return await call_next(request)
             if path.startswith("/api/"):
                 # An API client can't fill in a login form, so send it a
                 # status it can act on instead of a redirect to HTML.
