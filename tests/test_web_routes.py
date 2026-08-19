@@ -1097,6 +1097,194 @@ def test_settings_get_shows_env_fallback_hint_when_no_token_saved(
 
 
 # ---------------------------------------------------------------------------
+# Settings - Komga integration (TASK-1326)
+# ---------------------------------------------------------------------------
+
+
+def test_settings_get_shows_komga_section_disabled_by_default(client: TestClient):
+    resp = client.get("/settings")
+    assert resp.status_code == 200
+    assert 'id="komga_enabled"' in resp.text
+    assert "checked" not in resp.text.split('id="komga_enabled"')[1].split(">")[0]
+
+
+def test_settings_post_saves_komga_fields(client: TestClient):
+    from flipp_dl.scheduler import resolve_komga_settings
+
+    csrf = _csrf_for(client)
+    resp = client.post(
+        "/settings",
+        data={
+            "_csrf_token": csrf,
+            "poll_interval": "360",
+            "workers": "4",
+            "flipp_token": "",
+            "komga_enabled": "on",
+            "komga_url": "http://localhost:25600",
+            "komga_username": "alice",
+            "komga_password": "sekret-pw",
+            "komga_api_key": "",
+            "komga_library_id": "lib-1",
+        },
+    )
+    assert resp.status_code == 200
+
+    # Secrets never come back in the response body.
+    assert "sekret-pw" not in resp.text
+
+    settings = resolve_komga_settings(client.app.state.session_factory)
+    assert settings["enabled"] is True
+    assert settings["url"] == "http://localhost:25600"
+    assert settings["username"] == "alice"
+    assert settings["password"] == "sekret-pw"
+    assert settings["library_id"] == "lib-1"
+
+
+def test_settings_get_never_renders_saved_komga_password(client: TestClient):
+    csrf = _csrf_for(client)
+    client.post(
+        "/settings",
+        data={
+            "_csrf_token": csrf,
+            "poll_interval": "360",
+            "workers": "4",
+            "flipp_token": "",
+            "komga_enabled": "on",
+            "komga_url": "http://localhost:25600",
+            "komga_username": "alice",
+            "komga_password": "another-secret",
+            "komga_api_key": "",
+            "komga_library_id": "lib-1",
+        },
+    )
+
+    resp = client.get("/settings")
+    assert resp.status_code == 200
+    assert "another-secret" not in resp.text
+    assert 'placeholder="•••"' in resp.text
+
+
+def test_settings_post_empty_komga_password_leaves_saved_value_unchanged(
+    client: TestClient,
+):
+    from flipp_dl.scheduler import resolve_komga_settings
+
+    csrf = _csrf_for(client)
+    client.post(
+        "/settings",
+        data={
+            "_csrf_token": csrf,
+            "poll_interval": "360",
+            "workers": "4",
+            "flipp_token": "",
+            "komga_enabled": "on",
+            "komga_url": "http://localhost:25600",
+            "komga_username": "alice",
+            "komga_password": "original-pw",
+            "komga_api_key": "",
+            "komga_library_id": "lib-1",
+        },
+    )
+
+    csrf = _csrf_for(client)
+    client.post(
+        "/settings",
+        data={
+            "_csrf_token": csrf,
+            "poll_interval": "360",
+            "workers": "4",
+            "flipp_token": "",
+            "komga_enabled": "on",
+            "komga_url": "http://localhost:25600",
+            "komga_username": "alice",
+            "komga_password": "",
+            "komga_api_key": "",
+            "komga_library_id": "lib-1",
+        },
+    )
+
+    settings = resolve_komga_settings(client.app.state.session_factory)
+    assert settings["password"] == "original-pw"
+
+
+def test_settings_disabled_by_default_no_komga_work(client: TestClient):
+    """Nothing saved yet - the effective settings must resolve to disabled."""
+    from flipp_dl.scheduler import resolve_komga_settings
+
+    settings = resolve_komga_settings(client.app.state.session_factory)
+    assert settings["enabled"] is False
+
+
+def test_komga_test_connection_populates_library_dropdown(
+    client: TestClient, monkeypatch
+):
+    class FakeKomgaClient:
+        def __init__(self, url, *, username="", password="", api_key=""):
+            self.url = url
+
+        def list_libraries(self):
+            return [{"id": "lib-1", "name": "Comics"}, {"id": "lib-2", "name": "Manga"}]
+
+    monkeypatch.setattr("flipp_dl.web.routes.KomgaClient", FakeKomgaClient)
+
+    csrf = _csrf_for(client)
+    resp = client.post(
+        "/settings/komga/test",
+        data={
+            "_csrf_token": csrf,
+            "komga_url": "http://localhost:25600",
+            "komga_username": "",
+            "komga_password": "",
+            "komga_api_key": "test-key",
+        },
+    )
+    assert resp.status_code == 200
+    assert "Comics" in resp.text
+    assert "Manga" in resp.text
+    assert 'value="lib-1"' in resp.text
+
+
+def test_komga_test_connection_shows_error_on_failure(client: TestClient, monkeypatch):
+    from flipp_dl.komga import KomgaError
+
+    class FailingKomgaClient:
+        def __init__(self, url, *, username="", password="", api_key=""):
+            pass
+
+        def list_libraries(self):
+            raise KomgaError("connection refused")
+
+    monkeypatch.setattr("flipp_dl.web.routes.KomgaClient", FailingKomgaClient)
+
+    csrf = _csrf_for(client)
+    resp = client.post(
+        "/settings/komga/test",
+        data={
+            "_csrf_token": csrf,
+            "komga_url": "http://localhost:25600",
+            "komga_username": "",
+            "komga_password": "",
+            "komga_api_key": "test-key",
+        },
+    )
+    assert resp.status_code == 200
+    assert "connection refused" in resp.text
+
+
+def test_komga_test_connection_requires_csrf(client: TestClient):
+    resp = client.post(
+        "/settings/komga/test",
+        data={
+            "komga_url": "http://localhost:25600",
+            "komga_username": "",
+            "komga_password": "",
+            "komga_api_key": "test-key",
+        },
+    )
+    assert resp.status_code == 400
+
+
+# ---------------------------------------------------------------------------
 # Import existing files (TASK-1283)
 # ---------------------------------------------------------------------------
 

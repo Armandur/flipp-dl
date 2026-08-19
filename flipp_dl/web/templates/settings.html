@@ -62,6 +62,113 @@
       >
     </div>
 
+    <h2>Komga</h2>
+    <div class="note">
+      Triggers a Komga library scan right after a download finishes, so
+      Komga picks up the new file immediately instead of waiting for its
+      next scheduled scan. No requests are made and nothing is queued
+      while the integration is disabled.
+    </div>
+
+    <div class="field checkbox-field">
+      <label>
+        <input
+          type="checkbox"
+          id="komga_enabled"
+          name="komga_enabled"
+          {% if settings.komga_enabled %}checked{% endif %}
+        >
+        Enable Komga integration
+      </label>
+    </div>
+
+    <div class="field">
+      <label for="komga_url">Komga URL</label>
+      <input
+        type="url"
+        id="komga_url"
+        name="komga_url"
+        placeholder="http://localhost:25600"
+        value="{{ settings.komga_url | default('') }}"
+      >
+    </div>
+
+    <div class="field">
+      <label for="komga_username">Komga username</label>
+      <input
+        type="text"
+        id="komga_username"
+        name="komga_username"
+        autocomplete="off"
+        value="{{ settings.komga_username | default('') }}"
+      >
+    </div>
+
+    <div class="field">
+      <label for="komga_password">Komga password</label>
+      <input
+        type="password"
+        id="komga_password"
+        name="komga_password"
+        autocomplete="off"
+        {% if settings.komga_password_saved %}
+        placeholder="•••"
+        {% else %}
+        placeholder="No password saved"
+        {% endif %}
+      >
+      {% if settings.komga_password_saved %}
+      <div class="note">Leave blank to keep the saved password.</div>
+      {% endif %}
+    </div>
+
+    <div class="field">
+      <label for="komga_api_key">Komga API key</label>
+      <input
+        type="password"
+        id="komga_api_key"
+        name="komga_api_key"
+        autocomplete="off"
+        {% if settings.komga_api_key_saved %}
+        placeholder="•••"
+        {% else %}
+        placeholder="No API key saved"
+        {% endif %}
+      >
+      {% if settings.komga_api_key_saved %}
+      <div class="note">Leave blank to keep the saved API key.</div>
+      {% endif %}
+    </div>
+
+    <div class="field">
+      <label for="komga_library_id">Library</label>
+      <div id="komga-library-field">
+        <select id="komga_library_id" name="komga_library_id">
+          {% if settings.komga_library_id %}
+          <option value="{{ settings.komga_library_id }}" selected>
+            Saved library ({{ settings.komga_library_id }})
+          </option>
+          {% else %}
+          <option value="">No library selected - test connection to pick one</option>
+          {% endif %}
+        </select>
+      </div>
+      <button
+        type="button"
+        class="btn"
+        id="komga-test-btn"
+        hx-post="/settings/komga/test"
+        hx-include="#komga_url,#komga_username,#komga_password,#komga_api_key"
+        hx-target="#komga-library-field"
+        hx-swap="innerHTML"
+        hx-indicator="#komga-test-spinner"
+        hx-vals='{"_csrf_token": "{{ csrf_token }}"}'
+      >Test connection</button>
+      <span id="komga-test-spinner" class="htmx-indicator dim" style="margin-left:12px;">
+        Testing…
+      </span>
+    </div>
+
     <button type="submit" class="btn btn-primary">Save Settings</button>
   </form>
 </div>

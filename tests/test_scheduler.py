@@ -6,17 +6,25 @@ filtered a fixed-size ``list_jobs(limit=200)`` window in Python instead of
 querying the DB directly for the oldest queued job.
 """
 
+import io
 from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
+from pypdf import PdfWriter
 from sqlalchemy.orm import Session
 
 from flipp_dl.db.models import DbJob, IssueStatus, JobStatus
 from flipp_dl.db.repository import DownloadRepository
 from flipp_dl.db.session import get_session, make_session_factory
+from flipp_dl.komga import KomgaError
 from flipp_dl.models import Issue, Publication
-from flipp_dl.scheduler import _claim_next_download_job, recover_stuck_jobs
+from flipp_dl.scheduler import (
+    _claim_next_download_job,
+    recover_stuck_jobs,
+    run_download_queue,
+    run_komga_sync_queue,
+)
 
 
 @pytest.fixture()
@@ -282,3 +290,200 @@ def test_poll_without_a_token_does_nothing(repo, session_factory):
             "done": 0,
             "error": 0,
         }
+
+
+# ---------------------------------------------------------------------------
+# Komga sync (TASK-1326)
+# ---------------------------------------------------------------------------
+
+
+def _one_page_pdf() -> bytes:
+    writer = PdfWriter()
+    writer.add_blank_page(width=200, height=200)
+    buf = io.BytesIO()
+    writer.write(buf)
+    return buf.getvalue()
+
+
+class _FakeFlippClient:
+    """Minimal FlippClient stand-in so run_download_queue can succeed."""
+
+    token = "dummy-token"
+
+    def __init__(self) -> None:
+        self._pdf = _one_page_pdf()
+
+    def fetch_issue_pdf_urls(self, _pub_code, _issue_code):
+        return ["http://example.invalid/page0.pdf"]
+
+    def download_pdf(self, _url):
+        return self._pdf
+
+
+class _FakeKomgaClient:
+    """Records scan_library calls; monkeypatched in for KomgaClient."""
+
+    instances: list["_FakeKomgaClient"] = []
+
+    def __init__(self, url, *, username="", password="", api_key=""):
+        self.url = url
+        self.username = username
+        self.password = password
+        self.api_key = api_key
+        self.scanned: list[str] = []
+        _FakeKomgaClient.instances.append(self)
+
+    def scan_library(self, library_id):
+        self.scanned.append(library_id)
+
+
+class _FailingKomgaClient:
+    def __init__(self, url, *, username="", password="", api_key=""):
+        pass
+
+    def scan_library(self, library_id):
+        raise KomgaError("Komga is down")
+
+
+def _queue_download_job(repo: DownloadRepository) -> tuple[int, int]:
+    """Seed an issue and a queued download job for it. Returns (issue_id, job_id)."""
+    repo.set_setting("flipp_token", "dummy-token")
+    issue_id = _seed_issue(repo)
+    job = repo.create_job("download", {"issue_id": issue_id})
+    repo.session.commit()
+    return issue_id, job.id
+
+
+def test_run_download_queue_queues_komga_sync_when_enabled(
+    repo, session_factory, tmp_path
+):
+    issue_id, _job_id = _queue_download_job(repo)
+    repo.set_setting("komga_enabled", "true")
+    repo.set_setting("komga_url", "http://localhost:25600")
+    repo.set_setting("komga_library_id", "lib-1")
+    repo.session.commit()
+
+    processed = run_download_queue(
+        _FakeFlippClient(), session_factory, tmp_path / "out", workers=1, max_jobs=1
+    )
+    assert processed == 1
+
+    with get_session(session_factory) as session:
+        r = DownloadRepository(session)
+        assert r.get_issue(issue_id).status == IssueStatus.DONE
+
+        komga_job = r.get_oldest_queued_job("komga_sync")
+        assert komga_job is not None
+        assert komga_job.payload == '{"library_id": "lib-1"}'
+
+
+def test_run_download_queue_does_not_queue_komga_sync_when_disabled(
+    repo, session_factory, tmp_path
+):
+    """Default is off - a successful download must not touch Komga at all."""
+    _queue_download_job(repo)
+    repo.session.commit()
+
+    processed = run_download_queue(
+        _FakeFlippClient(), session_factory, tmp_path / "out", workers=1, max_jobs=1
+    )
+    assert processed == 1
+
+    with get_session(session_factory) as session:
+        r = DownloadRepository(session)
+        assert r.get_oldest_queued_job("komga_sync") is None
+        assert r.count_jobs_by_status()["queued"] == 0
+
+
+def test_run_download_queue_does_not_queue_komga_sync_without_library_id(
+    repo, session_factory, tmp_path
+):
+    """Enabled but not fully configured yet must not produce a failed job."""
+    _queue_download_job(repo)
+    repo.set_setting("komga_enabled", "true")
+    repo.set_setting("komga_url", "http://localhost:25600")
+    # no komga_library_id saved
+    repo.session.commit()
+
+    run_download_queue(
+        _FakeFlippClient(), session_factory, tmp_path / "out", workers=1, max_jobs=1
+    )
+
+    with get_session(session_factory) as session:
+        r = DownloadRepository(session)
+        assert r.get_oldest_queued_job("komga_sync") is None
+        assert r.count_jobs_by_status()["error"] == 0
+
+
+def test_run_komga_sync_queue_scans_library_and_finishes_job(
+    repo, session_factory, monkeypatch
+):
+    monkeypatch.setattr("flipp_dl.scheduler.KomgaClient", _FakeKomgaClient)
+    _FakeKomgaClient.instances.clear()
+
+    repo.set_setting("komga_enabled", "true")
+    repo.set_setting("komga_url", "http://localhost:25600")
+    repo.set_setting("komga_library_id", "lib-1")
+    job = repo.create_job("komga_sync", {"library_id": "lib-1"})
+    repo.session.commit()
+    job_id = job.id
+
+    processed = run_komga_sync_queue(session_factory, max_jobs=1)
+    assert processed == 1
+
+    assert _FakeKomgaClient.instances[0].scanned == ["lib-1"]
+    with get_session(session_factory) as session:
+        r = DownloadRepository(session)
+        finished = r.get_job(job_id)
+        assert finished.status == JobStatus.DONE
+
+
+def test_run_komga_sync_queue_is_noop_when_disabled(repo, session_factory, monkeypatch):
+    """KOMGA_ENABLED off: no HTTP call, queued jobs are left untouched."""
+
+    def _explode(*_a, **_kw):
+        raise AssertionError("must not construct a KomgaClient while disabled")
+
+    monkeypatch.setattr("flipp_dl.scheduler.KomgaClient", _explode)
+
+    job = repo.create_job("komga_sync", {"library_id": "lib-1"})
+    repo.session.commit()
+    job_id = job.id
+
+    processed = run_komga_sync_queue(session_factory)
+    assert processed == 0
+
+    with get_session(session_factory) as session:
+        r = DownloadRepository(session)
+        untouched = r.get_job(job_id)
+        assert untouched.status == JobStatus.QUEUED
+
+
+def test_komga_failure_marks_job_error_but_issue_stays_done(
+    repo, session_factory, tmp_path, monkeypatch
+):
+    """A Komga outage must never flip a successfully downloaded issue back."""
+    issue_id, _job_id = _queue_download_job(repo)
+    repo.set_setting("komga_enabled", "true")
+    repo.set_setting("komga_url", "http://localhost:25600")
+    repo.set_setting("komga_library_id", "lib-1")
+    repo.session.commit()
+
+    run_download_queue(
+        _FakeFlippClient(), session_factory, tmp_path / "out", workers=1, max_jobs=1
+    )
+
+    monkeypatch.setattr("flipp_dl.scheduler.KomgaClient", _FailingKomgaClient)
+    processed = run_komga_sync_queue(session_factory, max_jobs=1)
+    assert processed == 1
+
+    with get_session(session_factory) as session:
+        r = DownloadRepository(session)
+        # The issue that finished downloading successfully must still be
+        # "done" even though the follow-up Komga scan failed.
+        assert r.get_issue(issue_id).status == IssueStatus.DONE
+
+        komga_jobs = r.list_jobs(job_type="komga_sync")
+        assert len(komga_jobs) == 1
+        assert komga_jobs[0].status == JobStatus.ERROR
+        assert komga_jobs[0].error_message == "Komga is down"

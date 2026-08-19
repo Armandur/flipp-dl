@@ -18,7 +18,9 @@ table to a proper broker.
 
 from __future__ import annotations
 
+import json
 import logging
+import os
 import signal
 import sys
 from pathlib import Path
@@ -35,6 +37,7 @@ from .db.repository import (
 )
 from .db.session import get_session, make_session_factory
 from .downloader import DEFAULT_WORKERS, IssueDownloader, purge_old_previews
+from .komga import KomgaClient, KomgaError
 from .models import Issue as DomainIssue
 from .models import Publication as DomainPublication
 
@@ -66,6 +69,51 @@ def resolve_current_token(session_factory) -> str:
     with get_session(session_factory) as session:
         saved = DownloadRepository(session).get_setting("flipp_token", "").strip()
     return saved or load_token()
+
+
+def _parse_bool(value: str) -> bool:
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _env_or_db(env_key: str, db_value: str) -> str:
+    """Environment variable wins over a saved ``DbSetting``, if set at all."""
+    env_value = os.environ.get(env_key)
+    return env_value if env_value is not None else db_value
+
+
+def resolve_komga_settings_from_repo(repo: DownloadRepository) -> dict:
+    """Resolve the Komga settings from an already-open repository session.
+
+    Env vars (``KOMGA_URL``, ``KOMGA_USERNAME``, ``KOMGA_PASSWORD``,
+    ``KOMGA_API_KEY``, ``KOMGA_LIBRARY_ID``, ``KOMGA_ENABLED``) override the
+    ``DbSetting`` rows saved via /settings, matching the acceptance
+    criteria for TASK-1326 - the opposite precedence from
+    :func:`resolve_current_token`, which is deliberate: Komga credentials
+    are meant to be overridable per-deployment via the environment even
+    when a value is already saved in the UI.
+    """
+    return {
+        "url": _env_or_db("KOMGA_URL", repo.get_setting("komga_url", "")).strip(),
+        "username": _env_or_db(
+            "KOMGA_USERNAME", repo.get_setting("komga_username", "")
+        ).strip(),
+        "password": _env_or_db(
+            "KOMGA_PASSWORD", repo.get_setting("komga_password", "")
+        ),
+        "api_key": _env_or_db("KOMGA_API_KEY", repo.get_setting("komga_api_key", "")),
+        "library_id": _env_or_db(
+            "KOMGA_LIBRARY_ID", repo.get_setting("komga_library_id", "")
+        ).strip(),
+        "enabled": _parse_bool(
+            _env_or_db("KOMGA_ENABLED", repo.get_setting("komga_enabled", ""))
+        ),
+    }
+
+
+def resolve_komga_settings(session_factory) -> dict:
+    """Resolve the current Komga settings in their own short-lived session."""
+    with get_session(session_factory) as session:
+        return resolve_komga_settings_from_repo(DownloadRepository(session))
 
 
 def _cache_covers(repo: DownloadRepository, new_issues: list[DbIssue]) -> int:
@@ -233,8 +281,6 @@ def _claim_next_download_job(
     happens inside the single session so callers only ever see plain
     primitives / frozen dataclasses.
     """
-    import json as _json
-
     with get_session(session_factory) as session:
         repo = DownloadRepository(session)
         job = repo.get_oldest_queued_job("download")
@@ -243,7 +289,7 @@ def _claim_next_download_job(
 
         job_id: int = job.id
         try:
-            payload = _json.loads(job.payload)
+            payload = json.loads(job.payload)
         except (TypeError, ValueError):
             repo.finish_job(job_id, error="Invalid JSON payload")
             return None
@@ -315,6 +361,80 @@ def run_download_queue(
                 continue
 
         with get_session(session_factory) as s2:
+            repo2 = DownloadRepository(s2)
+            komga_settings = resolve_komga_settings_from_repo(repo2)
+            # Queue a scan only when Komga is fully configured - an
+            # incomplete configuration (enabled but no library picked yet)
+            # must not produce a failed job in the log (TASK-1326).
+            if (
+                komga_settings["enabled"]
+                and komga_settings["url"]
+                and komga_settings["library_id"]
+            ):
+                repo2.create_job(
+                    "komga_sync", {"library_id": komga_settings["library_id"]}
+                )
+            repo2.finish_job(job_id)
+        processed += 1
+
+    return processed
+
+
+def run_komga_sync_queue(session_factory, *, max_jobs: int | None = None) -> int:
+    """Drain queued ``komga_sync`` jobs, triggering a library scan for each.
+
+    A no-op (returns 0 without touching the DB or the network) whenever
+    ``KOMGA_ENABLED`` is off - an instance without Komga configured must
+    see zero difference in behaviour. Komga's scan endpoint returns
+    immediately (the scan itself runs asynchronously on Komga's side), so
+    this drains fire-and-forget - there is nothing to wait for. A Komga
+    failure is recorded as a job error and never touches issue status,
+    which already finished (as ``done``) when the download job completed.
+    """
+    settings = resolve_komga_settings(session_factory)
+    if not settings["enabled"] or not settings["url"]:
+        return 0
+
+    processed = 0
+    while max_jobs is None or processed < max_jobs:
+        with get_session(session_factory) as session:
+            repo = DownloadRepository(session)
+            job = repo.get_oldest_queued_job("komga_sync")
+            if job is None:
+                break
+            job_id: int = job.id
+            try:
+                payload = json.loads(job.payload)
+            except (TypeError, ValueError):
+                payload = {}
+            library_id = payload.get("library_id") or settings["library_id"]
+            repo.start_job(job_id)
+
+        if not library_id:
+            with get_session(session_factory) as s2:
+                DownloadRepository(s2).finish_job(
+                    job_id, error="No Komga library configured"
+                )
+            logger.error("Komga sync job %d failed: no library configured", job_id)
+            processed += 1
+            continue
+
+        try:
+            client = KomgaClient(
+                settings["url"],
+                username=settings["username"],
+                password=settings["password"],
+                api_key=settings["api_key"],
+            )
+            client.scan_library(library_id)
+        except KomgaError as exc:
+            with get_session(session_factory) as s2:
+                DownloadRepository(s2).finish_job(job_id, error=str(exc))
+            logger.error("Komga sync job %d failed: %s", job_id, exc)
+            processed += 1
+            continue
+
+        with get_session(session_factory) as s2:
             DownloadRepository(s2).finish_job(job_id)
         processed += 1
 
@@ -376,6 +496,14 @@ def build_scheduler(
             output_root=out,
             workers=workers,
         ),
+    )
+
+    scheduler.add_job(
+        run_komga_sync_queue,
+        trigger="interval",
+        seconds=download_interval_seconds,
+        id="komga_sync",
+        kwargs=dict(session_factory=session_factory),
     )
 
     return scheduler

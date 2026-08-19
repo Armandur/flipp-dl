@@ -24,6 +24,7 @@ from ..db.models import IssueStatus, JobStatus
 from ..db.repository import DownloadRepository, default_cover_cache_root
 from ..db.session import get_session
 from ..downloader import IssueDownloader
+from ..komga import KomgaClient, KomgaError
 from ..models import Issue as DomainIssue
 from ..models import Publication as DomainPublication
 from ..scheduler import poll_publications, resolve_current_token
@@ -802,6 +803,26 @@ def register(app: FastAPI) -> None:
             "token_env_fallback": (not saved) and bool(load_token()),
         }
 
+    def _komga_view_settings(repo: DownloadRepository) -> dict:
+        """Komga settings for the template - secrets never rendered back.
+
+        ``komga_password``/``komga_api_key`` only ever surface as a
+        boolean ("is one saved") - the same pattern as the Flipp token:
+        an empty field with a bullet placeholder, saved only when the
+        field is actually filled in.
+        """
+        return {
+            "komga_enabled": repo.get_setting("komga_enabled", "").strip().lower()
+            == "true",
+            "komga_url": repo.get_setting("komga_url", ""),
+            "komga_username": repo.get_setting("komga_username", ""),
+            "komga_library_id": repo.get_setting("komga_library_id", ""),
+            "komga_password_saved": bool(
+                repo.get_setting("komga_password", "").strip()
+            ),
+            "komga_api_key_saved": bool(repo.get_setting("komga_api_key", "").strip()),
+        }
+
     @app.get("/settings", response_class=HTMLResponse)
     async def settings_get(request: Request):
         repo = _repo(request)
@@ -810,6 +831,7 @@ def register(app: FastAPI) -> None:
                 "poll_interval": repo.get_setting("poll_interval", "360"),
                 "workers": repo.get_setting("workers", "4"),
                 **_token_settings(repo),
+                **_komga_view_settings(repo),
             }
             csrf = generate_csrf_token(request)
             return _templates(request).TemplateResponse(
@@ -824,6 +846,12 @@ def register(app: FastAPI) -> None:
         poll_interval: int = Form(360),
         workers: int = Form(4),
         flipp_token: str = Form(""),
+        komga_enabled: str | None = Form(None),
+        komga_url: str = Form(""),
+        komga_username: str = Form(""),
+        komga_password: str = Form(""),
+        komga_api_key: str = Form(""),
+        komga_library_id: str = Form(""),
     ):
         if not await check_csrf_form(request):
             return HTMLResponse("CSRF validation failed", status_code=400)
@@ -837,7 +865,19 @@ def register(app: FastAPI) -> None:
             # blank submit must not be read as "clear the token".
             if token_value:
                 repo.set_setting("flipp_token", token_value)
+
+            repo.set_setting("komga_enabled", "true" if komga_enabled else "false")
+            repo.set_setting("komga_url", komga_url.strip())
+            repo.set_setting("komga_username", komga_username.strip())
+            # Same "blank = keep unchanged" rule as the Flipp token above.
+            if komga_password.strip():
+                repo.set_setting("komga_password", komga_password.strip())
+            if komga_api_key.strip():
+                repo.set_setting("komga_api_key", komga_api_key.strip())
+            repo.set_setting("komga_library_id", komga_library_id.strip())
+
             token_settings = _token_settings(repo)
+            komga_settings = _komga_view_settings(repo)
 
         csrf = generate_csrf_token(request)
         return _templates(request).TemplateResponse(
@@ -848,10 +888,67 @@ def register(app: FastAPI) -> None:
                     "poll_interval": str(poll_interval),
                     "workers": str(workers),
                     **token_settings,
+                    **komga_settings,
                 },
                 "csrf_token": csrf,
                 "saved": True,
             },
+        )
+
+    @app.post("/settings/komga/test", response_class=HTMLResponse)
+    async def komga_test_connection(
+        request: Request,
+        komga_url: str = Form(""),
+        komga_username: str = Form(""),
+        komga_password: str = Form(""),
+        komga_api_key: str = Form(""),
+    ):
+        """List libraries from a not-yet-saved (or partially saved) config.
+
+        A blank password/API-key field falls back to whatever is already
+        saved - the field is never pre-filled with the real secret (same
+        rule as the save form), so testing right after opening the page
+        must still be able to use the saved credential.
+        """
+        if not await check_csrf_form(request):
+            return HTMLResponse("CSRF validation failed", status_code=400)
+
+        url = komga_url.strip()
+        repo = _repo(request)
+        try:
+            password = komga_password.strip() or repo.get_setting("komga_password", "")
+            api_key = komga_api_key.strip() or repo.get_setting("komga_api_key", "")
+            selected = repo.get_setting("komga_library_id", "")
+        finally:
+            repo.session.close()
+
+        if not url:
+            return _templates(request).TemplateResponse(
+                request,
+                "komga_library_select.html",
+                {
+                    "error": "Enter a Komga URL first.",
+                    "libraries": None,
+                    "selected": selected,
+                },
+            )
+
+        client = KomgaClient(
+            url, username=komga_username.strip(), password=password, api_key=api_key
+        )
+        try:
+            libraries = client.list_libraries()
+        except KomgaError as exc:
+            return _templates(request).TemplateResponse(
+                request,
+                "komga_library_select.html",
+                {"error": str(exc), "libraries": None, "selected": selected},
+            )
+
+        return _templates(request).TemplateResponse(
+            request,
+            "komga_library_select.html",
+            {"error": None, "libraries": libraries, "selected": selected},
         )
 
     @app.post("/settings/import-existing", response_class=HTMLResponse)

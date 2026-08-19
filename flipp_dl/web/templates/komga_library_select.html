@@ -1,0 +1,19 @@
+{% if error %}
+<div class="error">Could not connect to Komga: {{ error }}</div>
+<select id="komga_library_id" name="komga_library_id">
+  {% if selected %}
+  <option value="{{ selected }}" selected>Saved library ({{ selected }})</option>
+  {% else %}
+  <option value="">No library selected</option>
+  {% endif %}
+</select>
+{% else %}
+<select id="komga_library_id" name="komga_library_id">
+  {% if not libraries %}
+  <option value="">No libraries found</option>
+  {% endif %}
+  {% for lib in libraries %}
+  <option value="{{ lib.id }}" {% if lib.id == selected %}selected{% endif %}>{{ lib.name }}</option>
+  {% endfor %}
+</select>
+{% endif %}

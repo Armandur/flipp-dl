@@ -22,7 +22,12 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from ..api import FlippClient
 from ..config import load_token
 from ..db.session import make_session_factory
-from ..scheduler import poll_publications, recover_stuck_jobs, run_download_queue
+from ..scheduler import (
+    poll_publications,
+    recover_stuck_jobs,
+    run_download_queue,
+    run_komga_sync_queue,
+)
 from .app import create_app
 
 logger = logging.getLogger(__name__)
@@ -88,6 +93,13 @@ _scheduler.add_job(
         output_root=_output_root,
         workers=_workers,
     ),
+)
+_scheduler.add_job(
+    run_komga_sync_queue,
+    trigger="interval",
+    seconds=30,
+    id="komga_sync",
+    kwargs=dict(session_factory=_session_factory),
 )
 _scheduler.start()
 
