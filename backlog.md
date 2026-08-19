@@ -135,6 +135,26 @@ Rätt fix är troligen en riktig claim-fråga mot DB (SELECT ... WHERE status=qu
 
 ---
 
+## [P3][doing] [flipp] Verifiera OPDS-feeden mot en riktig läsare
+
+Feeden är byggd och verifierad strukturellt (XML/JSON parsas i tester, och drift svarar 200 på både /api/opds och /api/opds2, även med HTTP Basic). Det som återstår är det enda som inte går att simulera: att en verklig OPDS-klient accepterar katalogen.
+
+Ligger som doing i väntan på att en klient finns att testa med.
+
+Att prova när det blir aktuellt:
+- Lägg till http://192.168.1.2:8934/api/opds i klienten, autentisera med samma lösenord som webbgränssnittet via HTTP Basic (användarnamnet spelar ingen roll).
+- Kontrollera att publikationerna listas, att omslagen visas, och att en utgåva går att öppna och läsa.
+- Prova även 2.0-varianten på /api/opds2 om klienten stöder den.
+- Kandidater: KOReader, Panels (iOS), Moon+ Reader, Chunky.
+
+Faller något: notera vilken klient och vilket steg, det avgör om det är feedens struktur, auth-flödet eller filserveringen som behöver justeras.
+
+- ID: `01M0DKT63ANXYK58W6AEJT61HD`
+- Type: task
+- Actor: ai:claude-opus-5
+
+---
+
 ## [P3][done] [flipp] Byt webbläsardialoger mot egna modaler
 
 Gränssnittet använder webbläsarens inbyggda dialoger på fem ställen: hx-confirm i issue_row.html (Cancel, Re-download, Delete) och publication_detail.html (Queue missing issues), plus alert("Copy failed") i debug_poll_result.html. De ser ut som systemdialoger, går inte att styla, och texten prefixas av webbläsaren med sidans adress.
