@@ -301,7 +301,7 @@ Filer som väntas ändras: flipp_dl/web/routes.py, flipp_dl/web/templates/settin
 
 ---
 
-## [P3][todo] [flipp] Publikationslistan gör en aggregerad räkning i stället för att ladda alla utgåvor
+## [P3][done] [flipp] Publikationslistan gör en aggregerad räkning i stället för att ladda alla utgåvor
 
 ## Context
 `/publications` laddar hela `issues`-relationen för alla publikationer (selectinload i `list_publications`) bara för att räkna två tal per rad. På driftinstansen är det 17660 rader som dras in vid varje sidladdning, trots att listvyn bara visar `num_issues` och `num_downloaded`.
@@ -487,7 +487,7 @@ Filer som väntas ändras: flipp_dl/komga.py, flipp_dl/db/repository.py, flipp_d
 
 ---
 
-## [P3][todo] [flipp] JSON-API-endpoints för publikationer, utgåvor och jobbstatus
+## [P3][done] [flipp] JSON-API-endpoints för publikationer, utgåvor och jobbstatus
 
 ## Context
 Webbgränssnittet (FastAPI + Jinja2/HTMX) exponerar i dag bara HTML-sidor - inga renodlade REST/JSON-endpoints för programmatisk åtkomst till publikationer, utgåvor eller jobbstatus. `flipp_dl/web/routes.py` är redan 737 rader, så nya JSON-endpoints hör hemma i en egen modul snarare än att växa den filen ytterligare.
