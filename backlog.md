@@ -22,6 +22,44 @@ Verifiering: tester i tests/test_storage.py och tests/test_downloader.py för kr
 
 ---
 
+## [P2][todo] [flipp] Kör om felade nedladdningar automatiskt med backoff
+
+En utgåva som felar stannar som error för alltid. Poll-påfyllningen hoppar medvetet över felade (annars skulle en permanent trasig utgåva köas om var sjätte timme), så enda vägen tillbaka är ett manuellt klick på Retry eller Watch. Övergående fel - nätverksglapp, en låst databas, Flipp som svarar konstigt - läker därmed inte av sig själva.
+
+Driftinstansen har just nu ett sådant jobb liggande sedan juni: en nedladdning som föll på "database is locked" och blev kvar som fel trots att felorsaken är åtgärdad sedan dess.
+
+Acceptanskriterier:
+- Ett felat nedladdningsjobb körs om automatiskt ett begränsat antal gånger med växande fördröjning, exempelvis tre försök.
+- Antal försök och nästa försökstidpunkt syns på jobbet, så det går att se skillnad på "väntar på omförsök" och "gav upp".
+- När försöken tagit slut stannar utgåvan som error och köas inte om av sig själv - det ska fortfarande krävas ett medvetet klick.
+- Fel som uppenbart inte är övergående bör inte kosta tre försök om det går att skilja dem åt. Motivera vilken uppdelning som valdes.
+
+Verifiering: riktade tester i tests/test_scheduler.py som simulerar ett fel och kontrollerar att omförsöket sker, att fördröjningen växer, och att det slutar efter taket.
+
+- ID: `01M0DWYFFR7VNEX97CR2HGBXY7`
+- Type: feature
+- Actor: ai:claude-opus-5
+
+---
+
+## [P2][todo] [flipp] Begränsa hur mycket bakkatalog som köas när en publikation bevakas
+
+Watch köar i dag ALLT som inte är nedladdat för publikationen, och poll fyller på med samma logik. Det är sällan vad man vill: driftinstansen har 16568 utgåvor som inte är nedladdade, snittet är 49 MB per utgåva (1092 filer väger 53,2 GB), så en full backfill är i storleksordningen 800 GB och tar mycket lång tid. Att kryssa Watch ska inte kunna starta det av misstag.
+
+Acceptanskriterier:
+- Vid bevakning går det att välja hur mycket bakkatalog som ska hämtas: inget (bara nya utgåvor framåt), ett antal senaste, eller allt.
+- Valet gäller även poll-påfyllningen, inte bara klicket - annars smyger bakkatalogen in ändå vid nästa poll.
+- Befintliga bevakade publikationer behåller dagens beteende tills något annat valts, så utrullningen inte ändrar något i tysthet.
+- queue_missing_issues i repository.py är den gemensamma vägen och bör ta gränsen som parameter.
+
+Verifiering: riktade tester i tests/test_repository.py och tests/test_scheduler.py för de tre lägena, plus klick på Watch i webbläsaren med kontroll av hur många jobb som faktiskt köas.
+
+- ID: `01M0DWXHZ3V1T3XH4JKDC8QF2Z`
+- Type: feature
+- Actor: ai:claude-opus-5
+
+---
+
 ## [P2][done] [flipp] Köa missade utgåvor när en publikation börjar bevakas
 
 Att kryssa Watch köar ingenting. Poll köar bara NYUPPTÄCKTA utgåvor (new_issues i poll_publications), så allt som redan fanns i databasen när bevakningen slogs på laddas aldrig ner. I praktiken får man leta upp publikationer där Downloaded X/Y har X != Y och trycka download manuellt på varje rad.
@@ -131,6 +169,47 @@ Rätt fix är troligen en riktig claim-fråga mot DB (SELECT ... WHERE status=qu
 
 - ID: `01M0BBXMEPZZWZVNYZR3SF7RWF`
 - Type: bug
+- Actor: ai:claude-opus-5
+
+---
+
+## [P3][todo] [flipp] Sökning över alla utgåvor, inte bara inom en publikation
+
+I dag söker man antingen bland utgåvorna på en publikations detaljsida eller på filnamn i Library. Med 17660 kända utgåvor fördelade på 94 publikationer saknas vägen att hitta något på tvärs: alla nummer från ett visst år, allt som saknas i en titel, eller en utgåva vars publikation man inte minns.
+
+Acceptanskriterier:
+- En sökvy som söker över alla utgåvor på utgåvenamn, datum och publikation.
+- Går att filtrera på status, minst nedladdad respektive inte nedladdad.
+- Sökningen sker i databasen med gräns på antal träffar - den får inte ladda alla 17660 rader och filtrera i Python, och inte heller i JavaScript i webbläsaren.
+- Träffarna länkar till publikationen och, för nedladdade utgåvor, direkt till PDF:en.
+- Ny användarsynlig text ska gå genom gettext, katalogen uppdateras med pybabel enligt README.
+
+Verifiering: riktade tester i tests/test_web_routes.py inklusive ett som verifierar att antalet SQL-satser inte växer med antalet utgåvor, plus browser-verifiering vid 390px och 1280px där en sökning faktiskt utförs.
+
+- ID: `01M0DWYFG070H35Y33FW3SDEHB`
+- Type: feature
+- Actor: ai:claude-opus-5
+
+---
+
+## [P3][todo] [flipp] Visa storleksuppskattning innan en bulk-köläggning
+
+Knappen "Queue missing issues" och Watch säger hur många utgåvor som köas, men inte vad det väger. Med 49 MB som snitt blir 200 utgåvor cirka 10 GB, vilket är värt att veta före klicket.
+
+Underlaget finns nu: 1092 nedladdade filer att räkna median eller snitt på, per publikation där det går och globalt annars. Den ursprungliga TODO:n avbokade en liknande idé, men då fanns ingen nedladdad data att basera uppskattningen på.
+
+Acceptanskriterier:
+- Bekräftelsedialogen för bulk-köläggning visar antal utgåvor OCH uppskattad storlek.
+- Uppskattningen bygger på faktiska filstorlekar, i första hand för samma publikation, med global median som fallback när publikationen saknar nedladdade filer.
+- Saknas underlag helt visas antalet utan storlek, inte en påhittad siffra.
+- Kräver att filstorlek finns tillgänglig per utgåva - avgör om den ska läsas från disk vid behov eller sparas i databasen vid nedladdning, och motivera valet.
+
+Verifiering: riktade tester för uppskattningen inklusive fallback-fallet, plus browser-verifiering av dialogen vid 390px och 1280px.
+
+Hänger ihop med tasken om att begränsa bakkatalogen - de rör samma klick.
+
+- ID: `01M0DWXHZJCQ6JYRVXD6KJ9NXA`
+- Type: feature
 - Actor: ai:claude-opus-5
 
 ---
