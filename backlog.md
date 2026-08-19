@@ -442,7 +442,7 @@ CSS-reglerna för `nav` ligger i `<style>`-blocket, rad ~14-22 (`nav`, `nav .bra
 
 ---
 
-## [P3][todo] [flipp] Undersök om nedladdade PDF:er är vattenmärkta
+## [P3][done] [flipp] Undersök om nedladdade PDF:er är vattenmärkta
 
 Skanna de nedladdade PDF:erna efter spår som kan knyta filen till kontot: synlig vattenstämpel i sidbilden, osynlig text i textlagret, XMP/DocInfo-metadata, unika objekt-ID:n eller kontospecifika URL:er i sidornas resurser.
 
