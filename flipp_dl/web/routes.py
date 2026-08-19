@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import FastAPI, Form, Request
@@ -416,7 +416,9 @@ def register(app: FastAPI) -> None:
                         "name": pdf.name,
                         "rel_path": str(rel).replace(os.sep, "/"),
                         "size": stat.st_size,
-                        "mtime": datetime.fromtimestamp(stat.st_mtime),
+                        # Timezone-aware UTC: the localtime filter would otherwise
+                        # read a naive local time as UTC and shift it twice.
+                        "mtime": datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc),
                     }
                 )
                 total_bytes += stat.st_size

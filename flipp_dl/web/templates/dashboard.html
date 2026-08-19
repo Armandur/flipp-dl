@@ -27,7 +27,7 @@
         <td>{{ issue.publication.name }}</td>
         <td class="dim">
           {% if issue.downloaded_at %}
-            {{ issue.downloaded_at.strftime("%Y-%m-%d %H:%M") }}
+            {{ issue.downloaded_at | localtime("%Y-%m-%d %H:%M") }}
           {% else %}
             —
           {% endif %}
@@ -78,10 +78,10 @@
         <td>
           <span class="badge badge-{{ job.status }}">{{ job.status }}</span>
         </td>
-        <td class="dim">{{ job.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
+        <td class="dim">{{ job.created_at | localtime("%Y-%m-%d %H:%M") }}</td>
         <td class="dim">
           {% if job.finished_at %}
-            {{ job.finished_at.strftime("%Y-%m-%d %H:%M") }}
+            {{ job.finished_at | localtime("%Y-%m-%d %H:%M") }}
           {% else %}
             —
           {% endif %}

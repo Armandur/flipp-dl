@@ -16,6 +16,9 @@ services:
       FLIPP_DB: "/data/flipp.db"
       FLIPP_OUTPUT: "/output"
 
+      # Timezone used when rendering timestamps in the UI
+      FLIPP_TZ: "${FLIPP_TZ:-Europe/Stockholm}"
+
       # Scheduler tuning
       FLIPP_POLL_INTERVAL: "${FLIPP_POLL_INTERVAL:-360}"
       FLIPP_WORKERS: "${FLIPP_WORKERS:-4}"

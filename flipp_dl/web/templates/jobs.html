@@ -62,17 +62,17 @@
           {# status values: queued | running | done | error #}
           <span class="badge badge-{{ job.status }}">{{ job.status }}</span>
         </td>
-        <td class="dim">{{ job.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
+        <td class="dim">{{ job.created_at | localtime("%Y-%m-%d %H:%M") }}</td>
         <td class="dim">
           {% if job.started_at %}
-            {{ job.started_at.strftime("%Y-%m-%d %H:%M") }}
+            {{ job.started_at | localtime("%Y-%m-%d %H:%M") }}
           {% else %}
             —
           {% endif %}
         </td>
         <td class="dim">
           {% if job.finished_at %}
-            {{ job.finished_at.strftime("%Y-%m-%d %H:%M") }}
+            {{ job.finished_at | localtime("%Y-%m-%d %H:%M") }}
           {% else %}
             —
           {% endif %}

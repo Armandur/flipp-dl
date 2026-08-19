@@ -56,7 +56,7 @@
             rel="noopener"
           ><strong>{{ f.name }}</strong></a>
         </td>
-        <td class="dim">{{ f.mtime.strftime("%Y-%m-%d %H:%M") }}</td>
+        <td class="dim">{{ f.mtime | localtime("%Y-%m-%d %H:%M") }}</td>
         <td class="dim mono" style="text-align:right;">{{ f.size | human_size }}</td>
       </tr>
       {% endfor %}

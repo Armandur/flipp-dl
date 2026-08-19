@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import logging
 import os
+from datetime import datetime, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import FastAPI
 from fastapi.templating import Jinja2Templates
@@ -22,6 +24,36 @@ TEMPLATES_DIR = Path(__file__).parent / "templates"
 # ships this value is vulnerable to session forgery because anyone who
 # can read the source can sign a valid session cookie.
 _DEFAULT_SECRET_KEY = "dev-secret-change-me"
+
+
+def _display_timezone() -> ZoneInfo:
+    """Timezone the UI renders timestamps in.
+
+    ``FLIPP_TZ`` wins, then the container's own ``TZ``, then Swedish
+    time - this is a self-hosted tool for a Swedish publisher's app.
+    An unknown zone name falls back rather than breaking every page.
+    """
+    for name in (os.environ.get("FLIPP_TZ"), os.environ.get("TZ")):
+        if not name:
+            continue
+        try:
+            return ZoneInfo(name)
+        except ZoneInfoNotFoundError:
+            logger.warning("Unknown timezone %r - falling back", name)
+    return ZoneInfo("Europe/Stockholm")
+
+
+def _localtime(value: datetime | None, fmt: str = "%Y-%m-%d %H:%M") -> str:
+    """Render a stored (naive, UTC) timestamp in the display timezone.
+
+    Timestamps are written as naive UTC by ``repository._now()``, so a
+    value without tzinfo is assumed to be UTC rather than local.
+    """
+    if value is None:
+        return "—"
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(_display_timezone()).strftime(fmt)
 
 
 def _human_size(num_bytes: int | None) -> str:
@@ -79,6 +111,7 @@ def create_app(
     templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
     templates.env.filters["sanitize_html"] = sanitize_html
     templates.env.filters["human_size"] = _human_size
+    templates.env.filters["localtime"] = _localtime
 
     app.state.session_factory = session_factory
     app.state.templates = templates

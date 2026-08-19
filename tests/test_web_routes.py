@@ -395,3 +395,90 @@ def test_publications_list_shows_downloaded_count(client: TestClient):
     assert resp.status_code == 200
     assert "Downloaded" in resp.text
     assert "/2" in resp.text
+
+
+# ---------------------------------------------------------------------------
+# Timestamp rendering (TASK-1339)
+# ---------------------------------------------------------------------------
+
+
+def test_localtime_shifts_stored_utc_to_the_display_zone(monkeypatch):
+    """Stored timestamps are naive UTC; the UI must show local time."""
+    from datetime import datetime
+
+    from flipp_dl.web.app import _localtime
+
+    monkeypatch.setenv("FLIPP_TZ", "Europe/Stockholm")
+
+    # Winter: CET is UTC+1
+    assert _localtime(datetime(2026, 1, 15, 12, 0)) == "2026-01-15 13:00"
+    # Summer: CEST is UTC+2 - the case that made the UI look two hours off
+    assert _localtime(datetime(2026, 8, 19, 12, 0)) == "2026-08-19 14:00"
+
+
+def test_localtime_honours_flipp_tz(monkeypatch):
+    from datetime import datetime
+
+    from flipp_dl.web.app import _localtime
+
+    monkeypatch.setenv("FLIPP_TZ", "UTC")
+    assert _localtime(datetime(2026, 8, 19, 12, 0)) == "2026-08-19 12:00"
+
+
+def test_localtime_falls_back_on_unknown_zone(monkeypatch):
+    from datetime import datetime
+
+    from flipp_dl.web.app import _localtime
+
+    monkeypatch.setenv("FLIPP_TZ", "Mars/Olympus_Mons")
+    monkeypatch.delenv("TZ", raising=False)
+    # Falls back to Europe/Stockholm rather than raising on every page.
+    assert _localtime(datetime(2026, 8, 19, 12, 0)) == "2026-08-19 14:00"
+
+
+def test_localtime_renders_missing_timestamp_as_dash():
+    from flipp_dl.web.app import _localtime
+
+    assert _localtime(None) == "—"
+
+
+def test_jobs_page_renders_timestamps_in_local_time(client: TestClient, monkeypatch):
+    """End-to-end: a job created now shows the local hour, not the UTC hour."""
+    from datetime import datetime, timezone
+
+    from zoneinfo import ZoneInfo
+
+    monkeypatch.setenv("FLIPP_TZ", "Europe/Stockholm")
+    job_id = _seed_download_job(client, "{}")
+    with get_session(client.app.state.session_factory) as session:
+        created = DownloadRepository(session).get_job(job_id).created_at
+
+    expected = (
+        created.replace(tzinfo=timezone.utc)
+        .astimezone(ZoneInfo("Europe/Stockholm"))
+        .strftime("%Y-%m-%d %H:%M")
+    )
+    resp = client.get("/jobs")
+    assert resp.status_code == 200
+    assert expected in resp.text
+
+
+def test_library_file_times_are_not_shifted_twice(client: TestClient, monkeypatch):
+    """File mtimes come from the filesystem, not from the UTC-storing DB.
+
+    Reading them as naive local time and then converting as if they were
+    UTC would show every file two hours into the future in summer.
+    """
+    from datetime import datetime
+
+    from zoneinfo import ZoneInfo
+
+    monkeypatch.setenv("FLIPP_TZ", "Europe/Stockholm")
+    pdf = client.app.state.output_root / "Kalle Anka" / "ka01.pdf"
+    expected = datetime.fromtimestamp(
+        pdf.stat().st_mtime, tz=ZoneInfo("Europe/Stockholm")
+    ).strftime("%Y-%m-%d %H:%M")
+
+    resp = client.get("/library")
+    assert resp.status_code == 200
+    assert expected in resp.text

@@ -110,6 +110,7 @@ Volymer:
 | `FLIPP_TOKEN`       | –           | **Krävs.** Din Flipp API-token.                |
 | `FLIPP_DB`          | `flipp.db`  | Sökväg till SQLite-filen.                      |
 | `FLIPP_OUTPUT`      | `Output`    | Katalog där PDF:er sparas.                     |
+| `FLIPP_TZ`          | `Europe/Stockholm` | Tidszon som tider visas i. Databasen lagrar UTC. |
 | `FLIPP_POLL_INTERVAL` | `360`     | Minuter mellan API-polls (default 6 h).        |
 | `FLIPP_WORKERS`     | `4`         | Parallella sidnedladdningar per utgåva.        |
 | `FLIPP_SECRET_KEY`  | –           | Hemlighet för sessions (byt i produktion).     |
@@ -136,6 +137,7 @@ Miljövariabler att fylla i under **"Add another Path / Port / Variable"**:
 | `FLIPP_TOKEN` | Din Flipp-token (se "Skaffa en token" ovan) | Ja |
 | `FLIPP_SECRET_KEY` | Lång slumpmässig sträng | Ja |
 | `FLIPP_PASSWORD` | Valfritt lösenord för webbgränssnittet | Nej |
+| `FLIPP_TZ` | `Europe/Stockholm` | Nej |
 | `FLIPP_POLL_INTERVAL` | `360` | Nej |
 | `FLIPP_WORKERS` | `4` | Nej |
 
