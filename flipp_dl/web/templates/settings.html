@@ -169,6 +169,104 @@
       </span>
     </div>
 
+    <h2>Notifications</h2>
+    <div class="note">
+      Get a push notification when a new issue finishes downloading, or
+      when a download fails. Two channels are supported and can be
+      enabled independently - use one, both, or neither.
+    </div>
+
+    <div class="field checkbox-field">
+      <label>
+        <input
+          type="checkbox"
+          id="notify_ntfy_enabled"
+          name="notify_ntfy_enabled"
+          {% if settings.notify_ntfy_enabled %}checked{% endif %}
+        >
+        Enable ntfy notifications
+      </label>
+    </div>
+
+    <div class="field">
+      <label for="notify_ntfy_url">ntfy server URL</label>
+      <input
+        type="url"
+        id="notify_ntfy_url"
+        name="notify_ntfy_url"
+        placeholder="https://ntfy.sh"
+        value="{{ settings.notify_ntfy_url | default('') }}"
+      >
+    </div>
+
+    <div class="field">
+      <label for="notify_ntfy_topic">ntfy topic</label>
+      <input
+        type="text"
+        id="notify_ntfy_topic"
+        name="notify_ntfy_topic"
+        autocomplete="off"
+        value="{{ settings.notify_ntfy_topic | default('') }}"
+      >
+    </div>
+
+    <div class="field">
+      <label for="notify_ntfy_token">ntfy access token</label>
+      <input
+        type="password"
+        id="notify_ntfy_token"
+        name="notify_ntfy_token"
+        autocomplete="off"
+        {% if settings.notify_ntfy_token_saved %}
+        placeholder="•••"
+        {% else %}
+        placeholder="No token saved (only needed for a protected topic)"
+        {% endif %}
+      >
+      {% if settings.notify_ntfy_token_saved %}
+      <div class="note">Leave blank to keep the saved token.</div>
+      {% endif %}
+    </div>
+
+    <div class="field checkbox-field">
+      <label>
+        <input
+          type="checkbox"
+          id="notify_webhook_enabled"
+          name="notify_webhook_enabled"
+          {% if settings.notify_webhook_enabled %}checked{% endif %}
+        >
+        Enable webhook notifications
+      </label>
+    </div>
+
+    <div class="field">
+      <label for="notify_webhook_url">Webhook URL</label>
+      <input
+        type="url"
+        id="notify_webhook_url"
+        name="notify_webhook_url"
+        autocomplete="off"
+        {% if settings.notify_webhook_url_saved %}
+        placeholder="•••••••••••"
+        {% else %}
+        placeholder="No webhook URL saved"
+        {% endif %}
+      >
+      {% if settings.notify_webhook_url_saved %}
+      <div class="note">
+        A URL is saved and in use. Leave blank to keep it unchanged.
+        Every new issue (or failure) is POSTed here as
+        <code>{"title": ..., "message": ...}</code>.
+      </div>
+      {% else %}
+      <div class="note">
+        POSTs <code>{"title": ..., "message": ...}</code> to this URL for
+        every new issue (or failure).
+      </div>
+      {% endif %}
+    </div>
+
     <button type="submit" class="btn btn-primary">Save Settings</button>
   </form>
 </div>

@@ -23,7 +23,9 @@ from flipp_dl.komga import KomgaError
 from flipp_dl.models import Category, Issue, Publication
 from flipp_dl.scheduler import (
     _claim_next_download_job,
+    build_notify_channels,
     recover_stuck_jobs,
+    resolve_notify_settings_from_repo,
     run_download_queue,
     run_komga_sync_queue,
 )
@@ -779,3 +781,231 @@ def test_komga_sync_without_issue_id_still_scans_library(
         assert r.get_job(job_id).status == JobStatus.DONE
 
     assert _FakeKomgaClient.instances[0].scanned == ["lib-1"]
+
+
+# ---------------------------------------------------------------------------
+# Notifications (TASK-1293)
+# ---------------------------------------------------------------------------
+
+
+class _FailingFlippClient(_FakeFlippClient):
+    """Same as _FakeFlippClient, but every download raises - error path."""
+
+    def fetch_issue_pdf_urls(self, _pub_code, _issue_code):
+        raise RuntimeError("Flipp API is down")
+
+
+class _RecordingChannel:
+    name = "recording"
+
+    def __init__(self):
+        self.sent: list[tuple[str, str]] = []
+
+    def send(self, title, message):
+        self.sent.append((title, message))
+
+
+class _ExplodingChannel:
+    """A channel whose send() always raises - must never break a job."""
+
+    name = "exploding"
+
+    def send(self, title, message):
+        raise RuntimeError("channel is down")
+
+
+def test_resolve_notify_settings_from_repo_reads_saved_values(repo, monkeypatch):
+    # This machine has NTFY_URL/NTFY_ENABLED/etc. set in the real shell
+    # environment for unrelated services - env overrides DbSetting (same
+    # precedence as Komga), so isolate from it to test the DB-only path.
+    for env_key in (
+        "NTFY_ENABLED",
+        "NTFY_URL",
+        "NTFY_TOPIC",
+        "NTFY_TOKEN",
+        "NOTIFY_WEBHOOK_ENABLED",
+        "NOTIFY_WEBHOOK_URL",
+    ):
+        monkeypatch.delenv(env_key, raising=False)
+    repo.set_setting("notify_ntfy_enabled", "true")
+    repo.set_setting("notify_ntfy_url", "https://ntfy.example.com")
+    repo.set_setting("notify_ntfy_topic", "flipp-dl")
+    repo.set_setting("notify_ntfy_token", "secret")
+    repo.set_setting("notify_webhook_enabled", "true")
+    repo.set_setting("notify_webhook_url", "https://hooks.example.com/x")
+    repo.session.commit()
+
+    settings = resolve_notify_settings_from_repo(repo)
+
+    assert settings == {
+        "ntfy_enabled": True,
+        "ntfy_url": "https://ntfy.example.com",
+        "ntfy_topic": "flipp-dl",
+        "ntfy_token": "secret",
+        "webhook_enabled": True,
+        "webhook_url": "https://hooks.example.com/x",
+    }
+
+
+def test_resolve_notify_settings_defaults_ntfy_url_to_public_server(repo, monkeypatch):
+    monkeypatch.delenv("NTFY_URL", raising=False)
+    settings = resolve_notify_settings_from_repo(repo)
+    assert settings["ntfy_url"] == "https://ntfy.sh"
+    assert settings["ntfy_enabled"] is False
+    assert settings["webhook_enabled"] is False
+
+
+def test_resolve_notify_settings_env_overrides_db(repo, monkeypatch):
+    repo.set_setting("notify_ntfy_topic", "db-topic")
+    repo.session.commit()
+    monkeypatch.setenv("NTFY_TOPIC", "env-topic")
+
+    settings = resolve_notify_settings_from_repo(repo)
+
+    assert settings["ntfy_topic"] == "env-topic"
+
+
+def test_build_notify_channels_respects_independent_enabled_flags():
+    """Either channel can be on alone, both, or neither - never coupled."""
+    base = {
+        "ntfy_enabled": False,
+        "ntfy_url": "https://ntfy.sh",
+        "ntfy_topic": "flipp-dl",
+        "ntfy_token": "",
+        "webhook_enabled": False,
+        "webhook_url": "https://hooks.example.com/x",
+    }
+
+    assert build_notify_channels(base) == []
+    assert [c.name for c in build_notify_channels({**base, "ntfy_enabled": True})] == [
+        "ntfy"
+    ]
+    assert [
+        c.name for c in build_notify_channels({**base, "webhook_enabled": True})
+    ] == ["webhook"]
+    assert [
+        c.name
+        for c in build_notify_channels(
+            {**base, "ntfy_enabled": True, "webhook_enabled": True}
+        )
+    ] == ["ntfy", "webhook"]
+
+
+def test_build_notify_channels_skips_enabled_channel_missing_required_field():
+    """Enabled-but-unconfigured must not build a channel that would crash."""
+    settings = {
+        "ntfy_enabled": True,
+        "ntfy_url": "https://ntfy.sh",
+        "ntfy_topic": "",  # missing
+        "ntfy_token": "",
+        "webhook_enabled": True,
+        "webhook_url": "",  # missing
+    }
+    assert build_notify_channels(settings) == []
+
+
+def _enable_ntfy(repo: DownloadRepository) -> None:
+    repo.set_setting("notify_ntfy_enabled", "true")
+    repo.set_setting("notify_ntfy_topic", "flipp-dl")
+    repo.session.commit()
+
+
+def test_run_download_queue_sends_one_bundled_notification_for_several_issues(
+    repo, session_factory, tmp_path, monkeypatch
+):
+    """A drain that processes several issues sends ONE summary notification,
+    not one per issue - the point being a bulk backfill of thousands of
+    issues must not flood the channel (see TASK-1293's implementation
+    hints)."""
+    channel = _RecordingChannel()
+    monkeypatch.setattr(
+        "flipp_dl.scheduler.build_notify_channels", lambda settings: [channel]
+    )
+    _enable_ntfy(repo)
+
+    repo.set_setting("flipp_token", "dummy-token")
+    issue_ids = []
+    for i in range(3):
+        pub = Publication(custom_code="KA", name="Kalle Anka & Co")
+        db_pub = repo.upsert_publication(pub)
+        repo.session.commit()
+        issue = Issue(
+            custom_code=f"KA-{i}", issue_name=f"Nr {i}", issue_date="2024-01-01"
+        )
+        db_issue, _created = repo.upsert_issue(issue, db_pub.id)
+        repo.session.commit()
+        repo.create_job("download", {"issue_id": db_issue.id})
+        repo.session.commit()
+        issue_ids.append(db_issue.id)
+
+    processed = run_download_queue(
+        _FakeFlippClient(), session_factory, tmp_path / "out", workers=1
+    )
+    assert processed == 3
+
+    # Exactly one notification for all three successful downloads, not three.
+    assert len(channel.sent) == 1
+    title, message = channel.sent[0]
+    assert "3" in title
+    for issue_id_count in range(3):
+        assert f"Nr {issue_id_count}" in message
+
+
+def test_run_download_queue_sends_no_notification_when_no_channel_configured(
+    repo, session_factory, tmp_path
+):
+    """Default (no channel enabled) must not touch the network at all -
+    build_notify_channels returning [] is enough, no monkeypatch needed."""
+    _queue_download_job(repo)
+    processed = run_download_queue(
+        _FakeFlippClient(), session_factory, tmp_path / "out", workers=1, max_jobs=1
+    )
+    assert processed == 1  # succeeds without a channel configured
+
+
+def test_run_download_queue_notification_failure_does_not_affect_job_status(
+    repo, session_factory, tmp_path, monkeypatch
+):
+    """A channel that raises must never fail the download job - the
+    notification step runs strictly after the job/issue status is already
+    committed as done."""
+    monkeypatch.setattr(
+        "flipp_dl.scheduler.build_notify_channels",
+        lambda settings: [_ExplodingChannel()],
+    )
+    _enable_ntfy(repo)
+    issue_id, job_id = _queue_download_job(repo)
+
+    processed = run_download_queue(
+        _FakeFlippClient(), session_factory, tmp_path / "out", workers=1, max_jobs=1
+    )
+    assert processed == 1
+
+    with get_session(session_factory) as session:
+        r = DownloadRepository(session)
+        assert r.get_issue(issue_id).status == IssueStatus.DONE
+        assert r.get_job(job_id).status == JobStatus.DONE
+
+
+def test_run_download_queue_bundles_failures_into_their_own_notification(
+    repo, session_factory, tmp_path, monkeypatch
+):
+    channel = _RecordingChannel()
+    monkeypatch.setattr(
+        "flipp_dl.scheduler.build_notify_channels", lambda settings: [channel]
+    )
+    _enable_ntfy(repo)
+    issue_id, job_id = _queue_download_job(repo)
+
+    processed = run_download_queue(
+        _FailingFlippClient(), session_factory, tmp_path / "out", workers=1, max_jobs=1
+    )
+    assert processed == 1
+
+    with get_session(session_factory) as session:
+        r = DownloadRepository(session)
+        assert r.get_job(job_id).status == JobStatus.ERROR
+
+    assert len(channel.sent) == 1
+    title, _message = channel.sent[0]
+    assert "misslyckades" in title

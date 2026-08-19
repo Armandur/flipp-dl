@@ -52,6 +52,7 @@ from .komga import (
 )
 from .models import Issue as DomainIssue
 from .models import Publication as DomainPublication
+from .notify import NotificationChannel, NtfyChannel, WebhookChannel, send_all
 
 # Cover images are hosted at fixed resolution suffixes. Requesting the
 # "300m" variant once and caching it is enough for both the publications
@@ -126,6 +127,109 @@ def resolve_komga_settings(session_factory) -> dict:
     """Resolve the current Komga settings in their own short-lived session."""
     with get_session(session_factory) as session:
         return resolve_komga_settings_from_repo(DownloadRepository(session))
+
+
+def resolve_notify_settings_from_repo(repo: DownloadRepository) -> dict:
+    """Resolve the notification settings (TASK-1293).
+
+    Two independent channels, each with its own enabled flag so either
+    can be on, off, or both at once: ntfy (``NTFY_*`` / ``notify_ntfy_*``)
+    and a generic webhook (``NOTIFY_WEBHOOK_*`` / ``notify_webhook_*``).
+    Same env-overrides-DbSetting precedence as Komga - see
+    :func:`resolve_komga_settings_from_repo`.
+    """
+    return {
+        "ntfy_enabled": _parse_bool(
+            _env_or_db("NTFY_ENABLED", repo.get_setting("notify_ntfy_enabled", ""))
+        ),
+        "ntfy_url": (
+            _env_or_db("NTFY_URL", repo.get_setting("notify_ntfy_url", "")).strip()
+            or "https://ntfy.sh"
+        ),
+        "ntfy_topic": _env_or_db(
+            "NTFY_TOPIC", repo.get_setting("notify_ntfy_topic", "")
+        ).strip(),
+        "ntfy_token": _env_or_db(
+            "NTFY_TOKEN", repo.get_setting("notify_ntfy_token", "")
+        ),
+        "webhook_enabled": _parse_bool(
+            _env_or_db(
+                "NOTIFY_WEBHOOK_ENABLED", repo.get_setting("notify_webhook_enabled", "")
+            )
+        ),
+        "webhook_url": _env_or_db(
+            "NOTIFY_WEBHOOK_URL", repo.get_setting("notify_webhook_url", "")
+        ).strip(),
+    }
+
+
+def resolve_notify_settings(session_factory) -> dict:
+    """Resolve the current notification settings in their own session."""
+    with get_session(session_factory) as session:
+        return resolve_notify_settings_from_repo(DownloadRepository(session))
+
+
+def build_notify_channels(settings: dict) -> list[NotificationChannel]:
+    """Instantiate the enabled notification channels from *settings*.
+
+    Each channel is skipped (not sent broken) when enabled but missing
+    its required field - an ntfy topic or a webhook URL - the same
+    "incomplete config is not an error" rule TASK-1326 established for
+    Komga.
+    """
+    channels: list[NotificationChannel] = []
+    if settings["ntfy_enabled"] and settings["ntfy_topic"]:
+        channels.append(
+            NtfyChannel(
+                settings["ntfy_url"], settings["ntfy_topic"], settings["ntfy_token"]
+            )
+        )
+    if settings["webhook_enabled"] and settings["webhook_url"]:
+        channels.append(WebhookChannel(settings["webhook_url"]))
+    return channels
+
+
+# How many issue titles a bundled notification lists by name before
+# collapsing the rest into "... and N more" - keeps a normal few-issues
+# tick readable while a large catch-up run still produces one short
+# message instead of one per issue (or an unbounded wall of text).
+_MAX_LISTED_ISSUES = 20
+
+
+def _format_issue_list(items: list[str]) -> str:
+    if len(items) <= _MAX_LISTED_ISSUES:
+        return "\n".join(items)
+    shown = items[:_MAX_LISTED_ISSUES]
+    return "\n".join(shown) + f"\n... och {len(items) - _MAX_LISTED_ISSUES} till"
+
+
+def _send_download_notifications(
+    channels: list[NotificationChannel], successes: list[str], failures: list[str]
+) -> None:
+    """Send at most one summary notification per outcome for this drain.
+
+    ``run_download_queue`` calls this once, after its loop over every job
+    claimed in this call - not once per issue. A single scheduler tick
+    normally drains one or two jobs, but a bulk backfill (TASK-1291 talks
+    about ~17660 issues) can drain thousands in one call; one notification
+    per issue there would flood the channel, so all of this call's
+    successes are bundled into one message and all of its failures into
+    another.
+    """
+    if successes:
+        count = len(successes)
+        title = (
+            "1 ny utgåva nedladdad" if count == 1 else f"{count} nya utgåvor nedladdade"
+        )
+        send_all(channels, f"Flipp-DL: {title}", _format_issue_list(successes))
+    if failures:
+        count = len(failures)
+        title = (
+            "1 nedladdning misslyckades"
+            if count == 1
+            else f"{count} nedladdningar misslyckades"
+        )
+        send_all(channels, f"Flipp-DL: {title}", _format_issue_list(failures))
 
 
 def _cache_covers(repo: DownloadRepository, new_issues: list[DbIssue]) -> int:
@@ -351,12 +455,16 @@ def run_download_queue(
     client.token = resolve_current_token(session_factory)
     if not client.token:
         return 0
+    notify_channels = build_notify_channels(resolve_notify_settings(session_factory))
+    notify_successes: list[str] = []
+    notify_failures: list[str] = []
     processed = 0
     while max_jobs is None or processed < max_jobs:
         claimed = _claim_next_download_job(session_factory)
         if claimed is None:
             break
         job_id, domain_pub, domain_issue, issue_id = claimed
+        issue_label = f"{domain_pub.name} - {domain_issue.issue_name}"
 
         # Run the download in its own session so status commits are
         # immediately visible to the web UI between jobs.
@@ -371,8 +479,11 @@ def run_download_queue(
                 with get_session(session_factory) as s2:
                     DownloadRepository(s2).finish_job(job_id, error=str(exc))
                 logger.error("Download job %d failed: %s", job_id, exc)
+                notify_failures.append(issue_label)
                 processed += 1
                 continue
+
+        notify_successes.append(issue_label)
 
         with get_session(session_factory) as s2:
             repo2 = DownloadRepository(s2)
@@ -398,6 +509,9 @@ def run_download_queue(
                 )
             repo2.finish_job(job_id)
         processed += 1
+
+    if notify_channels and (notify_successes or notify_failures):
+        _send_download_notifications(notify_channels, notify_successes, notify_failures)
 
     return processed
 

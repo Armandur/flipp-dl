@@ -850,6 +850,32 @@ def register(app: FastAPI) -> None:
             "komga_api_key_saved": bool(repo.get_setting("komga_api_key", "").strip()),
         }
 
+    def _notify_view_settings(repo: DownloadRepository) -> dict:
+        """Notification settings for the template (TASK-1293).
+
+        ``notify_ntfy_token``/``notify_webhook_url`` are secrets - same
+        "boolean saved-state only" pattern as the Komga password/API key
+        above, never the value itself.
+        """
+        return {
+            "notify_ntfy_enabled": repo.get_setting("notify_ntfy_enabled", "")
+            .strip()
+            .lower()
+            == "true",
+            "notify_ntfy_url": repo.get_setting("notify_ntfy_url", ""),
+            "notify_ntfy_topic": repo.get_setting("notify_ntfy_topic", ""),
+            "notify_ntfy_token_saved": bool(
+                repo.get_setting("notify_ntfy_token", "").strip()
+            ),
+            "notify_webhook_enabled": repo.get_setting("notify_webhook_enabled", "")
+            .strip()
+            .lower()
+            == "true",
+            "notify_webhook_url_saved": bool(
+                repo.get_setting("notify_webhook_url", "").strip()
+            ),
+        }
+
     @app.get("/settings", response_class=HTMLResponse)
     async def settings_get(request: Request):
         repo = _repo(request)
@@ -859,6 +885,7 @@ def register(app: FastAPI) -> None:
                 "workers": repo.get_setting("workers", "4"),
                 **_token_settings(repo),
                 **_komga_view_settings(repo),
+                **_notify_view_settings(repo),
             }
             csrf = generate_csrf_token(request)
             return _templates(request).TemplateResponse(
@@ -879,6 +906,12 @@ def register(app: FastAPI) -> None:
         komga_password: str = Form(""),
         komga_api_key: str = Form(""),
         komga_library_id: str = Form(""),
+        notify_ntfy_enabled: str | None = Form(None),
+        notify_ntfy_url: str = Form(""),
+        notify_ntfy_topic: str = Form(""),
+        notify_ntfy_token: str = Form(""),
+        notify_webhook_enabled: str | None = Form(None),
+        notify_webhook_url: str = Form(""),
     ):
         if not await check_csrf_form(request):
             return HTMLResponse("CSRF validation failed", status_code=400)
@@ -903,8 +936,22 @@ def register(app: FastAPI) -> None:
                 repo.set_setting("komga_api_key", komga_api_key.strip())
             repo.set_setting("komga_library_id", komga_library_id.strip())
 
+            repo.set_setting(
+                "notify_ntfy_enabled", "true" if notify_ntfy_enabled else "false"
+            )
+            repo.set_setting("notify_ntfy_url", notify_ntfy_url.strip())
+            repo.set_setting("notify_ntfy_topic", notify_ntfy_topic.strip())
+            if notify_ntfy_token.strip():
+                repo.set_setting("notify_ntfy_token", notify_ntfy_token.strip())
+            repo.set_setting(
+                "notify_webhook_enabled", "true" if notify_webhook_enabled else "false"
+            )
+            if notify_webhook_url.strip():
+                repo.set_setting("notify_webhook_url", notify_webhook_url.strip())
+
             token_settings = _token_settings(repo)
             komga_settings = _komga_view_settings(repo)
+            notify_settings = _notify_view_settings(repo)
 
         csrf = generate_csrf_token(request)
         return _templates(request).TemplateResponse(
@@ -916,6 +963,7 @@ def register(app: FastAPI) -> None:
                     "workers": str(workers),
                     **token_settings,
                     **komga_settings,
+                    **notify_settings,
                 },
                 "csrf_token": csrf,
                 "saved": True,
