@@ -1,5 +1,27 @@
 # Backlog Export
 
+## [P1][done] [flipp] Två utgåvor kan dela filnamn, den ena går förlorad
+
+Hittat i drift: 91:an visar 107 nedladdade utgåvor men mappen innehåller 106 filer. Två utgåvor pekar på exakt samma fil, /output/91an/91an - 2022-02-25 - Nr 6 2022.pdf:
+
+  ab2041c2-bb4d-412a-b567-0e01883d085c  Nr 6 2022  2022-02-25
+  6410d950-be8e-4d05-a9f3-c7184c5801c3  Nr 6 2022  2022-02-25
+
+De är INTE dubbletter hos Flipp. Båda har 52 sidor men helt olika sid-URL:er, alltså två skilda utgåvor med samma namn och datum. Filnamnet byggs av publikation, issue_date och issue_name (issue_path i storage.py), vilket inte är unikt. Den andra nedladdningen träffade skip_existing, hoppades över och markerades ändå som done med den första utgåvans sökväg. Innehållet i den andra utgåvan finns alltså inte på disk någonstans.
+
+Acceptanskriterier:
+- Två utgåvor med samma namn och datum får skilda filnamn, exempelvis med issue-koden som suffix vid krock. Befintliga filnamn ändras inte när ingen krock finns.
+- Nedladdningen markerar aldrig en utgåva som done med en fil som tillhör en annan utgåva. skip_existing ska bara hoppa över när filen hör till samma utgåva.
+- Ett sätt att hitta redan drabbade rader: utgåvor som delar file_path ska gå att lista, och den förlorade ska kunna köas om.
+
+Verifiering: tester i tests/test_storage.py och tests/test_downloader.py för krockfallet, plus kontroll mot driftinstansen att 91:an går från 107/106 till 107/107.
+
+- ID: `01M0D08ZEA0MBSX6NDVHHB9CTQ`
+- Type: bug
+- Actor: ai:claude-opus-5
+
+---
+
 ## [P2][done] [flipp] Köa missade utgåvor när en publikation börjar bevakas
 
 Att kryssa Watch köar ingenting. Poll köar bara NYUPPTÄCKTA utgåvor (new_issues i poll_publications), så allt som redan fanns i databasen när bevakningen slogs på laddas aldrig ner. I praktiken får man leta upp publikationer där Downloaded X/Y har X != Y och trycka download manuellt på varje rad.
