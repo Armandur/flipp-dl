@@ -38,6 +38,27 @@ Rätt fix är troligen en riktig claim-fråga mot DB (SELECT ... WHERE status=qu
 
 ---
 
+## [P3][todo] [flipp] Publikationslistan laddar alla utgåvor för att räkna två tal
+
+list_publications() gör selectinload på DbPublication.issues, så en sidladdning av /publications drar in varje utgåva i databasen - 17660 rader på driftinstansen. Allt som faktiskt används per rad är två tal: antal utgåvor och antal nedladdade (num_issues och num_downloaded i db/models.py).
+
+Ersätt med en aggregerad fråga som räknar per publikation i databasen, i stil med select(publication_id, count(*), count(*) filter (where status = done)) group by publication_id, och mata radmallen med de talen i stället för hela issues-relationen.
+
+Rör även /publications/{code}-detaljsidan, som rimligen behöver utgåvorna på riktigt - där ska relationen vara kvar.
+
+Acceptanskriterier:
+- /publications laddar inte längre issues-relationen för listvyn.
+- Kolumnen Downloaded visar samma tal som i dag.
+- Watch/unwatch-swappen (publication_row.html via HTMX) visar också rätt tal, den renderar samma partial.
+
+Verifiering: riktade tester i tests/test_web_routes.py och tests/test_repository.py. Mät gärna före och efter genom att räkna SQL-satser med en SQLAlchemy-event-lyssnare i testet.
+
+- ID: `01M0CY4MQDY7X4E87NJ2V69G9S`
+- Type: improvement
+- Actor: ai:claude-opus-5
+
+---
+
 ## [P3][done] [flipp] Visa vad ett jobb gäller: målkolumn på /jobs och detaljvy
 
 Jobbtabellen visar bara id, typ, status, tider och ett avhugget felmeddelande. Vilken publikation eller utgåva jobbet gäller står bara som issue_id inuti payload-JSON:en, så raden är i praktiken oläsbar.
