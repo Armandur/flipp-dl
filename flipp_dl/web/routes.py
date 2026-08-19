@@ -299,6 +299,29 @@ def register(app: FastAPI) -> None:
                 repo.create_job("download", {"issue_id": issue.id})
         return await _issue_row(request, code, issue_code)
 
+    @app.post(
+        "/publications/{code}/issues/{issue_code}/cancel",
+        response_class=HTMLResponse,
+    )
+    async def cancel_issue_download(request: Request, code: str, issue_code: str):
+        """Release an issue stuck in queued/downloading.
+
+        Any job still pointing at it is finished as cancelled so the
+        scheduler cannot pick it up afterwards.
+        """
+        if not await check_csrf_form(request):
+            return HTMLResponse("CSRF validation failed", status_code=400)
+        with get_session(request.app.state.session_factory) as session:
+            repo = DownloadRepository(session)
+            pub = repo.get_publication(code)
+            if pub is None:
+                return HTMLResponse("Publication not found", status_code=404)
+            issue = repo.get_issue_by_code(issue_code, pub.id)
+            if issue is None:
+                return HTMLResponse("Issue not found", status_code=404)
+            repo.cancel_issue(issue.id)
+        return await _issue_row(request, code, issue_code)
+
     async def _issue_row(request: Request, code: str, issue_code: str) -> HTMLResponse:
         repo = _repo(request)
         try:

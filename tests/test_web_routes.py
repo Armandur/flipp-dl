@@ -9,6 +9,7 @@ through :class:`fastapi.testclient.TestClient`.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -480,3 +481,69 @@ def test_library_file_times_are_not_shifted_twice(client: TestClient, monkeypatc
     resp = client.get("/library")
     assert resp.status_code == 200
     assert expected in resp.text
+
+
+# ---------------------------------------------------------------------------
+# Cancelling a stuck issue (TASK-1341)
+# ---------------------------------------------------------------------------
+
+
+def _csrf_for(client: TestClient) -> str:
+    """Fetch a page so the session cookie and CSRF token are established."""
+    page = client.get("/publications/KA")
+    match = re.search(r'_csrf_token["\s:]+([A-Za-z0-9_-]+)', page.text)
+    assert match, "no CSRF token rendered on the publication page"
+    return match.group(1)
+
+
+def test_cancel_releases_an_issue_stuck_in_queued(client: TestClient):
+    """A queued issue with no live job must be releasable from the UI."""
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        issue_id = repo.get_issue_by_code("ka01", repo.get_publication("KA").id).id
+        repo.mark_issue_queued(issue_id)
+
+    token = _csrf_for(client)
+    resp = client.post(
+        "/publications/KA/issues/ka01/cancel", data={"_csrf_token": token}
+    )
+    assert resp.status_code == 200
+
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        assert repo.get_issue(issue_id).status == "new"
+
+
+def test_cancel_also_finishes_the_job_behind_the_issue(client: TestClient):
+    """Otherwise the scheduler would pick the job up right after."""
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        issue_id = repo.get_issue_by_code("ka01", repo.get_publication("KA").id).id
+        repo.mark_issue_queued(issue_id)
+        repo.create_job("download", {"issue_id": issue_id})
+
+    token = _csrf_for(client)
+    client.post("/publications/KA/issues/ka01/cancel", data={"_csrf_token": token})
+
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        assert repo.list_active_download_jobs() == []
+        assert repo.count_jobs_by_status()["error"] == 1
+
+
+def test_cancel_requires_csrf(client: TestClient):
+    resp = client.post("/publications/KA/issues/ka01/cancel", data={})
+    assert resp.status_code == 400
+
+
+def test_issue_row_offers_cancel_while_queued(client: TestClient):
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        repo.mark_issue_queued(
+            repo.get_issue_by_code("ka01", repo.get_publication("KA").id).id
+        )
+
+    resp = client.get("/publications/KA/issues/ka01/row")
+    assert resp.status_code == 200
+    assert "/issues/ka01/cancel" in resp.text
+    assert "disabled" not in resp.text

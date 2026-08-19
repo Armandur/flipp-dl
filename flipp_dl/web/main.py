@@ -48,11 +48,15 @@ app = create_app(db_path=_db_path, output_root=_output_root)
 # Background scheduler (starts when the module is loaded by Uvicorn)
 # -------------------------------------------------------------------------
 
+# Release rows left half-finished by a crash or restart. This runs even
+# without a token: the scheduler stays off, but the UI should never show
+# a queued row that nothing will ever pick up.
+_session_factory = make_session_factory(_db_path)
+recover_stuck_jobs(_session_factory)
+
 _token = load_token()
 if _token:
     _client = FlippClient(_token)
-    _session_factory = make_session_factory(_db_path)
-    recover_stuck_jobs(_session_factory)
 
     _scheduler = BackgroundScheduler(timezone="UTC")
     _scheduler.add_job(

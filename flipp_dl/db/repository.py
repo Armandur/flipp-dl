@@ -436,6 +436,79 @@ class DownloadRepository:
                     issue.status = IssueStatus.QUEUED
         return len(stuck_jobs)
 
+    def list_active_download_jobs(self) -> list[DbJob]:
+        """Download jobs that are still queued or running."""
+        return list(
+            self.session.scalars(
+                select(DbJob).where(
+                    DbJob.job_type == "download",
+                    DbJob.status.in_((JobStatus.QUEUED, JobStatus.RUNNING)),
+                )
+            )
+        )
+
+    def reset_orphaned_issues(self) -> int:
+        """Reset issues stuck in queued/downloading with no job behind them.
+
+        Issue status and the jobs table can drift apart - a restart at
+        the wrong moment, or a job that died after the issue was marked
+        queued. The row then sits there forever: nothing picks it up,
+        and the UI refuses to re-queue an issue that already claims to
+        be queued (TASK-1341).
+
+        Returns the number of issues reset.
+        """
+        active_issue_ids: set[int] = set()
+        for job in self.list_active_download_jobs():
+            try:
+                payload = json.loads(job.payload or "{}")
+            except (TypeError, ValueError):
+                continue
+            issue_id = payload.get("issue_id")
+            if issue_id is not None:
+                try:
+                    active_issue_ids.add(int(issue_id))
+                except (TypeError, ValueError):
+                    continue
+
+        stuck = self.session.scalars(
+            select(DbIssue).where(
+                DbIssue.status.in_((IssueStatus.QUEUED, IssueStatus.DOWNLOADING))
+            )
+        )
+        reset = 0
+        for issue in stuck:
+            if issue.id in active_issue_ids:
+                continue
+            issue.status = IssueStatus.NEW
+            issue.progress_current = 0
+            issue.progress_total = 0
+            reset += 1
+        return reset
+
+    def cancel_issue(self, issue_id: int) -> int:
+        """Stop an in-flight issue: reset it and finish its jobs.
+
+        Returns the number of jobs that were marked cancelled. Used by
+        the UI so a stuck row always has a way out.
+        """
+        cancelled = 0
+        for job in self.list_active_download_jobs():
+            try:
+                payload = json.loads(job.payload or "{}")
+            except (TypeError, ValueError):
+                continue
+            if payload.get("issue_id") == issue_id:
+                self.finish_job(job.id, error="Cancelled from the web UI")
+                cancelled += 1
+
+        issue = self.session.get(DbIssue, issue_id)
+        if issue is not None:
+            issue.status = IssueStatus.NEW
+            issue.progress_current = 0
+            issue.progress_total = 0
+        return cancelled
+
     def purge_old_jobs(
         self,
         *,

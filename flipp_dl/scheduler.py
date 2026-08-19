@@ -99,8 +99,14 @@ def recover_stuck_jobs(session_factory) -> int:
     with get_session(session_factory) as session:
         repo = DownloadRepository(session)
         reset = repo.reset_stuck_download_jobs()
+        orphaned = repo.reset_orphaned_issues()
     if reset:
         logger.info("Startup: reset %d stuck running download job(s) to queued", reset)
+    if orphaned:
+        logger.info(
+            "Startup: reset %d issue(s) stuck without a job to not-downloaded",
+            orphaned,
+        )
     return reset
 
 

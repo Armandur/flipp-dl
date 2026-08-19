@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from flipp_dl.db.models import DbJob, IssueStatus, JobStatus
 from flipp_dl.db.repository import DownloadRepository
-from flipp_dl.db.session import make_session_factory
+from flipp_dl.db.session import get_session, make_session_factory
 from flipp_dl.models import Issue, Publication
 from flipp_dl.scheduler import _claim_next_download_job, recover_stuck_jobs
 
@@ -126,3 +126,33 @@ def test_recover_stuck_jobs_leaves_other_statuses_alone(repo, session_factory):
     assert repo.session.get(DbJob, queued_job.id).status == JobStatus.QUEUED
     assert repo.session.get(DbJob, done_job.id).status == JobStatus.DONE
     assert repo.session.get(DbJob, poll_job.id).status == JobStatus.RUNNING
+
+
+def test_recover_resets_issue_stuck_without_a_job(repo, session_factory):
+    """An issue queued with no job behind it must be released.
+
+    This is the drift seen in production: the issue claimed to be
+    queued while the jobs table had nothing for it, and the UI refuses
+    to re-queue an issue that is already queued (TASK-1341).
+    """
+    issue_id = _seed_issue(repo)
+    repo.mark_issue_queued(issue_id)
+    repo.session.commit()
+
+    assert recover_stuck_jobs(session_factory) == 0  # no running jobs to reset
+
+    with get_session(session_factory) as session:
+        assert DownloadRepository(session).get_issue(issue_id).status == IssueStatus.NEW
+
+
+def test_recover_leaves_issues_with_a_live_job_alone(repo, session_factory):
+    issue_id = _seed_issue(repo)
+    repo.mark_issue_queued(issue_id)
+    repo.create_job("download", {"issue_id": issue_id})
+    repo.session.commit()
+
+    recover_stuck_jobs(session_factory)
+
+    with get_session(session_factory) as session:
+        issue = DownloadRepository(session).get_issue(issue_id)
+        assert issue.status == IssueStatus.QUEUED
