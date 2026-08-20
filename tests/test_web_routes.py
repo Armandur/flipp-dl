@@ -2221,3 +2221,13 @@ def test_search_nav_link_present_and_active(client: TestClient):
     resp = client.get("/search")
     assert resp.status_code == 200
     assert 'href="/search"' in resp.text
+
+
+def test_dashboard_shows_issue_covers_in_recent_downloads(client: TestClient):
+    """Recent downloads gets the same cover column as the other lists."""
+    resp = client.get("/")
+    assert resp.status_code == 200
+    # ka01 is the seeded downloaded issue.
+    assert "/publications/KA/issues/ka01/cover" in resp.text
+    # And it opens the lightbox like covers elsewhere.
+    assert "/publications/KA/issues/ka01/cover/large" in resp.text

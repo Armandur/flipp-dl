@@ -11,9 +11,11 @@
 <h2>{{ _("Recent Downloads") }}</h2>
 <div class="card">
   {% if recent_issues %}
+  <div class="table-scroll">
   <table>
     <thead>
       <tr>
+        <th style="width:56px;"></th>
         <th>{{ _("Issue") }}</th>
         <th>{{ _("Publication") }}</th>
         <th>{{ _("Downloaded At") }}</th>
@@ -23,6 +25,20 @@
     <tbody>
       {% for issue in recent_issues %}
       <tr>
+        {# Same cover treatment as the issue and publication lists - the
+           cache is already populated, so this costs no extra query. #}
+        <td class="cover-cell">
+          <img
+            class="pub-cover"
+            src="/publications/{{ issue.publication.custom_code }}/issues/{{ issue.custom_code }}/cover"
+            data-lightbox-src="/publications/{{ issue.publication.custom_code }}/issues/{{ issue.custom_code }}/cover/large"
+            alt="{{ _('Enlarge cover') }}"
+            loading="lazy"
+            decoding="async"
+            referrerpolicy="no-referrer"
+            onerror="this.style.visibility='hidden';"
+          >
+        </td>
         <td>{{ issue.issue_name }}</td>
         <td>{{ issue.publication.name }}</td>
         <td class="dim">
@@ -50,6 +66,7 @@
       {% endfor %}
     </tbody>
   </table>
+  </div>
   {% else %}
   <div class="empty">{{ _("No downloads yet.") }}</div>
   {% endif %}
