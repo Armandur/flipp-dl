@@ -4,6 +4,7 @@
 {% block content %}
 <h1>{{ _("Settings") }}</h1>
 
+<div class="settings-page">
 {% if saved %}
 <div class="flash">{{ _("Settings saved successfully.") }}</div>
 {% endif %}
@@ -276,48 +277,57 @@
   </form>
 </div>
 
-<h2>{{ _("Import existing files") }}</h2>
-<div class="note">
-  {{ _("Scan the output folder and reconcile it with the database: a file that already sits on disk marks its issue downloaded without fetching it again. Anything the scan can't explain - orphan files, a downloaded issue whose file has vanished, or two issues sharing one file - is reported below instead of being fixed silently.") }}
-</div>
+<section class="settings-actions" aria-labelledby="settings-actions-heading">
+  <h2 id="settings-actions-heading">{{ _("Actions") }}</h2>
 
-<div class="form-card" style="max-width: 100%;">
-  <button
-    type="button"
-    class="btn btn-primary"
-    id="import-existing-btn"
-    hx-post="/settings/import-existing"
-    hx-target="#import-existing-output"
-    hx-swap="innerHTML"
-    hx-indicator="#import-existing-spinner"
-    hx-vals='{"_csrf_token": "{{ csrf_token }}"}'
-  >{{ _("Import existing files") }}</button>
-  <span id="import-existing-spinner" class="htmx-indicator dim" style="margin-left:12px;">
-    {{ _("Scanning…") }}
-  </span>
-  <div id="import-existing-output" style="margin-top:18px;"></div>
-</div>
+  <div class="settings-action">
+    <h3>{{ _("Import existing files") }}</h3>
+    <div class="note">
+      {{ _("Scan the output folder and reconcile it with the database: a file that already sits on disk marks its issue downloaded without fetching it again. Anything the scan can't explain - orphan files, a downloaded issue whose file has vanished, or two issues sharing one file - is reported below instead of being fixed silently.") }}
+    </div>
 
-<h2>{{ _("Debug") }}</h2>
-<div class="note">
-  {{ _("Run a manual poll against the Flipp API and inspect the raw") }}
-  <code>refreshsignintoken</code> {{ _("response. Useful for verifying your token and spotting new fields. Sensitive fields") }}
-  (<code>token</code>, <code>password</code>, <code>email</code>) {{ _("are redacted before the response reaches your browser.") }}
-</div>
+    <div class="form-card">
+      <button
+        type="button"
+        class="btn btn-primary"
+        id="import-existing-btn"
+        hx-post="/settings/import-existing"
+        hx-target="#import-existing-output"
+        hx-swap="innerHTML"
+        hx-indicator="#import-existing-spinner"
+        hx-vals='{"_csrf_token": "{{ csrf_token }}"}'
+      >{{ _("Import existing files") }}</button>
+      <span id="import-existing-spinner" class="htmx-indicator dim" style="margin-left:12px;">
+        {{ _("Scanning…") }}
+      </span>
+      <div id="import-existing-output" style="margin-top:18px;"></div>
+    </div>
+  </div>
 
-<div class="form-card" style="max-width: 100%;">
-  <button
-    type="button"
-    class="btn btn-primary"
-    hx-post="/settings/debug-poll"
-    hx-target="#debug-output"
-    hx-swap="innerHTML"
-    hx-indicator="#debug-spinner"
-    hx-vals='{"_csrf_token": "{{ csrf_token }}"}'
-  >{{ _("Run manual poll") }}</button>
-  <span id="debug-spinner" class="htmx-indicator dim" style="margin-left:12px;">
-    {{ _("Polling Flipp API…") }}
-  </span>
-  <div id="debug-output" style="margin-top:18px;"></div>
+  <div class="settings-action">
+    <h3>{{ _("Debug") }}</h3>
+    <div class="note">
+      {{ _("Run a manual poll against the Flipp API and inspect the raw") }}
+      <code>refreshsignintoken</code> {{ _("response. Useful for verifying your token and spotting new fields. Sensitive fields") }}
+      (<code>token</code>, <code>password</code>, <code>email</code>) {{ _("are redacted before the response reaches your browser.") }}
+    </div>
+
+    <div class="form-card">
+      <button
+        type="button"
+        class="btn btn-primary"
+        hx-post="/settings/debug-poll"
+        hx-target="#debug-output"
+        hx-swap="innerHTML"
+        hx-indicator="#debug-spinner"
+        hx-vals='{"_csrf_token": "{{ csrf_token }}"}'
+      >{{ _("Run manual poll") }}</button>
+      <span id="debug-spinner" class="htmx-indicator dim" style="margin-left:12px;">
+        {{ _("Polling Flipp API…") }}
+      </span>
+      <div id="debug-output" style="margin-top:18px;"></div>
+    </div>
+  </div>
+</section>
 </div>
 {% endblock %}
