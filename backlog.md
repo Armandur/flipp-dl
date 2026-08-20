@@ -214,7 +214,7 @@ Rätt fix är troligen en riktig claim-fråga mot DB (SELECT ... WHERE status=qu
 
 ---
 
-## [P3][todo] [flipp] Visa storlek på disk som kolumn i publikationslistan
+## [P3][done] [flipp] Visa storlek på disk som kolumn i publikationslistan
 
 Publikationslistan visar nedladdade av totalt, men inte vad publikationen väger. Med 94 publikationer och 53 GB på disk är det den siffra som säger var utrymmet tar vägen.
 
