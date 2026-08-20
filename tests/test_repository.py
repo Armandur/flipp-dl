@@ -329,6 +329,47 @@ def test_list_publications_zero_issues_reports_zero(repo):
     assert pubs[0].num_downloaded == 0
 
 
+def test_list_publications_sums_size_bytes_from_the_aggregated_query(repo):
+    """size_bytes/size_unknown_count come from the same GROUP BY query as
+    num_issues/num_downloaded (TASK-1379) - not a per-publication round trip.
+    """
+    repo.sync_publications([_publication("KA")])
+    repo.session.commit()
+    issues = list(repo.session.scalars(select(DbIssue)))
+    repo.mark_issue_done(issues[0].id, "/tmp/a.pdf", file_size=1000)
+    # Second issue done but predates TASK-1362 - no known size.
+    repo.mark_issue_done(issues[1].id, "/tmp/b.pdf", file_size=None)
+    repo.session.commit()
+
+    pubs = repo.list_publications()
+    assert len(pubs) == 1
+    pub = pubs[0]
+    assert "issues" in sa_inspect(pub).unloaded
+    assert pub.size_bytes == 1000
+    assert pub.size_unknown_count == 1
+
+
+def test_list_publications_size_unknown_count_zero_when_all_sizes_known(repo):
+    pub = _pub_with_sized_issues(
+        repo, [(IssueStatus.DONE, 100), (IssueStatus.DONE, 200)]
+    )
+    repo.session.commit()
+
+    pubs = repo.list_publications()
+    assert pubs[0].id == pub.id
+    assert pubs[0].size_bytes == 300
+    assert pubs[0].size_unknown_count == 0
+
+
+def test_list_publications_size_bytes_zero_when_no_downloaded_issues(repo):
+    repo.upsert_publication(Publication(custom_code="EMPTY", name="Empty", issues=[]))
+    repo.session.commit()
+
+    pubs = repo.list_publications()
+    assert pubs[0].size_bytes == 0
+    assert pubs[0].size_unknown_count == 0
+
+
 # ---------------------------------------------------------------------------
 # Issues
 # ---------------------------------------------------------------------------

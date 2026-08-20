@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-08-20 16:59+0200\n"
+"POT-Creation-Date: 2026-08-20 17:11+0200\n"
 "PO-Revision-Date: 2026-08-19 18:14+0200\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: sv\n"
@@ -18,50 +18,50 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.18.0\n"
 
-#: flipp_dl/web/templates/base.html:240 flipp_dl/web/templates/dashboard.html:2
+#: flipp_dl/web/templates/base.html:248 flipp_dl/web/templates/dashboard.html:2
 #: flipp_dl/web/templates/dashboard.html:5
 msgid "Dashboard"
 msgstr "Översikt"
 
-#: flipp_dl/web/templates/base.html:241
+#: flipp_dl/web/templates/base.html:249
 #: flipp_dl/web/templates/publications.html:2
 #: flipp_dl/web/templates/publications.html:5
 #: flipp_dl/web/templates/stats_cards.html:3
 msgid "Publications"
 msgstr "Publikationer"
 
-#: flipp_dl/web/templates/base.html:242 flipp_dl/web/templates/search.html:2
+#: flipp_dl/web/templates/base.html:250 flipp_dl/web/templates/search.html:2
 #: flipp_dl/web/templates/search.html:5 flipp_dl/web/templates/search.html:31
 msgid "Search"
 msgstr "Sök"
 
-#: flipp_dl/web/templates/base.html:243 flipp_dl/web/templates/library.html:2
+#: flipp_dl/web/templates/base.html:251 flipp_dl/web/templates/library.html:2
 #: flipp_dl/web/templates/library.html:5
 #: flipp_dl/web/templates/settings.html:153
 msgid "Library"
 msgstr "Bibliotek"
 
-#: flipp_dl/web/templates/base.html:244 flipp_dl/web/templates/jobs.html:2
+#: flipp_dl/web/templates/base.html:252 flipp_dl/web/templates/jobs.html:2
 #: flipp_dl/web/templates/jobs.html:5
 msgid "Jobs"
 msgstr "Jobb"
 
-#: flipp_dl/web/templates/base.html:245 flipp_dl/web/templates/settings.html:2
+#: flipp_dl/web/templates/base.html:253 flipp_dl/web/templates/settings.html:2
 #: flipp_dl/web/templates/settings.html:5
 msgid "Settings"
 msgstr "Inställningar"
 
-#: flipp_dl/web/templates/base.html:252
+#: flipp_dl/web/templates/base.html:260
 msgid "Sign out"
 msgstr "Logga ut"
 
-#: flipp_dl/web/templates/base.html:266
+#: flipp_dl/web/templates/base.html:274
 #: flipp_dl/web/templates/issue_row.html:78
 #: flipp_dl/web/templates/issue_row.html:90
 msgid "Cancel"
 msgstr "Avbryt"
 
-#: flipp_dl/web/templates/base.html:267
+#: flipp_dl/web/templates/base.html:275
 msgid "Confirm"
 msgstr "Bekräfta"
 
@@ -70,7 +70,7 @@ msgid "Recent Downloads"
 msgstr "Senaste nedladdningar"
 
 #: flipp_dl/web/templates/dashboard.html:17
-#: flipp_dl/web/templates/publication_detail.html:155
+#: flipp_dl/web/templates/publication_detail.html:156
 #: flipp_dl/web/templates/search.html:43
 msgid "Issue"
 msgstr "Utgåva"
@@ -86,7 +86,7 @@ msgstr "Nedladdad"
 
 #: flipp_dl/web/templates/dashboard.html:20
 #: flipp_dl/web/templates/library.html:41
-#: flipp_dl/web/templates/publication_detail.html:159
+#: flipp_dl/web/templates/publication_detail.html:160
 msgid "File"
 msgstr "Fil"
 
@@ -107,7 +107,7 @@ msgstr "Typ"
 #: flipp_dl/web/templates/dashboard.html:67
 #: flipp_dl/web/templates/job_detail.html:19
 #: flipp_dl/web/templates/jobs.html:28
-#: flipp_dl/web/templates/publication_detail.html:157
+#: flipp_dl/web/templates/publication_detail.html:158
 #: flipp_dl/web/templates/search.html:46
 msgid "Status"
 msgstr "Status"
@@ -207,7 +207,7 @@ msgstr "Ingen avvikelse hittad - databasen och utdatamappen stämmer överens."
 
 #: flipp_dl/web/templates/issue_row.html:25
 #: flipp_dl/web/templates/publication_detail.html:138
-#: flipp_dl/web/templates/publications.html:35
+#: flipp_dl/web/templates/publications.html:36
 #: flipp_dl/web/templates/search.html:23 flipp_dl/web/templates/search.html:60
 #: flipp_dl/web/templates/stats_cards.html:15
 msgid "Downloaded"
@@ -243,7 +243,7 @@ msgstr "Ej nedladdad"
 
 #: flipp_dl/web/templates/issue_row.html:45
 #: flipp_dl/web/templates/publication_detail.html:143
-#: flipp_dl/web/templates/publication_detail.html:158
+#: flipp_dl/web/templates/publication_detail.html:159
 msgid "Read"
 msgstr "Läst"
 
@@ -266,7 +266,9 @@ msgstr "Avbryta den här nedladdningen? Utgåvan blir ej nedladdad igen."
 
 #: flipp_dl/web/templates/issue_row.html:89
 msgid "Cancel the pending automatic retry? The issue goes back to not downloaded."
-msgstr "Avbryta det schemalagda automatiska omförsöket? Utgåvan blir ej nedladdad igen."
+msgstr ""
+"Avbryta det schemalagda automatiska omförsöket? Utgåvan blir ej nedladdad"
+" igen."
 
 #: flipp_dl/web/templates/issue_row.html:98
 msgid "Open"
@@ -357,7 +359,7 @@ msgid "Payload"
 msgstr "Nyttolast"
 
 #: flipp_dl/web/templates/jobs.html:104
-#: flipp_dl/web/templates/publication_row.html:57
+#: flipp_dl/web/templates/publication_row.html:72
 msgid "No"
 msgstr "Nej"
 
@@ -419,6 +421,7 @@ msgid "Modified"
 msgstr "Ändrad"
 
 #: flipp_dl/web/templates/library.html:43
+#: flipp_dl/web/templates/publications.html:37
 msgid "Size"
 msgstr "Storlek"
 
@@ -457,7 +460,7 @@ msgid "Next issue:"
 msgstr "Nästa utgåva:"
 
 #: flipp_dl/web/templates/publication_detail.html:26
-#: flipp_dl/web/templates/publications.html:37
+#: flipp_dl/web/templates/publications.html:39
 #: flipp_dl/web/templates/stats_cards.html:7
 msgid "Watched"
 msgstr "Bevakad"
@@ -528,35 +531,57 @@ msgstr "Alla statusar"
 msgid "Read/unread"
 msgstr "Läst/oläst"
 
-#: flipp_dl/web/templates/publication_detail.html:156
+#: flipp_dl/web/templates/publication_detail.html:157
 #: flipp_dl/web/templates/search.html:44
 msgid "Date"
 msgstr "Datum"
 
-#: flipp_dl/web/templates/publication_detail.html:160
+#: flipp_dl/web/templates/publication_detail.html:161
 #: flipp_dl/web/templates/search.html:47
 msgid "Action"
 msgstr "Åtgärd"
 
-#: flipp_dl/web/templates/publication_detail.html:170
+#: flipp_dl/web/templates/publication_detail.html:172
 msgid "No issues match the current filters."
 msgstr "Inga utgåvor matchar de aktuella filtren."
 
-#: flipp_dl/web/templates/publication_detail.html:174
+#: flipp_dl/web/templates/publication_detail.html:176
 msgid "No issues for this publication yet. Run a poll to refresh."
 msgstr ""
 "Inga utgåvor för den här publikationen än. Kör en pollning för att "
 "uppdatera."
 
-#: flipp_dl/web/templates/publication_row.html:55
+#: flipp_dl/web/templates/publication_row.html:52
+#, python-format
+msgid ""
+"%(count)s downloaded issues have no recorded size (downloaded before size"
+" tracking was added)."
+msgstr ""
+"%(count)s nedladdade utgåvor saknar registrerad storlek (nedladdade "
+"innan storleksspårning infördes)."
+
+#: flipp_dl/web/templates/publication_row.html:52
+msgid "unknown"
+msgstr "okänd"
+
+#: flipp_dl/web/templates/publication_row.html:56
+#, python-format
+msgid ""
+"%(count)s downloaded issues have no recorded size (downloaded before size"
+" tracking was added) and are not included in this total."
+msgstr ""
+"%(count)s nedladdade utgåvor saknar registrerad storlek (nedladdade "
+"innan storleksspårning infördes) och räknas inte in i summan."
+
+#: flipp_dl/web/templates/publication_row.html:70
 msgid "Yes"
 msgstr "Ja"
 
-#: flipp_dl/web/templates/publication_row.html:68
+#: flipp_dl/web/templates/publication_row.html:83
 msgid "Unwatch"
 msgstr "Sluta bevaka"
 
-#: flipp_dl/web/templates/publication_row.html:76
+#: flipp_dl/web/templates/publication_row.html:91
 msgid "Watch"
 msgstr "Bevaka"
 
@@ -572,27 +597,27 @@ msgstr "Alla kategorier"
 msgid "Watched only"
 msgstr "Bara bevakade"
 
-#: flipp_dl/web/templates/publications.html:33
+#: flipp_dl/web/templates/publications.html:34
 msgid "Name"
 msgstr "Namn"
 
-#: flipp_dl/web/templates/publications.html:34
+#: flipp_dl/web/templates/publications.html:35
 msgid "Categories"
 msgstr "Kategorier"
 
-#: flipp_dl/web/templates/publications.html:36
+#: flipp_dl/web/templates/publications.html:38
 msgid "Next issue"
 msgstr "Nästa utgåva"
 
-#: flipp_dl/web/templates/publications.html:38
+#: flipp_dl/web/templates/publications.html:40
 msgid "Actions"
 msgstr "Åtgärder"
 
-#: flipp_dl/web/templates/publications.html:48
+#: flipp_dl/web/templates/publications.html:51
 msgid "No publications match the current filters."
 msgstr "Inga publikationer matchar de aktuella filtren."
 
-#: flipp_dl/web/templates/publications.html:52
+#: flipp_dl/web/templates/publications.html:55
 msgid "No publications found. Run a poll to discover publications from Flipp."
 msgstr ""
 "Inga publikationer hittades. Kör en pollning för att hitta publikationer "

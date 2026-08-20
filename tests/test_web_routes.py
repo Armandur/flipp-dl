@@ -918,6 +918,99 @@ def test_unwatch_response_row_keeps_its_download_count(client: TestClient):
     assert (match.group(1), match.group(2)) == ("1", "1")
 
 
+# ---------------------------------------------------------------------------
+# Size-on-disk column (TASK-1379)
+# ---------------------------------------------------------------------------
+
+
+def test_publications_list_shows_known_size(client: TestClient):
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        issue = repo.get_issue_by_code("ka01", repo.get_publication("KA").id)
+        issue.file_size = 50 * 1024 * 1024  # 50 MB
+
+    resp = client.get("/publications")
+    assert resp.status_code == 200
+    assert "50.0 MB" in resp.text
+    # A fully-known size shows plain, without the partial-total tilde.
+    assert "~50.0 MB" not in resp.text
+
+
+def test_publications_list_shows_unknown_for_unsized_downloads(client: TestClient):
+    """The seeded ka01 issue is done but predates TASK-1362's file_size -
+    a downloaded publication must never read as "0 B" on disk.
+    """
+    resp = client.get("/publications")
+    assert resp.status_code == 200
+    assert "unknown" in resp.text or "okänd" in resp.text
+    assert "0 B" not in resp.text
+
+
+def test_publications_list_flags_partial_total_with_tilde(client: TestClient):
+    """One sized issue plus one unsized issue -> a partial, flagged total."""
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        pub = repo.get_publication("KA")
+        issue = repo.get_issue_by_code("ka01", pub.id)
+        issue.file_size = 10 * 1024 * 1024  # 10 MB, known
+        second = Issue(custom_code="ka02", issue_name="Nr 2", issue_date="2024-02-01")
+        db_issue, _ = repo.upsert_issue(second, pub.id)
+        repo.mark_issue_done(db_issue.id, "/tmp/ka02.pdf")  # file_size stays None
+
+    resp = client.get("/publications")
+    assert resp.status_code == 200
+    assert "~10.0 MB" in resp.text
+
+
+def test_publications_list_shows_dash_when_nothing_downloaded(client: TestClient):
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        repo.upsert_publication(
+            Publication(custom_code="NEWPUB", name="New", issues=[])
+        )
+        repo.upsert_issue(
+            Issue(custom_code="np01", issue_name="Nr 1", issue_date="2024-01-01"),
+            repo.get_publication("NEWPUB").id,
+        )
+
+    resp = client.get("/publications")
+    assert resp.status_code == 200
+    match = re.search(r'<tr\s+id="pub-row-NEWPUB".*?</tr>', resp.text, re.DOTALL)
+    assert match, resp.text
+    row_html = match.group(0)
+    # Not downloaded at all - no size total, and definitely no fabricated
+    # "0 B" for a publication that hasn't downloaded a single issue.
+    assert "0 B" not in row_html
+    assert "—" in row_html
+
+
+def test_watch_response_row_keeps_its_size(client: TestClient):
+    """The HTMX-swapped row after Watch must still show the size total -
+    same failure mode as the ratio in TASK-1338, now for size (TASK-1379).
+    """
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        issue = repo.get_issue_by_code("ka01", repo.get_publication("KA").id)
+        issue.file_size = 50 * 1024 * 1024
+
+    token = _csrf_for(client)
+    resp = client.post("/publications/KA/watch", data={"_csrf_token": token})
+    assert resp.status_code == 200
+    assert "50.0 MB" in resp.text
+
+
+def test_unwatch_response_row_keeps_its_size(client: TestClient):
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        issue = repo.get_issue_by_code("ka01", repo.get_publication("KA").id)
+        issue.file_size = 50 * 1024 * 1024
+
+    token = _csrf_for(client)
+    resp = client.post("/publications/KA/unwatch", data={"_csrf_token": token})
+    assert resp.status_code == 200
+    assert "50.0 MB" in resp.text
+
+
 def test_queue_missing_queues_without_watching(client: TestClient):
     """Catching up must not change the watch flag."""
     with get_session(client.app.state.session_factory) as session:

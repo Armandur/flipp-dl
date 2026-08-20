@@ -265,7 +265,12 @@ class DownloadRepository:
         to drag in every issue in the database (17660 rows on the
         production instance) just to compute two integers (TASK-1338).
         The counts are aggregated in the DB instead and handed to each
-        row via the ``num_issues``/``num_downloaded`` setters.
+        row via the ``num_issues``/``num_downloaded`` setters. The same
+        query also aggregates the on-disk size (TASK-1379): summing
+        ``file_size`` and counting how many downloaded issues are missing
+        it are both cheap additions to a query that's already grouping by
+        publication, so there's no separate round-trip and no per-row
+        filesystem stat().
         """
         q = select(DbPublication).options(selectinload(DbPublication.categories))
         if watched_only:
@@ -273,27 +278,42 @@ class DownloadRepository:
         pubs = list(self.session.scalars(q))
         counts = self._issue_counts_by_publication()
         for pub in pubs:
-            total, done = counts.get(pub.id, (0, 0))
+            total, done, size_bytes, size_unknown = counts.get(pub.id, (0, 0, 0, 0))
             pub.num_issues = total
             pub.num_downloaded = done
+            pub.size_bytes = size_bytes
+            pub.size_unknown_count = size_unknown
         return pubs
 
-    def _issue_counts_by_publication(self) -> dict[int, tuple[int, int]]:
-        """Return ``{publication_id: (total_issues, done_issues)}``.
+    def _issue_counts_by_publication(
+        self,
+    ) -> dict[int, tuple[int, int, int, int]]:
+        """Return ``{publication_id: (total, done, size_bytes, size_unknown)}``.
 
         One grouped query over the issues table instead of one row per
-        issue - see :meth:`list_publications`.
+        issue - see :meth:`list_publications`. ``size_bytes`` sums only the
+        downloaded issues with a known ``file_size``; ``size_unknown`` counts
+        downloaded issues where it's ``NULL`` (pre-TASK-1362 data) so the
+        caller can tell an undercount from a genuine zero.
         """
+        is_done = DbIssue.status == IssueStatus.DONE
         rows = self.session.execute(
             select(
                 DbIssue.publication_id,
                 func.count(DbIssue.id),
-                func.sum(case((DbIssue.status == IssueStatus.DONE, 1), else_=0)),
+                func.sum(case((is_done, 1), else_=0)),
+                func.sum(case((is_done, func.coalesce(DbIssue.file_size, 0)), else_=0)),
+                func.sum(case((is_done & DbIssue.file_size.is_(None), 1), else_=0)),
             ).group_by(DbIssue.publication_id)
         ).all()
         return {
-            publication_id: (int(total), int(done or 0))
-            for publication_id, total, done in rows
+            publication_id: (
+                int(total),
+                int(done or 0),
+                int(size_bytes or 0),
+                int(size_unknown or 0),
+            )
+            for publication_id, total, done, size_bytes, size_unknown in rows
         }
 
     def set_watched(self, custom_code: str, enabled: bool) -> bool:

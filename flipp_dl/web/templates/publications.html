@@ -26,6 +26,7 @@
 
 <div class="card">
   {% if publications %}
+  <div class="table-scroll">
   <table>
     <thead>
       <tr>
@@ -33,6 +34,7 @@
         <th>{{ _("Name") }}</th>
         <th>{{ _("Categories") }}</th>
         <th style="text-align:center;">{{ _("Downloaded") }}</th>
+        <th style="text-align:right;">{{ _("Size") }}</th>
         <th>{{ _("Next issue") }}</th>
         <th style="text-align:center;">{{ _("Watched") }}</th>
         <th>{{ _("Actions") }}</th>
@@ -44,6 +46,7 @@
       {% endfor %}
     </tbody>
   </table>
+  </div>
   <div id="pub-empty" class="empty" style="display:none;">
     {{ _("No publications match the current filters.") }}
   </div>

@@ -151,6 +151,48 @@ class DbPublication(Base):
     def num_downloaded(self, value: int) -> None:
         self._num_downloaded_override = value
 
+    @property
+    def size_bytes(self) -> int:
+        """Sum of ``issues.file_size`` for this publication's downloaded issues.
+
+        Only counts issues where the size is actually known - see
+        ``size_unknown_count`` for issues downloaded before TASK-1362 added
+        the column, which must never be silently counted as 0 bytes.
+        """
+        override = getattr(self, "_size_bytes_override", None)
+        if override is not None:
+            return override
+        return sum(
+            issue.file_size
+            for issue in self.issues
+            if issue.status == IssueStatus.DONE and issue.file_size is not None
+        )
+
+    @size_bytes.setter
+    def size_bytes(self, value: int) -> None:
+        """Let the repository hand in a pre-aggregated sum (TASK-1379)."""
+        self._size_bytes_override = value
+
+    @property
+    def size_unknown_count(self) -> int:
+        """Count of downloaded issues with no recorded ``file_size``.
+
+        Non-zero means ``size_bytes`` is an undercount, not the real total -
+        the UI must say so rather than presenting a precise-looking number.
+        """
+        override = getattr(self, "_size_unknown_count_override", None)
+        if override is not None:
+            return override
+        return sum(
+            1
+            for issue in self.issues
+            if issue.status == IssueStatus.DONE and issue.file_size is None
+        )
+
+    @size_unknown_count.setter
+    def size_unknown_count(self, value: int) -> None:
+        self._size_unknown_count_override = value
+
     def __repr__(self) -> str:
         return f"<Publication {self.custom_code!r} watched={self.watched}>"
 

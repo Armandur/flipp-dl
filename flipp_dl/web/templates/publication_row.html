@@ -43,6 +43,21 @@
       <span class="dim">—</span>
     {% endif %}
   </td>
+  <td style="text-align:right;">
+    {% if not publication.num_downloaded %}
+      <span class="dim">—</span>
+    {% elif publication.size_bytes == 0 and publication.size_unknown_count > 0 %}
+      {# All downloaded issues predate TASK-1362's file_size column - a
+         real total is unknowable, so say so rather than showing "0 B". #}
+      <span class="dim" title="{{ _('%(count)s downloaded issues have no recorded size (downloaded before size tracking was added).') % {'count': publication.size_unknown_count} }}">{{ _("unknown") }}</span>
+    {% elif publication.size_unknown_count > 0 %}
+      {# Some but not all downloaded issues have a known size - the sum
+         is a real but partial total, flagged with a tilde. #}
+      <span title="{{ _('%(count)s downloaded issues have no recorded size (downloaded before size tracking was added) and are not included in this total.') % {'count': publication.size_unknown_count} }}">~{{ publication.size_bytes | human_size }}</span>
+    {% else %}
+      <span>{{ publication.size_bytes | human_size }}</span>
+    {% endif %}
+  </td>
   <td class="dim">
     {% if publication.next_issue_date %}
       {{ publication.next_issue_date }}
