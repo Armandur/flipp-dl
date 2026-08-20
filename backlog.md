@@ -44,7 +44,40 @@ Verifiering: tester i tests/test_storage.py och tests/test_downloader.py för kr
 
 ---
 
-## [P2][doing] [flipp] Utgåvor faller ur Flipps listning - visa och bevara dem
+## [P2][todo] [flipp] Spara varje polls råsvar så inget mer går förlorat
+
+## Context
+1916 utgåvor har redan fallit ur Flipps listning, och deras koder finns bara i vår databas. Det finns ingen väg att lista dem på nytt - det är utrett. Faller en kod bort innan vi hunnit se den är den oåtkomlig för alltid, eftersom uppslaget av sidor kräver att man redan känner koden.
+
+Vi ser bara det Flipp listar just nu. Varje poll är därmed en ögonblicksbild av något som krymper, och den enda som sparar den är vi.
+
+## Vad som ska byggas
+Spara råsvaret från varje poll, så att koder som försvinner ur listan ändå finns bevarade i sin ursprungliga form. Detta hjälper inte bakåt, men stoppar blödningen framåt.
+
+## Acceptance criteria
+- [ ] Råsvaret från refreshsignintoken sparas vid varje poll.
+- [ ] Svaret innehåller en giltig token - den får ALDRIG sparas i klartext. Rensa fältet innan lagring, eller lagra bara publications-delen. Kontrollera att inget annat fält bär hemligheter, exempelvis accountInformation med e-postadress.
+- [ ] Lagringen växer inte obegränsat. Svaret är cirka 3,7 megabyte per poll och fyra pollar per dygn blir 5 gigabyte om året. Komprimera, spara bara vid förändring, eller gallra äldre - avgör och motivera.
+- [ ] Det går att se vad som sparats och när.
+- [ ] Ett misslyckat eller tomt svar sparas inte som om det vore giltigt.
+
+## Att tänka igenom
+- Räcker det att spara publikationer och utgåvokoder i stället för hela svaret? Det är koderna som är oersättliga, resten är beskrivningar som ändå finns i databasen.
+- Ska filerna ligga utanför output_root, som omslagscachen och previewfilerna? Annars plockar Library och diskimporten upp dem.
+
+## Verification
+- Tester: svar sparas, token finns inte i det sparade, tomt svar sparas inte, och gallringen fungerar.
+- Kontroll: kör en poll mot driftinstansen och granska det sparade svaret manuellt för hemligheter innan det anses klart.
+
+Detta var spår 5 i TASK-1436 och bryts ut hit eftersom det är ett bygge, inte en utredning.
+
+- ID: `01M0GFG2B5TRQ8VFT1GE9DC73J`
+- Type: feature
+- Actor: ai:claude-opus-5
+
+---
+
+## [P2][done] [flipp] Utgåvor faller ur Flipps listning - visa och bevara dem
 
 ## Context
 Utgåvor slutar listas av Flipp över tid, inte bara publikationer. Mätt 2026-08-20:
