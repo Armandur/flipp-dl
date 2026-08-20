@@ -264,7 +264,7 @@ Rätt fix är troligen en riktig claim-fråga mot DB (SELECT ... WHERE status=qu
 
 ---
 
-## [P3][todo] [flipp] Undersök om olistade publikationer och utgåvor går att upptäcka
+## [P3][done] [flipp] Undersök om olistade publikationer och utgåvor går att upptäcka
 
 ## Context
 Flipps publikationslista (refreshsignintoken) visar bara vad kontot erbjuds just nu. Databasen känner till tre publikationer som fallit ur listan - Frost Aktivitetspåse, Robot Junior Bag och Stitch - och de går fortfarande att ladda ner: Stitch nr 3 2026 gav 44 sidor från reader-API:t 2026-08-20.
@@ -294,7 +294,7 @@ Skriv ut vilka anrop som faktiskt gjordes och vad de svarade - inte vad som anta
 
 ---
 
-## [P3][todo] [flipp] Visa vilka publikationer som inte längre listas av Flipp
+## [P3][done] [flipp] Visa vilka publikationer som inte längre listas av Flipp
 
 ## Context
 Databasen har 94 publikationer medan Flipp just nu listar 91. Skillnaden är Frost Aktivitetspåse, Robot Junior Bag och Stitch - sammanlagt 16 utgåvor, inga nedladdade.
