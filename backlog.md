@@ -373,7 +373,7 @@ Det här är en väg in i databasen som kringgår API-synken. Var noga med att e
 
 ---
 
-## [P3][todo] [flipp] Leta olistade utgåvor och publikationer utanför Flipps API
+## [P3][done] [flipp] Leta olistade utgåvor och publikationer utanför Flipps API
 
 ## Context
 Flipps eget API kan inte lista något som inte redan erbjuds kontot - det är utrett och besvarat i backlog-docen "Går olistat material att upptäcka?". Men utanför API:t finns vägar, och en av dem är redan bevisad.
