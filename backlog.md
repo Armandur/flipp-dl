@@ -236,6 +236,42 @@ Rätt fix är troligen en riktig claim-fråga mot DB (SELECT ... WHERE status=qu
 
 ---
 
+## [P3][todo] [flipp] Publikationens katalog ska ägas av publikationen, med plats för bilagor
+
+## Context
+Varje publikation äger sin katalog under utdatakatalogen, men ingenting upprätthåller det. En fil som hamnar i fel publikations katalog - genom en namnkrock, en handflyttad fil eller en framtida sökvägsändring - kan tolkas som tillhörande fel publikation.
+
+Samtidigt ska underkataloger vara tillåtna och användbara: bilagor till en publikation, exempelvis affischer eller extramaterial, hör hemma under publikationens katalog utan att vara utgåvor.
+
+De två kraven drar åt olika håll, och det är därför de hör ihop i en task: strukturen måste vara sträng nog att ingen publikation kan äta en annans filer, men öppen nog att rymma material som inte är en utgåva.
+
+## Var det slår igenom
+- Diskimporten matchar filer mot utgåvor. Den måste veta att en fil under fel publikation inte är en träff, och att en fil i en underkatalog inte är en orphan att larma om.
+- Library-vyn listar allt under utdatakatalogen och behöver visa bilagor begripligt.
+- Nedladdningen skriver till publikationens katalog och får aldrig hamna utanför den.
+- En framtida sökvägsändring som flyttar filer måste bevara strukturen.
+
+## Acceptance criteria
+- [ ] En fil under publikation A kan aldrig kopplas till en utgåva i publikation B, vare sig vid import eller nedladdning.
+- [ ] Underkataloger under en publikation är tillåtna och rapporteras inte som avvikelser av importen.
+- [ ] Det går att se i gränssnittet vad som är utgåvor och vad som är övrigt material.
+- [ ] Nedladdning skriver alltid inom rätt publikations katalog, kontrollerat och inte bara antaget.
+
+## Öppen fråga
+Ska bilagor registreras i databasen, kopplade till publikation eller utgåva, eller bara existera som filer som Library visar? Det avgör hur mycket maskineri som behövs. Ta ställning innan implementation.
+
+## Verification
+- Tester: fil i fel publikations katalog, fil i underkatalog, nedladdning som försöker skriva utanför sin katalog.
+- Browser: Library och publikationssidan med både utgåvor och en bilaga.
+
+Motsvarande task finns i prenly-dl som TASK-1405. Här finns importen redan byggd (import_existing_files med rapport i båda riktningarna), så den är utgångspunkten.
+
+- ID: `01M0G4D6VSYMRJDX6AZNTMBB9N`
+- Type: improvement
+- Actor: ai:claude-opus-5
+
+---
+
 ## [P3][todo] [flipp] Gör filnamnen OS-säkra, inte bara tecken-filtrerade
 
 safe_name filtrerar bort allt utom en whitelist av tecken: bokstäver, siffror, bindestreck, understreck, punkt, parenteser, mellanslag och åäö. Det räcker för att undvika snedstreck, men täcker inte allt som gör en sökväg problematisk på andra filsystem än ext4.
@@ -1023,6 +1059,15 @@ Tjänsten kör i container och ser bara sina monterade volymer. Väljaren visar 
 Här finns i dag INGET sökvägsfält i gränssnittet - utdatakatalogen sätts med FLIPP_OUTPUT och databasen med FLIPP_DB, båda som miljövariabler. Tasken blir därför aktuell först om eller när någon sökväg ska gå att ställa in i gränssnittet. Prioriterad lägre av det skälet.
 
 Samma task finns i prenly-dl (prenly TASK-1402), där fältet redan finns och behovet är konkret. Bygg där först och återanvänd lösningen här.
+
+## Byte av sökväg ska flytta det som redan finns (Rasmus 2026-08-20)
+Att peka om utdatakatalogen får inte lämna kvar filerna på gamla stället. När sökvägen ändras ska befintliga filer flyttas med, och file_path i databasen uppdateras.
+
+Att tänka igenom:
+- Flytten kan gälla tiotals gigabyte. Den ska gå att avbryta och återuppta, och en avbruten flytt får inte lämna databasen pekande på filer som inte finns.
+- Ligger målet på en annan volym fungerar inte rename - då krävs kopiera och radera, med kontroll att kopian är komplett innan originalet tas bort.
+- Under flytten ska nedladdningar inte skriva till den gamla katalogen. Avgör om kön pausas eller om bytet vägras medan jobb pågår.
+- Rapportera resultatet: hur många filer som flyttades, och vilka som inte kunde flyttas.
 
 - ID: `01M0G44NDJ25HTQD7HWX21GXMP`
 - Type: feature
