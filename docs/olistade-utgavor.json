@@ -1,6 +1,215 @@
 {
   "found_unlisted_issues": [
     {
+      "publication_code": "1edf5eee-9c6d-40a8-b34f-3bc2079a8c98",
+      "publication_name": "Agent X9",
+      "issue_code": "9244e78a-027b-41b0-aaac-cf34b5a765e4",
+      "pages": 100,
+      "source": "web.archive.org, arkiverad default.aspx-titel (reader.flipp.se)",
+      "verified": "2026-08-20",
+      "note": "utgåva av en publikation som fortfarande listas, men utgåvokoden saknas i både Flipps lista och databasen"
+    },
+    {
+      "publication_code": "1edf5eee-9c6d-40a8-b34f-3bc2079a8c98",
+      "publication_name": "Agent X9",
+      "issue_code": "da26e528-6a86-4974-bd56-addb5918b668",
+      "pages": 100,
+      "source": "web.archive.org, arkiverad default.aspx-titel (reader.flipp.se)",
+      "verified": "2026-08-20",
+      "note": "utgåva av en publikation som fortfarande listas, men utgåvokoden saknas i både Flipps lista och databasen"
+    },
+    {
+      "publication_code": "000d401e-328e-4f9b-b12c-c2b90e340b7d",
+      "publication_name": "Alt om fiske bilag",
+      "issue_code": "3561a8ad-61b0-4ffa-81a8-7ae240fa6e60",
+      "pages": 14,
+      "source": "web.archive.org CDX, reader.flipp.se (default.aspx-titel), publikation ej listad i Flipps API",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "000d401e-328e-4f9b-b12c-c2b90e340b7d",
+      "publication_name": "Alt om fiske bilag",
+      "issue_code": "36d104fa-d661-424d-b2d7-2be80439c67d",
+      "pages": 16,
+      "source": "web.archive.org CDX, reader.flipp.se (default.aspx-titel), publikation ej listad i Flipps API",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "000d401e-328e-4f9b-b12c-c2b90e340b7d",
+      "publication_name": "Alt om fiske bilag",
+      "issue_code": "c3584573-c53e-493c-8071-0334fc96993c",
+      "pages": 16,
+      "source": "web.archive.org CDX, reader.flipp.se (default.aspx-titel), publikation ej listad i Flipps API",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "000d401e-328e-4f9b-b12c-c2b90e340b7d",
+      "publication_name": "Alt om fiske bilag",
+      "issue_code": "efa68b6c-9640-4604-9dcb-450fb33f581e",
+      "pages": 24,
+      "source": "web.archive.org CDX, reader.flipp.se (default.aspx-titel), publikation ej listad i Flipps API",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "71588c06-ca1f-481a-b253-7a3464a619ad",
+      "publication_name": "Ankeborgs samlarpocket",
+      "issue_code": "0d9a0252-e169-4468-93a4-cf13990ac181",
+      "pages": 258,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "71588c06-ca1f-481a-b253-7a3464a619ad",
+      "publication_name": "Ankeborgs samlarpocket",
+      "issue_code": "2473b354-3afc-4d2f-929d-3f8bab546ba6",
+      "pages": 258,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "71588c06-ca1f-481a-b253-7a3464a619ad",
+      "publication_name": "Ankeborgs samlarpocket",
+      "issue_code": "460ca29c-cd55-4534-a971-abc763154c30",
+      "pages": 258,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "71588c06-ca1f-481a-b253-7a3464a619ad",
+      "publication_name": "Ankeborgs samlarpocket",
+      "issue_code": "60c5fe57-aa90-4cd2-b72f-89788002f64c",
+      "pages": 258,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "71588c06-ca1f-481a-b253-7a3464a619ad",
+      "publication_name": "Ankeborgs samlarpocket",
+      "issue_code": "7191632c-2b4f-4ac1-9949-be17f0dbbe50",
+      "pages": 259,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "71588c06-ca1f-481a-b253-7a3464a619ad",
+      "publication_name": "Ankeborgs samlarpocket",
+      "issue_code": "746edd2e-e17d-48e6-b20c-f9b21e630439",
+      "pages": 308,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "71588c06-ca1f-481a-b253-7a3464a619ad",
+      "publication_name": "Ankeborgs samlarpocket",
+      "issue_code": "7820f754-32c9-4151-b4f5-964bc9d475dc",
+      "pages": 258,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "71588c06-ca1f-481a-b253-7a3464a619ad",
+      "publication_name": "Ankeborgs samlarpocket",
+      "issue_code": "790b957b-2f09-49a0-b9d4-0725c2972057",
+      "pages": 258,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "71588c06-ca1f-481a-b253-7a3464a619ad",
+      "publication_name": "Ankeborgs samlarpocket",
+      "issue_code": "ce7a9fc8-49dc-41b3-9303-ce62f9143b6d",
+      "pages": 258,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "71588c06-ca1f-481a-b253-7a3464a619ad",
+      "publication_name": "Ankeborgs samlarpocket",
+      "issue_code": "e6eee00d-e5c5-408d-9d5c-931dcef9ab33",
+      "pages": 308,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "71588c06-ca1f-481a-b253-7a3464a619ad",
+      "publication_name": "Ankeborgs samlarpocket",
+      "issue_code": "edab57cb-d7b7-48c8-8959-c6f9bb02449d",
+      "pages": 257,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "71588c06-ca1f-481a-b253-7a3464a619ad",
+      "publication_name": "Ankeborgs samlarpocket",
+      "issue_code": "f6b36c9a-46da-406d-aff3-a57922e5d651",
+      "pages": 255,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "5397df02-7858-4df7-9657-fe9282f068e5",
+      "publication_name": "Bamse",
+      "issue_code": "0389dd0e-546e-49a7-a809-a1cf23551030",
+      "pages": 76,
+      "source": "web.archive.org, arkiverad default.aspx-titel (reader.flipp.se)",
+      "verified": "2026-08-20",
+      "note": "utgåva av en publikation som fortfarande listas, men utgåvokoden saknas i både Flipps lista och databasen"
+    },
+    {
+      "publication_code": "5397df02-7858-4df7-9657-fe9282f068e5",
+      "publication_name": "Bamse",
+      "issue_code": "9c6decfc-f100-4f0e-924e-533c373083d7",
+      "pages": 36,
+      "source": "web.archive.org, arkiverad default.aspx-titel (reader.flipp.se)",
+      "verified": "2026-08-20",
+      "note": "utgåva av en publikation som fortfarande listas, men utgåvokoden saknas i både Flipps lista och databasen"
+    },
+    {
+      "publication_code": "5397df02-7858-4df7-9657-fe9282f068e5",
+      "publication_name": "Bamse",
+      "issue_code": "bed04e7e-86d1-44b3-89a1-d55eb1c0b570",
+      "pages": 36,
+      "source": "web.archive.org, arkiverad default.aspx-titel (reader.flipp.se)",
+      "verified": "2026-08-20",
+      "note": "utgåva av en publikation som fortfarande listas, men utgåvokoden saknas i både Flipps lista och databasen"
+    },
+    {
+      "publication_code": "137baf38-1f09-4363-9132-1926637dd65b",
+      "publication_name": "Bamse Sagoserier",
+      "issue_code": "ce0003d0-9b82-41fd-aa75-f0adb0ee99dd",
+      "pages": 20,
+      "source": "web.archive.org, arkiverad default.aspx-titel (reader.flipp.se)",
+      "verified": "2026-08-20",
+      "note": "utgåva av en publikation som fortfarande listas, men utgåvokoden saknas i både Flipps lista och databasen"
+    },
+    {
+      "publication_code": "137baf38-1f09-4363-9132-1926637dd65b",
+      "publication_name": "Bamse Sagoserier",
+      "issue_code": "dd9ff5ed-73d7-42ed-a441-15842afc9f21",
+      "pages": 20,
+      "source": "web.archive.org, arkiverad default.aspx-titel (reader.flipp.se)",
+      "verified": "2026-08-20",
+      "note": "utgåva av en publikation som fortfarande listas, men utgåvokoden saknas i både Flipps lista och databasen"
+    },
+    {
+      "publication_code": "c54a72de-dbd7-48ec-abd5-105ad6559c81",
+      "publication_name": "Bamse för de yngsta",
+      "issue_code": "19890ee3-7d89-4c36-9e7a-0f4f3a0bceaa",
+      "pages": 20,
+      "source": "web.archive.org, arkiverad default.aspx-titel (reader.flipp.se)",
+      "verified": "2026-08-20",
+      "note": "utgåva av en publikation som fortfarande listas, men utgåvokoden saknas i både Flipps lista och databasen"
+    },
+    {
+      "publication_code": "c54a72de-dbd7-48ec-abd5-105ad6559c81",
+      "publication_name": "Bamse för de yngsta",
+      "issue_code": "6f7c4773-5998-48c8-b5fb-12830535ade8",
+      "pages": 19,
+      "source": "web.archive.org, arkiverad default.aspx-titel (reader.flipp.se)",
+      "verified": "2026-08-20",
+      "note": "utgåva av en publikation som fortfarande listas, men utgåvokoden saknas i både Flipps lista och databasen"
+    },
+    {
       "publication_code": "41f076e1-0126-4a6e-a263-bb8082213465",
       "publication_name": "Bilar",
       "issue_code": "09d26f67-5f8f-4584-80cb-5ac8ff0ba954",
@@ -22,6 +231,1367 @@
       "issue_code": "4668dd31-884d-4fbb-8f38-7c0e59b915c6",
       "pages": 36,
       "source": "web.archive.org CDX, reader.flipp.se",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "e6ffe9b2-5421-4556-a13b-98eb0552bf52",
+      "publication_name": "Båtnytt",
+      "issue_code": "00b85bb0-eb54-4561-abfb-dbdd076b69f7",
+      "pages": 108,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "e6ffe9b2-5421-4556-a13b-98eb0552bf52",
+      "publication_name": "Båtnytt",
+      "issue_code": "14499aaf-9f1e-4054-84ba-803ef0625899",
+      "pages": 108,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "e6ffe9b2-5421-4556-a13b-98eb0552bf52",
+      "publication_name": "Båtnytt",
+      "issue_code": "160a8c52-b751-4a4d-9d79-323383ef7d93",
+      "pages": 100,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "e6ffe9b2-5421-4556-a13b-98eb0552bf52",
+      "publication_name": "Båtnytt",
+      "issue_code": "16481678-aa6c-4ada-bec9-3ea0ecfb66ac",
+      "pages": 84,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "e6ffe9b2-5421-4556-a13b-98eb0552bf52",
+      "publication_name": "Båtnytt",
+      "issue_code": "25a12156-a0f9-40c9-aa1b-698ed9396305",
+      "pages": 84,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "e6ffe9b2-5421-4556-a13b-98eb0552bf52",
+      "publication_name": "Båtnytt",
+      "issue_code": "29e55e2d-bb80-4b5b-908a-60f79fdaf1b4",
+      "pages": 92,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "e6ffe9b2-5421-4556-a13b-98eb0552bf52",
+      "publication_name": "Båtnytt",
+      "issue_code": "396fbc2e-93d7-4a95-9d95-37354322c084",
+      "pages": 100,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "e6ffe9b2-5421-4556-a13b-98eb0552bf52",
+      "publication_name": "Båtnytt",
+      "issue_code": "3fa17f08-d51d-4cb7-82e3-516a5cdbe153",
+      "pages": 84,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "e6ffe9b2-5421-4556-a13b-98eb0552bf52",
+      "publication_name": "Båtnytt",
+      "issue_code": "5c4ee178-42e2-4846-847b-a4c2b705034c",
+      "pages": 100,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "e6ffe9b2-5421-4556-a13b-98eb0552bf52",
+      "publication_name": "Båtnytt",
+      "issue_code": "64a7eb66-c0f0-42fa-b7ff-203b9ba5c280",
+      "pages": 100,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "e6ffe9b2-5421-4556-a13b-98eb0552bf52",
+      "publication_name": "Båtnytt",
+      "issue_code": "71aaaa61-ed4d-41d5-87c9-c8bbcf463fbc",
+      "pages": 92,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "e6ffe9b2-5421-4556-a13b-98eb0552bf52",
+      "publication_name": "Båtnytt",
+      "issue_code": "7f8d6a94-ced9-40f0-bbbb-3befe01da089",
+      "pages": 92,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "7be6f7f9-4cc8-4d7c-9b5c-29100d8e310a",
+      "publication_name": "Classic Motor",
+      "issue_code": "b65da088-aebf-4324-9b45-6b12105eaff5",
+      "pages": 79,
+      "source": "web.archive.org, arkiverad default.aspx-titel (reader.flipp.se)",
+      "verified": "2026-08-20",
+      "note": "utgåva av en publikation som fortfarande listas, men utgåvokoden saknas i både Flipps lista och databasen"
+    },
+    {
+      "publication_code": "be6bd2da-ee94-4351-8207-ccfa6f5fce5f",
+      "publication_name": "Disney Nyheter",
+      "issue_code": "05088e3e-ceff-43ae-99f4-104083554ecd",
+      "pages": 36,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "be6bd2da-ee94-4351-8207-ccfa6f5fce5f",
+      "publication_name": "Disney Nyheter",
+      "issue_code": "0c63fbdd-2655-40b6-af27-7e6659d89b02",
+      "pages": 36,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "be6bd2da-ee94-4351-8207-ccfa6f5fce5f",
+      "publication_name": "Disney Nyheter",
+      "issue_code": "10061f53-2f2b-4db7-b0f8-a794447f8a70",
+      "pages": 36,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "be6bd2da-ee94-4351-8207-ccfa6f5fce5f",
+      "publication_name": "Disney Nyheter",
+      "issue_code": "10504710-9bd5-49da-9509-b8ebb7df074d",
+      "pages": 36,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "be6bd2da-ee94-4351-8207-ccfa6f5fce5f",
+      "publication_name": "Disney Nyheter",
+      "issue_code": "11ea6d17-702f-450e-8096-e3800bd10646",
+      "pages": 36,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "be6bd2da-ee94-4351-8207-ccfa6f5fce5f",
+      "publication_name": "Disney Nyheter",
+      "issue_code": "23fd59d7-e6a9-44da-8d45-c6afa64ab2cb",
+      "pages": 36,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "be6bd2da-ee94-4351-8207-ccfa6f5fce5f",
+      "publication_name": "Disney Nyheter",
+      "issue_code": "2f8bf4de-0788-4893-8547-5a6db6b51ab8",
+      "pages": 21,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "be6bd2da-ee94-4351-8207-ccfa6f5fce5f",
+      "publication_name": "Disney Nyheter",
+      "issue_code": "3e19dd7e-77ca-4907-8d61-95fa1d4dff04",
+      "pages": 36,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "be6bd2da-ee94-4351-8207-ccfa6f5fce5f",
+      "publication_name": "Disney Nyheter",
+      "issue_code": "5e103bf9-6de4-423f-842c-68a6f25f2c73",
+      "pages": 36,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "be6bd2da-ee94-4351-8207-ccfa6f5fce5f",
+      "publication_name": "Disney Nyheter",
+      "issue_code": "a92f3dc6-1575-4ee4-8fbc-001e320f9a3f",
+      "pages": 36,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "be6bd2da-ee94-4351-8207-ccfa6f5fce5f",
+      "publication_name": "Disney Nyheter",
+      "issue_code": "bca7f3c7-67c0-491a-a981-0b6d2456fa15",
+      "pages": 36,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "be6bd2da-ee94-4351-8207-ccfa6f5fce5f",
+      "publication_name": "Disney Nyheter",
+      "issue_code": "efadac0f-cf21-40b0-9041-74500cdbf628",
+      "pages": 52,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "1d89b2a4-e509-4a7e-8aea-c20d6648fc4a",
+      "publication_name": "Djurliv",
+      "issue_code": "4bfcddbd-baa5-459e-a415-017a8d38284e",
+      "pages": 52,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "1d89b2a4-e509-4a7e-8aea-c20d6648fc4a",
+      "publication_name": "Djurliv",
+      "issue_code": "5da632f4-1cd2-4fcd-a0ad-595732cd8c4a",
+      "pages": 52,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "1d89b2a4-e509-4a7e-8aea-c20d6648fc4a",
+      "publication_name": "Djurliv",
+      "issue_code": "82cbeec2-0e9c-427e-88ca-a577df5f3d97",
+      "pages": 52,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "1d89b2a4-e509-4a7e-8aea-c20d6648fc4a",
+      "publication_name": "Djurliv",
+      "issue_code": "8f696685-a037-4bf1-aa2e-f1d712c34bf8",
+      "pages": 52,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "1d89b2a4-e509-4a7e-8aea-c20d6648fc4a",
+      "publication_name": "Djurliv",
+      "issue_code": "bb476799-1e33-427d-87f6-1cd19d630567",
+      "pages": 52,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "1d89b2a4-e509-4a7e-8aea-c20d6648fc4a",
+      "publication_name": "Djurliv",
+      "issue_code": "ff856bc2-be5e-461d-a2ac-b9c43003bc81",
+      "pages": 52,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "62a7270f-b765-42d3-a62d-c04a6645ed1b",
+      "publication_name": "Euroman tillæg",
+      "issue_code": "07bd8fde-ea3c-454c-aa79-9859f635392e",
+      "pages": 48,
+      "source": "web.archive.org CDX, reader.flipp.se (default.aspx-titel), publikation ej listad i Flipps API",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "62a7270f-b765-42d3-a62d-c04a6645ed1b",
+      "publication_name": "Euroman tillæg",
+      "issue_code": "9468ec30-d287-4dcc-8676-28018b2f30b1",
+      "pages": 48,
+      "source": "web.archive.org CDX, reader.flipp.se (default.aspx-titel), publikation ej listad i Flipps API",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "62a7270f-b765-42d3-a62d-c04a6645ed1b",
+      "publication_name": "Euroman tillæg",
+      "issue_code": "c3df4f23-6b2f-41e5-b936-f850d8a847ed",
+      "pages": 48,
+      "source": "web.archive.org CDX, reader.flipp.se (default.aspx-titel), publikation ej listad i Flipps API",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "432f59b5-3a8e-4b81-8daf-0f7cccf1b603",
+      "publication_name": "Fantomens Skattkammare",
+      "issue_code": "42f748be-ddda-4bff-8418-1154db0ee06a",
+      "pages": 54,
+      "source": "web.archive.org, arkiverad default.aspx-titel (reader.flipp.se)",
+      "verified": "2026-08-20",
+      "note": "utgåva av en publikation som fortfarande listas, men utgåvokoden saknas i både Flipps lista och databasen"
+    },
+    {
+      "publication_code": "5f3e8314-6069-47f0-aa63-86d86582d429",
+      "publication_name": "Frost Aktivitetspåse",
+      "issue_code": "19354f70-de78-4114-8126-949eff4d7b4c",
+      "pages": 44,
+      "source": "web.archive.org CDX, reader.flipp.se (default.aspx-titel), publikation ej listad i Flipps API",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "5f3e8314-6069-47f0-aa63-86d86582d429",
+      "publication_name": "Frost Aktivitetspåse",
+      "issue_code": "e47b9cb2-6619-415e-90ec-e44d13ecbea1",
+      "pages": 44,
+      "source": "web.archive.org CDX, reader.flipp.se (default.aspx-titel), publikation ej listad i Flipps API",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "71ef99af-a136-4ce3-9854-43c7109e1ac4",
+      "publication_name": "Goal Jr",
+      "issue_code": "329d6b80-80cf-4bef-a4ea-0e22ddddf4f0",
+      "pages": 36,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "71ef99af-a136-4ce3-9854-43c7109e1ac4",
+      "publication_name": "Goal Jr",
+      "issue_code": "32cdad07-ad23-4a87-ac3f-f8f9b80fd2b9",
+      "pages": 36,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "71ef99af-a136-4ce3-9854-43c7109e1ac4",
+      "publication_name": "Goal Jr",
+      "issue_code": "37d3445c-cd87-4f72-ae17-29f4c82e1c11",
+      "pages": 36,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "71ef99af-a136-4ce3-9854-43c7109e1ac4",
+      "publication_name": "Goal Jr",
+      "issue_code": "3846d5f2-38d0-41bf-8c68-646f80fe5593",
+      "pages": 36,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "71ef99af-a136-4ce3-9854-43c7109e1ac4",
+      "publication_name": "Goal Jr",
+      "issue_code": "697f0d11-1b22-405c-993b-e59a4eaa06ee",
+      "pages": 36,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "71ef99af-a136-4ce3-9854-43c7109e1ac4",
+      "publication_name": "Goal Jr",
+      "issue_code": "71111ea3-a8be-4231-97a4-80845d00d0ae",
+      "pages": 41,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "71ef99af-a136-4ce3-9854-43c7109e1ac4",
+      "publication_name": "Goal Jr",
+      "issue_code": "929524b2-1822-46bc-97bf-2a9a0becbc12",
+      "pages": 36,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "71ef99af-a136-4ce3-9854-43c7109e1ac4",
+      "publication_name": "Goal Jr",
+      "issue_code": "aff55ffc-4c00-40a9-8b19-fc167ba6f000",
+      "pages": 36,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "71ef99af-a136-4ce3-9854-43c7109e1ac4",
+      "publication_name": "Goal Jr",
+      "issue_code": "b692bd38-404b-4983-95ee-cfe054c8c329",
+      "pages": 36,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "71ef99af-a136-4ce3-9854-43c7109e1ac4",
+      "publication_name": "Goal Jr",
+      "issue_code": "c9506537-c4b3-4de8-bfd6-1242c7dd6816",
+      "pages": 36,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "71ef99af-a136-4ce3-9854-43c7109e1ac4",
+      "publication_name": "Goal Jr",
+      "issue_code": "ec1d8024-ce7e-4e8b-b672-673c1cd5e4a0",
+      "pages": 36,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "71ef99af-a136-4ce3-9854-43c7109e1ac4",
+      "publication_name": "Goal Jr",
+      "issue_code": "ef8fe423-fade-48a6-a60f-78c6a7f90ca8",
+      "pages": 36,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "50f12c7b-33f9-4281-a11e-ff9474f425cd",
+      "publication_name": "Gravid",
+      "issue_code": "310e0aa9-bb8d-4161-a2cd-ff204e8d7d3d",
+      "pages": 204,
+      "source": "web.archive.org CDX, reader.flipp.se (default.aspx-titel), publikation ej listad i Flipps API",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "50f12c7b-33f9-4281-a11e-ff9474f425cd",
+      "publication_name": "Gravid",
+      "issue_code": "6702b726-484c-4838-bfad-5945356bfb70",
+      "pages": 204,
+      "source": "web.archive.org CDX, reader.flipp.se (default.aspx-titel), publikation ej listad i Flipps API",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "69f2aba8-d975-4538-87d0-8f70b03eb26f",
+      "publication_name": "Hendes Verden Tillaeg",
+      "issue_code": "e50186b9-26fa-4e26-a230-824815023363",
+      "pages": 76,
+      "source": "web.archive.org CDX, reader.flipp.se (default.aspx-titel), publikation ej listad i Flipps API",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "33dca67c-5046-4a39-a7cf-e3f31d9f9e20",
+      "publication_name": "Her og Na TV",
+      "issue_code": "4bf3a667-7dac-42e5-95ae-9cd66065bd5a",
+      "pages": 72,
+      "source": "web.archive.org CDX, reader.flipp.se (default.aspx-titel), publikation ej listad i Flipps API",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "33dca67c-5046-4a39-a7cf-e3f31d9f9e20",
+      "publication_name": "Her og Na TV",
+      "issue_code": "5130841c-9470-420c-85c0-34b19a0300a0",
+      "pages": 72,
+      "source": "web.archive.org CDX, reader.flipp.se (default.aspx-titel), publikation ej listad i Flipps API",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "33dca67c-5046-4a39-a7cf-e3f31d9f9e20",
+      "publication_name": "Her og Na TV",
+      "issue_code": "f0c84dde-85be-463d-962a-4e8eab2bf036",
+      "pages": 72,
+      "source": "web.archive.org CDX, reader.flipp.se (default.aspx-titel), publikation ej listad i Flipps API",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "33dca67c-5046-4a39-a7cf-e3f31d9f9e20",
+      "publication_name": "Her og Na TV",
+      "issue_code": "f37b0ba7-6ab7-4d3a-8793-05bbfbebaa3e",
+      "pages": 64,
+      "source": "web.archive.org CDX, reader.flipp.se (default.aspx-titel), publikation ej listad i Flipps API",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "acdac6cb-c9d3-48e0-b7c4-dbf025d0df7c",
+      "publication_name": "Hjemmet Bilag",
+      "issue_code": "0a46c640-2fb2-403d-a265-3c8f9f3026cd",
+      "pages": 16,
+      "source": "web.archive.org CDX, reader.flipp.se (default.aspx-titel), publikation ej listad i Flipps API",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "243f43fb-6dca-4def-9cf0-b853badaf66e",
+      "publication_name": "Hjemmet Spesial",
+      "issue_code": "b2ef45b9-f33d-4a53-8434-302e8c4a9b54",
+      "pages": 24,
+      "source": "web.archive.org CDX, reader.flipp.se (default.aspx-titel), publikation ej listad i Flipps API",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "88107ad2-57ca-4b71-94e1-b33c6ccd33d6",
+      "publication_name": "Hjemmet Tillæg",
+      "issue_code": "01859181-fce3-4b90-b235-ab50f63965dd",
+      "pages": 24,
+      "source": "web.archive.org CDX, reader.flipp.se (default.aspx-titel), publikation ej listad i Flipps API",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "88107ad2-57ca-4b71-94e1-b33c6ccd33d6",
+      "publication_name": "Hjemmet Tillæg",
+      "issue_code": "50eff486-4be4-492a-8058-ca6c8fc504fc",
+      "pages": 24,
+      "source": "web.archive.org CDX, reader.flipp.se (default.aspx-titel), publikation ej listad i Flipps API",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "88107ad2-57ca-4b71-94e1-b33c6ccd33d6",
+      "publication_name": "Hjemmet Tillæg",
+      "issue_code": "8950493b-73b3-4d70-9ee6-a08eb0dcfc3a",
+      "pages": 16,
+      "source": "web.archive.org CDX, reader.flipp.se (default.aspx-titel), publikation ej listad i Flipps API",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "88107ad2-57ca-4b71-94e1-b33c6ccd33d6",
+      "publication_name": "Hjemmet Tillæg",
+      "issue_code": "dd1d8125-fb5c-4861-9b08-71e8f8a9eb3c",
+      "pages": 24,
+      "source": "web.archive.org CDX, reader.flipp.se (default.aspx-titel), publikation ej listad i Flipps API",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "88107ad2-57ca-4b71-94e1-b33c6ccd33d6",
+      "publication_name": "Hjemmet Tillæg",
+      "issue_code": "e69a070f-8a2f-47b1-8d1c-9ef0f4159905",
+      "pages": 24,
+      "source": "web.archive.org CDX, reader.flipp.se (default.aspx-titel), publikation ej listad i Flipps API",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "88107ad2-57ca-4b71-94e1-b33c6ccd33d6",
+      "publication_name": "Hjemmet Tillæg",
+      "issue_code": "edcb4ffb-6c0c-4ab3-902e-cd1c3000a49c",
+      "pages": 16,
+      "source": "web.archive.org CDX, reader.flipp.se (default.aspx-titel), publikation ej listad i Flipps API",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "88107ad2-57ca-4b71-94e1-b33c6ccd33d6",
+      "publication_name": "Hjemmet Tillæg",
+      "issue_code": "f1c37c81-60c5-44ee-ad41-f39c0b7c6d22",
+      "pages": 16,
+      "source": "web.archive.org CDX, reader.flipp.se (default.aspx-titel), publikation ej listad i Flipps API",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "88107ad2-57ca-4b71-94e1-b33c6ccd33d6",
+      "publication_name": "Hjemmet Tillæg",
+      "issue_code": "fed93d44-edd6-467c-9e59-f696102f5221",
+      "pages": 24,
+      "source": "web.archive.org CDX, reader.flipp.se (default.aspx-titel), publikation ej listad i Flipps API",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "14b406e0-bdad-492a-9faa-52950abe5a32",
+      "publication_name": "Humorklassiker",
+      "issue_code": "20b795ad-b0c7-44cd-bfe8-18ef48e89b7f",
+      "pages": 84,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "14b406e0-bdad-492a-9faa-52950abe5a32",
+      "publication_name": "Humorklassiker",
+      "issue_code": "241e3a98-10f6-4204-9f7f-b8bbb7174191",
+      "pages": 84,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "14b406e0-bdad-492a-9faa-52950abe5a32",
+      "publication_name": "Humorklassiker",
+      "issue_code": "69975d4f-39de-436f-b710-e2795c457c1a",
+      "pages": 84,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "14b406e0-bdad-492a-9faa-52950abe5a32",
+      "publication_name": "Humorklassiker",
+      "issue_code": "6f6da324-d905-40e9-a31b-642bf122b12b",
+      "pages": 84,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "14b406e0-bdad-492a-9faa-52950abe5a32",
+      "publication_name": "Humorklassiker",
+      "issue_code": "754987f5-c0c2-40c0-8ade-7ec9727b6ab2",
+      "pages": 84,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "14b406e0-bdad-492a-9faa-52950abe5a32",
+      "publication_name": "Humorklassiker",
+      "issue_code": "7a233992-e3f7-4276-b1f4-3af0f7579b20",
+      "pages": 84,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "14b406e0-bdad-492a-9faa-52950abe5a32",
+      "publication_name": "Humorklassiker",
+      "issue_code": "8f0bc463-2f31-4df1-862c-337fe2fec751",
+      "pages": 84,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "14b406e0-bdad-492a-9faa-52950abe5a32",
+      "publication_name": "Humorklassiker",
+      "issue_code": "9d145a17-e061-4b25-b0f4-5ec6bbac2829",
+      "pages": 84,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "14b406e0-bdad-492a-9faa-52950abe5a32",
+      "publication_name": "Humorklassiker",
+      "issue_code": "c04d8aa4-abde-41e7-b6c2-7fcab617b228",
+      "pages": 84,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "14b406e0-bdad-492a-9faa-52950abe5a32",
+      "publication_name": "Humorklassiker",
+      "issue_code": "c1666979-e2f2-4745-8b45-00706703e8e2",
+      "pages": 84,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "14b406e0-bdad-492a-9faa-52950abe5a32",
+      "publication_name": "Humorklassiker",
+      "issue_code": "cd722a17-d958-438e-824d-632113946faa",
+      "pages": 84,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "14b406e0-bdad-492a-9faa-52950abe5a32",
+      "publication_name": "Humorklassiker",
+      "issue_code": "d693204a-af47-4898-97ac-f9dbb94c34f7",
+      "pages": 84,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "ad0da067-56a0-4266-b5b6-2028ed9e6f48",
+      "publication_name": "Hälge",
+      "issue_code": "11215f34-6098-438c-aff5-dd4e77617ad5",
+      "pages": 52,
+      "source": "web.archive.org, arkiverad default.aspx-titel (reader.flipp.se)",
+      "verified": "2026-08-20",
+      "note": "utgåva av en publikation som fortfarande listas, men utgåvokoden saknas i både Flipps lista och databasen"
+    },
+    {
+      "publication_code": "b896eff2-45d2-4851-bde5-1f9967e3ae77",
+      "publication_name": "Julia",
+      "issue_code": "0a78143e-05ee-4d4d-bece-53628cdaf1f4",
+      "pages": 100,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "b896eff2-45d2-4851-bde5-1f9967e3ae77",
+      "publication_name": "Julia",
+      "issue_code": "105b0582-c5be-465f-b87c-8f6d480a2a5f",
+      "pages": 52,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "b896eff2-45d2-4851-bde5-1f9967e3ae77",
+      "publication_name": "Julia",
+      "issue_code": "267200db-b723-42c2-8c84-8c51785f56b0",
+      "pages": 52,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "b896eff2-45d2-4851-bde5-1f9967e3ae77",
+      "publication_name": "Julia",
+      "issue_code": "4032b401-6bf3-411f-acde-257455180374",
+      "pages": 100,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "b896eff2-45d2-4851-bde5-1f9967e3ae77",
+      "publication_name": "Julia",
+      "issue_code": "4195c140-3c7e-49fb-803d-7721986b8b9a",
+      "pages": 60,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "b896eff2-45d2-4851-bde5-1f9967e3ae77",
+      "publication_name": "Julia",
+      "issue_code": "9b1e0ee4-8d3a-445c-925a-919845c87903",
+      "pages": 52,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "b896eff2-45d2-4851-bde5-1f9967e3ae77",
+      "publication_name": "Julia",
+      "issue_code": "a1af98d5-76ce-4c1f-a897-a5570f54c925",
+      "pages": 100,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "b896eff2-45d2-4851-bde5-1f9967e3ae77",
+      "publication_name": "Julia",
+      "issue_code": "a80ffcb3-9a3e-45ff-8f80-da0584583015",
+      "pages": 52,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "b896eff2-45d2-4851-bde5-1f9967e3ae77",
+      "publication_name": "Julia",
+      "issue_code": "b78126c9-2c83-4535-8baf-2922934492be",
+      "pages": 60,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "b896eff2-45d2-4851-bde5-1f9967e3ae77",
+      "publication_name": "Julia",
+      "issue_code": "c5a8bde2-e118-4e86-aa1d-3b9cc01a0b5e",
+      "pages": 116,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "b896eff2-45d2-4851-bde5-1f9967e3ae77",
+      "publication_name": "Julia",
+      "issue_code": "d8290d79-e250-4998-b0b3-82a22be94842",
+      "pages": 100,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "b896eff2-45d2-4851-bde5-1f9967e3ae77",
+      "publication_name": "Julia",
+      "issue_code": "dccaff33-c4fa-4bec-ab52-e09b462f63e1",
+      "pages": 52,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "72d9a30c-56eb-4bc3-bc47-2b0063a11ebb",
+      "publication_name": "Julia Plus",
+      "issue_code": "8cb5bba0-b47a-44e1-bfe1-6bcd5729195c",
+      "pages": 60,
+      "source": "web.archive.org CDX, reader.flipp.se (default.aspx-titel), publikation ej listad i Flipps API",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "72d9a30c-56eb-4bc3-bc47-2b0063a11ebb",
+      "publication_name": "Julia Plus",
+      "issue_code": "a2446a8b-34f3-4579-a3d5-c4ac0844652a",
+      "pages": 60,
+      "source": "web.archive.org CDX, reader.flipp.se (default.aspx-titel), publikation ej listad i Flipps API",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "bd472c0c-1c84-4b51-bbd6-f3055bede368",
+      "publication_name": "Kalle Anka & Co",
+      "issue_code": "911fb13f-c584-4f27-8064-b246a3796887",
+      "pages": 52,
+      "source": "web.archive.org, arkiverad default.aspx-titel (reader.flipp.se)",
+      "verified": "2026-08-20",
+      "note": "utgåva av en publikation som fortfarande listas, men utgåvokoden saknas i både Flipps lista och databasen"
+    },
+    {
+      "publication_code": "bd472c0c-1c84-4b51-bbd6-f3055bede368",
+      "publication_name": "Kalle Anka & Co",
+      "issue_code": "cda9f909-df72-461c-a982-12f83af915d2",
+      "pages": 52,
+      "source": "web.archive.org, arkiverad default.aspx-titel (reader.flipp.se)",
+      "verified": "2026-08-20",
+      "note": "utgåva av en publikation som fortfarande listas, men utgåvokoden saknas i både Flipps lista och databasen"
+    },
+    {
+      "publication_code": "bd472c0c-1c84-4b51-bbd6-f3055bede368",
+      "publication_name": "Kalle Anka & Co",
+      "issue_code": "cea7fcf2-565c-4de6-ba1e-65b82b80910c",
+      "pages": 100,
+      "source": "web.archive.org, arkiverad default.aspx-titel (reader.flipp.se)",
+      "verified": "2026-08-20",
+      "note": "utgåva av en publikation som fortfarande listas, men utgåvokoden saknas i både Flipps lista och databasen"
+    },
+    {
+      "publication_code": "bd472c0c-1c84-4b51-bbd6-f3055bede368",
+      "publication_name": "Kalle Anka & Co",
+      "issue_code": "d81cbe1d-1562-4ec2-9aca-9c69dd0b86fe",
+      "pages": 52,
+      "source": "web.archive.org, arkiverad default.aspx-titel (reader.flipp.se)",
+      "verified": "2026-08-20",
+      "note": "utgåva av en publikation som fortfarande listas, men utgåvokoden saknas i både Flipps lista och databasen"
+    },
+    {
+      "publication_code": "bd472c0c-1c84-4b51-bbd6-f3055bede368",
+      "publication_name": "Kalle Anka & Co",
+      "issue_code": "e607fa2f-61c5-474a-abed-35226a9d0b9e",
+      "pages": 52,
+      "source": "web.archive.org, arkiverad default.aspx-titel (reader.flipp.se)",
+      "verified": "2026-08-20",
+      "note": "utgåva av en publikation som fortfarande listas, men utgåvokoden saknas i både Flipps lista och databasen"
+    },
+    {
+      "publication_code": "42d795f5-d284-459b-a29e-2b58d3a3d9c6",
+      "publication_name": "Kalle Anka Extra",
+      "issue_code": "482f830b-4eb4-4425-924f-3f13eb9a1890",
+      "pages": 68,
+      "source": "web.archive.org CDX, reader.flipp.se (default.aspx-titel), publikation ej listad i Flipps API",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "1ecb2f0d-8bb8-4290-a038-5fa9f9406119",
+      "publication_name": "Kalle Anka Junior",
+      "issue_code": "29f2a88e-e26f-45ea-a5cc-695661a03bb9",
+      "pages": 36,
+      "source": "web.archive.org, arkiverad default.aspx-titel (reader.flipp.se)",
+      "verified": "2026-08-20",
+      "note": "utgåva av en publikation som fortfarande listas, men utgåvokoden saknas i både Flipps lista och databasen"
+    },
+    {
+      "publication_code": "6a039858-5ebe-4caa-b83b-56bff023f4c2",
+      "publication_name": "Kalle Anka Pocket Special",
+      "issue_code": "042e6122-45af-4b7f-8639-3eff8b804111",
+      "pages": 52,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "6a039858-5ebe-4caa-b83b-56bff023f4c2",
+      "publication_name": "Kalle Anka Pocket Special",
+      "issue_code": "1c96856c-3a06-4f88-b375-1e5a4ea0bbaf",
+      "pages": 84,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "6a039858-5ebe-4caa-b83b-56bff023f4c2",
+      "publication_name": "Kalle Anka Pocket Special",
+      "issue_code": "bb50ae23-0368-4d67-91e8-66dc782456b7",
+      "pages": 52,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "6a039858-5ebe-4caa-b83b-56bff023f4c2",
+      "publication_name": "Kalle Anka Pocket Special",
+      "issue_code": "cccfe55c-3eb1-4589-8091-01a8e6023f3f",
+      "pages": 84,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "6a039858-5ebe-4caa-b83b-56bff023f4c2",
+      "publication_name": "Kalle Anka Pocket Special",
+      "issue_code": "ef279eeb-8edf-466f-bc8f-1b0c5e1a6ea5",
+      "pages": 52,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "6a039858-5ebe-4caa-b83b-56bff023f4c2",
+      "publication_name": "Kalle Anka Skollov",
+      "issue_code": "44dd312d-1efb-4f08-9e9c-ccdbc6e0066f",
+      "pages": 52,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "6a039858-5ebe-4caa-b83b-56bff023f4c2",
+      "publication_name": "Kalle Anka Skollov",
+      "issue_code": "4961de63-cb36-45bf-9731-2015d2547fe8",
+      "pages": 52,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "6a039858-5ebe-4caa-b83b-56bff023f4c2",
+      "publication_name": "Kalle Anka Skollov",
+      "issue_code": "5b27232e-9440-4c56-985d-ae67949d3a44",
+      "pages": 52,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "6a039858-5ebe-4caa-b83b-56bff023f4c2",
+      "publication_name": "Kalle Anka Skollov",
+      "issue_code": "7153eb82-7857-4eae-93f8-339a02384e44",
+      "pages": 52,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "6a039858-5ebe-4caa-b83b-56bff023f4c2",
+      "publication_name": "Kalle Anka Skollov",
+      "issue_code": "8fc55aee-90da-464e-8589-4d1b3321f59d",
+      "pages": 52,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "6a039858-5ebe-4caa-b83b-56bff023f4c2",
+      "publication_name": "Kalle Anka Skollov",
+      "issue_code": "d03b8017-db78-46f5-a089-4a2c92dcaccf",
+      "pages": 52,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "6a039858-5ebe-4caa-b83b-56bff023f4c2",
+      "publication_name": "Kalle Anka Skollov",
+      "issue_code": "d472e950-71d1-4bf6-b052-5a876eb55a27",
+      "pages": 52,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "e741fb77-6cac-4a71-8d05-b8b9f0c69a5a",
+      "publication_name": "Kamille Spesial",
+      "issue_code": "722f1282-a540-436a-b7a2-265f9e64d07a",
+      "pages": 148,
+      "source": "web.archive.org CDX, reader.flipp.se (default.aspx-titel), publikation ej listad i Flipps API",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "e741fb77-6cac-4a71-8d05-b8b9f0c69a5a",
+      "publication_name": "Kamille Spesial",
+      "issue_code": "7aa8ec56-bc5a-40ff-8c25-992875749fa7",
+      "pages": 124,
+      "source": "web.archive.org CDX, reader.flipp.se (default.aspx-titel), publikation ej listad i Flipps API",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "e4368172-e6cd-464e-8a9e-7f3ce1ef1c32",
+      "publication_name": "Kamille bilag",
+      "issue_code": "0a4207ec-7750-4116-aec1-47a43d4aeede",
+      "pages": 16,
+      "source": "web.archive.org CDX, reader.flipp.se (default.aspx-titel), publikation ej listad i Flipps API",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "e4368172-e6cd-464e-8a9e-7f3ce1ef1c32",
+      "publication_name": "Kamille bilag",
+      "issue_code": "f03d16d2-beda-466e-9ee1-999d5dc5baff",
+      "pages": 16,
+      "source": "web.archive.org CDX, reader.flipp.se (default.aspx-titel), publikation ej listad i Flipps API",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "3e6dcc69-2329-412f-ac08-7bfe933ffa4c",
+      "publication_name": "Kungliga Magasinet",
+      "issue_code": "0a640354-d81e-4086-974b-fa9ee4356bb3",
+      "pages": 108,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "3e6dcc69-2329-412f-ac08-7bfe933ffa4c",
+      "publication_name": "Kungliga Magasinet",
+      "issue_code": "13c060c5-b000-4644-9832-d0b348b1ea67",
+      "pages": 92,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "3e6dcc69-2329-412f-ac08-7bfe933ffa4c",
+      "publication_name": "Kungliga Magasinet",
+      "issue_code": "462fb300-f97b-4ece-9d15-cd4199e4f490",
+      "pages": 84,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "3e6dcc69-2329-412f-ac08-7bfe933ffa4c",
+      "publication_name": "Kungliga Magasinet",
+      "issue_code": "51dd2483-1020-480f-8e9e-5d3d422d873d",
+      "pages": 116,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "3e6dcc69-2329-412f-ac08-7bfe933ffa4c",
+      "publication_name": "Kungliga Magasinet",
+      "issue_code": "61f40ec8-a54a-4627-8cc8-2c29d3831ece",
+      "pages": 100,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "3e6dcc69-2329-412f-ac08-7bfe933ffa4c",
+      "publication_name": "Kungliga Magasinet",
+      "issue_code": "70c16dda-cfb4-4294-89cc-586cfa06c4ba",
+      "pages": 84,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "3e6dcc69-2329-412f-ac08-7bfe933ffa4c",
+      "publication_name": "Kungliga Magasinet",
+      "issue_code": "8100cf65-f750-4ebd-a0ce-c69b9aec5ddc",
+      "pages": 92,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "3e6dcc69-2329-412f-ac08-7bfe933ffa4c",
+      "publication_name": "Kungliga Magasinet",
+      "issue_code": "85d08ab4-3f95-4df9-98b1-6945e2f20de5",
+      "pages": 84,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "3e6dcc69-2329-412f-ac08-7bfe933ffa4c",
+      "publication_name": "Kungliga Magasinet",
+      "issue_code": "88b80d02-c5ae-48ff-ac70-475f59a9bbdc",
+      "pages": 92,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "3e6dcc69-2329-412f-ac08-7bfe933ffa4c",
+      "publication_name": "Kungliga Magasinet",
+      "issue_code": "c80b0a1f-dfc9-40e4-a079-e8cd2636d3ba",
+      "pages": 84,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "3e6dcc69-2329-412f-ac08-7bfe933ffa4c",
+      "publication_name": "Kungliga Magasinet",
+      "issue_code": "efa9f2dd-d43f-469b-9bfa-f6decd9e59cf",
+      "pages": 100,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "3e6dcc69-2329-412f-ac08-7bfe933ffa4c",
+      "publication_name": "Kungliga Magasinet",
+      "issue_code": "fc6ce681-7517-4e42-9372-62b6cab60647",
+      "pages": 92,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "253ac739-37db-44e5-9b56-6150aa2e391c",
+      "publication_name": "Musse Pigg & Co",
+      "issue_code": "1bae723a-5aca-48b7-bb72-a00e8ab1fdd3",
+      "pages": 52,
+      "source": "web.archive.org CDX, reader.flipp.se (default.aspx-titel), publikation ej listad i Flipps API",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "253ac739-37db-44e5-9b56-6150aa2e391c",
+      "publication_name": "Musse Pigg & Co",
+      "issue_code": "280d3e3b-9d0c-44e1-a012-eb2342446b4a",
+      "pages": 52,
+      "source": "web.archive.org CDX, reader.flipp.se (default.aspx-titel), publikation ej listad i Flipps API",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "253ac739-37db-44e5-9b56-6150aa2e391c",
+      "publication_name": "Musse Pigg & Co",
+      "issue_code": "2a09b0ed-20b4-43d3-9867-ea3e23025843",
+      "pages": 52,
+      "source": "web.archive.org CDX, reader.flipp.se (default.aspx-titel), publikation ej listad i Flipps API",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "253ac739-37db-44e5-9b56-6150aa2e391c",
+      "publication_name": "Musse Pigg & Co",
+      "issue_code": "34efa9a8-1806-4065-80f0-7366a2efa668",
+      "pages": 52,
+      "source": "web.archive.org CDX, reader.flipp.se (default.aspx-titel), publikation ej listad i Flipps API",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "253ac739-37db-44e5-9b56-6150aa2e391c",
+      "publication_name": "Musse Pigg & Co",
+      "issue_code": "68fb5166-4822-46c5-9f85-128046d66966",
+      "pages": 52,
+      "source": "web.archive.org CDX, reader.flipp.se (default.aspx-titel), publikation ej listad i Flipps API",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "253ac739-37db-44e5-9b56-6150aa2e391c",
+      "publication_name": "Musse Pigg & Co",
+      "issue_code": "82c9edda-0ce6-4714-acdc-89e3c3823f0e",
+      "pages": 52,
+      "source": "web.archive.org CDX, reader.flipp.se (default.aspx-titel), publikation ej listad i Flipps API",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "253ac739-37db-44e5-9b56-6150aa2e391c",
+      "publication_name": "Musse Pigg & Co",
+      "issue_code": "9b986ad9-8b34-442d-ade6-68170faf7b3b",
+      "pages": 52,
+      "source": "web.archive.org CDX, reader.flipp.se (default.aspx-titel), publikation ej listad i Flipps API",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "253ac739-37db-44e5-9b56-6150aa2e391c",
+      "publication_name": "Musse Pigg & Co",
+      "issue_code": "aeaa9a1b-4ad7-4bb4-ad32-94cb65f5ee7f",
+      "pages": 52,
+      "source": "web.archive.org CDX, reader.flipp.se (default.aspx-titel), publikation ej listad i Flipps API",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "253ac739-37db-44e5-9b56-6150aa2e391c",
+      "publication_name": "Musse Pigg & Co",
+      "issue_code": "c7ffba85-fd4c-4e45-9aa1-98560ba8838f",
+      "pages": 52,
+      "source": "web.archive.org CDX, reader.flipp.se (default.aspx-titel), publikation ej listad i Flipps API",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "253ac739-37db-44e5-9b56-6150aa2e391c",
+      "publication_name": "Musse Pigg & Co",
+      "issue_code": "ece29ef3-bf07-4164-84df-86ee3b424ea6",
+      "pages": 52,
+      "source": "web.archive.org CDX, reader.flipp.se (default.aspx-titel), publikation ej listad i Flipps API",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "253ac739-37db-44e5-9b56-6150aa2e391c",
+      "publication_name": "Musse Pigg & Co",
+      "issue_code": "f2fbf744-36b0-4b87-ac42-3cd13721abd1",
+      "pages": 52,
+      "source": "web.archive.org CDX, reader.flipp.se (default.aspx-titel), publikation ej listad i Flipps API",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "253ac739-37db-44e5-9b56-6150aa2e391c",
+      "publication_name": "Musse Pigg & Co",
+      "issue_code": "f464e8e6-b792-4825-a71f-0290144824fc",
+      "pages": 52,
+      "source": "web.archive.org CDX, reader.flipp.se (default.aspx-titel), publikation ej listad i Flipps API",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "253ac739-37db-44e5-9b56-6150aa2e391c",
+      "publication_name": "Musses deckargåtor",
+      "issue_code": "4d82b1d1-fa50-44ef-8d0a-044908bb056a",
+      "pages": 52,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "253ac739-37db-44e5-9b56-6150aa2e391c",
+      "publication_name": "Musses deckargåtor",
+      "issue_code": "86dacaba-891d-4b68-8209-fe13bb3f0d36",
+      "pages": 52,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "253ac739-37db-44e5-9b56-6150aa2e391c",
+      "publication_name": "Musses deckargåtor",
+      "issue_code": "ae722c92-48f2-483c-9767-f591887fac42",
+      "pages": 52,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "253ac739-37db-44e5-9b56-6150aa2e391c",
+      "publication_name": "Musses deckargåtor",
+      "issue_code": "c6126797-df43-469b-aba4-381a66fc9853",
+      "pages": 52,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "253ac739-37db-44e5-9b56-6150aa2e391c",
+      "publication_name": "Musses deckargåtor",
+      "issue_code": "cb624471-5dfa-41dc-971b-1eb7bfb71c3a",
+      "pages": 52,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "253ac739-37db-44e5-9b56-6150aa2e391c",
+      "publication_name": "Musses deckargåtor",
+      "issue_code": "d28f3edd-89da-4703-952a-d88acbbd547f",
+      "pages": 52,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "94a1fdff-4e1a-4e2a-b41b-b63aa8dfb5ef",
+      "publication_name": "Norsk Ukeblad Bilag",
+      "issue_code": "571cb2cc-e111-447d-85d5-33442505ba66",
+      "pages": 16,
+      "source": "web.archive.org CDX, reader.flipp.se (default.aspx-titel), publikation ej listad i Flipps API",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "94a1fdff-4e1a-4e2a-b41b-b63aa8dfb5ef",
+      "publication_name": "Norsk Ukeblad Bilag",
+      "issue_code": "86431794-8dda-4db9-bf43-c38fbc8e460b",
+      "pages": 16,
+      "source": "web.archive.org CDX, reader.flipp.se (default.aspx-titel), publikation ej listad i Flipps API",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "94a1fdff-4e1a-4e2a-b41b-b63aa8dfb5ef",
+      "publication_name": "Norsk Ukeblad Bilag",
+      "issue_code": "9e9f2ffd-1773-4bc3-993c-ac2f81c2956d",
+      "pages": 16,
+      "source": "web.archive.org CDX, reader.flipp.se (default.aspx-titel), publikation ej listad i Flipps API",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "94a1fdff-4e1a-4e2a-b41b-b63aa8dfb5ef",
+      "publication_name": "Norsk Ukeblad Bilag",
+      "issue_code": "cd6d15c0-3bda-4c05-85be-bad9ae57b45a",
+      "pages": 16,
+      "source": "web.archive.org CDX, reader.flipp.se (default.aspx-titel), publikation ej listad i Flipps API",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "94a1fdff-4e1a-4e2a-b41b-b63aa8dfb5ef",
+      "publication_name": "Norsk Ukeblad Bilag",
+      "issue_code": "daa3c710-8772-4be2-a17e-4f89d5096411",
+      "pages": 16,
+      "source": "web.archive.org CDX, reader.flipp.se (default.aspx-titel), publikation ej listad i Flipps API",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "94a1fdff-4e1a-4e2a-b41b-b63aa8dfb5ef",
+      "publication_name": "Norsk Ukeblad Bilag",
+      "issue_code": "e3d1c739-b866-4159-9bf2-9dc88395931d",
+      "pages": 16,
+      "source": "web.archive.org CDX, reader.flipp.se (default.aspx-titel), publikation ej listad i Flipps API",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "886e0610-100a-42c0-9f60-7e99c5bfcdc1",
+      "publication_name": "Pro Hockey",
+      "issue_code": "305ad6ee-19e3-4e51-a7e7-92bc1bb78b0f",
+      "pages": 84,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "886e0610-100a-42c0-9f60-7e99c5bfcdc1",
+      "publication_name": "Pro Hockey",
+      "issue_code": "51e7059d-eac8-423a-ab98-ff3f9d1c158e",
+      "pages": 68,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "886e0610-100a-42c0-9f60-7e99c5bfcdc1",
+      "publication_name": "Pro Hockey",
+      "issue_code": "5f6a905c-1abc-4c2f-bcb8-aa7ae3684e17",
+      "pages": 68,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "886e0610-100a-42c0-9f60-7e99c5bfcdc1",
+      "publication_name": "Pro Hockey",
+      "issue_code": "60289a7e-2b35-4aff-a6cd-78a496d55bdc",
+      "pages": 82,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "886e0610-100a-42c0-9f60-7e99c5bfcdc1",
+      "publication_name": "Pro Hockey",
+      "issue_code": "92230dcf-f404-40c1-923f-9529fa547d42",
+      "pages": 100,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "886e0610-100a-42c0-9f60-7e99c5bfcdc1",
+      "publication_name": "Pro Hockey",
+      "issue_code": "cd5fc806-d551-42c4-af73-d5a6f8d323dd",
+      "pages": 67,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "886e0610-100a-42c0-9f60-7e99c5bfcdc1",
+      "publication_name": "Pro Hockey",
+      "issue_code": "cd7fb75b-5495-44f6-b229-16fe3c5c0199",
+      "pages": 84,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "886e0610-100a-42c0-9f60-7e99c5bfcdc1",
+      "publication_name": "Pro Hockey",
+      "issue_code": "d5c735c5-8d7b-4269-8d2b-dcfb082d34ea",
+      "pages": 84,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "886e0610-100a-42c0-9f60-7e99c5bfcdc1",
+      "publication_name": "Pro Hockey",
+      "issue_code": "dd400cf3-e53c-4073-acd9-9f7ac5feb9ca",
+      "pages": 84,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "886e0610-100a-42c0-9f60-7e99c5bfcdc1",
+      "publication_name": "Pro Hockey",
+      "issue_code": "e299b51e-713e-48b0-8270-c4b3d7c4e2a4",
+      "pages": 83,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "886e0610-100a-42c0-9f60-7e99c5bfcdc1",
+      "publication_name": "Pro Hockey",
+      "issue_code": "eb258526-d83c-4d38-9fe7-7ae60c11613a",
+      "pages": 84,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "886e0610-100a-42c0-9f60-7e99c5bfcdc1",
+      "publication_name": "Pro Hockey",
+      "issue_code": "ecf60eda-e104-4e81-abbc-50f76be98d38",
+      "pages": 84,
+      "source": "web.archive.org, arkiverad sida www.flipp.se/tidningar/ (publikation ej listad i Flipps API)",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "1c31875b-5a89-489b-a02f-bcf44e33d774",
+      "publication_name": "Rom123 bilag",
+      "issue_code": "33c9b3b1-83a3-46ff-9b73-a370eafa08b3",
+      "pages": 100,
+      "source": "web.archive.org CDX, reader.flipp.se (default.aspx-titel), publikation ej listad i Flipps API",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "7c12d28f-ba8d-4c6e-b2df-973666eeb8fe",
+      "publication_name": "Vi Menn Bilag",
+      "issue_code": "e51380b4-33fc-4df0-93c2-d28ac0cccbf5",
+      "pages": 32,
+      "source": "web.archive.org CDX, reader.flipp.se (default.aspx-titel), publikation ej listad i Flipps API",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "14f6a71b-2d3f-434f-8210-b05d0e2e0d3c",
+      "publication_name": "Villmarksliv Bilag",
+      "issue_code": "0b3b979d-9319-46af-9394-df9c2bdf0d6e",
+      "pages": 8,
+      "source": "web.archive.org CDX, reader.flipp.se (default.aspx-titel), publikation ej listad i Flipps API",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "14f6a71b-2d3f-434f-8210-b05d0e2e0d3c",
+      "publication_name": "Villmarksliv Bilag",
+      "issue_code": "11ebca20-dd43-4e4d-8928-7e8f2226ae98",
+      "pages": 8,
+      "source": "web.archive.org CDX, reader.flipp.se (default.aspx-titel), publikation ej listad i Flipps API",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "14f6a71b-2d3f-434f-8210-b05d0e2e0d3c",
+      "publication_name": "Villmarksliv Bilag",
+      "issue_code": "fcd0a673-a5de-4f5d-951c-255dcb79a4f9",
+      "pages": 8,
+      "source": "web.archive.org CDX, reader.flipp.se (default.aspx-titel), publikation ej listad i Flipps API",
       "verified": "2026-08-20"
     }
   ]
