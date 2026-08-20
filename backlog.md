@@ -214,7 +214,30 @@ Rätt fix är troligen en riktig claim-fråga mot DB (SELECT ... WHERE status=qu
 
 ---
 
-## [P3][todo] [flipp] Utgåvestatus sätts inte när sid-URL:erna misslyckas i downloadern
+## [P3][todo] [flipp] Visa storlek på disk som kolumn i publikationslistan
+
+Publikationslistan visar nedladdade av totalt, men inte vad publikationen väger. Med 94 publikationer och 53 GB på disk är det den siffra som säger var utrymmet tar vägen.
+
+Underlaget finns redan: issues.file_size lagras per utgåva sedan TASK-1362, och _issue_counts_by_publication i repository.py gör redan en grupperad fråga per publikation för antalen. Summan hör hemma i samma fråga - inte i en egen runda och absolut inte genom att stat:a filer under rendering.
+
+Acceptanskriterier:
+- Publikationslistan har en kolumn med publikationens sammanlagda storlek på disk.
+- Summan hämtas i den befintliga aggregerade frågan, så antalet SQL-satser inte ökar med antalet publikationer.
+- Utgåvor som saknar känd storlek - nedladdade före TASK-1362 - får inte visas som 0 byte utan förklaring. Avgör hur det ska visas, exempelvis som ett ungefärtecken eller genom att räkna dem separat, och motivera valet.
+- Samma tal visas efter watch/unwatch-swappen, som renderar publication_row.html på nytt.
+- Ny text genom gettext, katalogen uppdaterad med pybabel.
+
+Filer som väntas ändras: flipp_dl/db/repository.py, flipp_dl/db/models.py, flipp_dl/web/templates/publications.html, flipp_dl/web/templates/publication_row.html, tests/test_repository.py, tests/test_web_routes.py.
+
+Verifiering: test som kontrollerar summan och att frågeantalet inte växer, plus browser-verifiering vid 390px och 1280px - tabellen har redan sju kolumner, så en till måste rymmas i mobilbredd.
+
+- ID: `01M0FS74CTCMVDSTZSQR8ABK5J`
+- Type: improvement
+- Actor: ai:claude-opus-5
+
+---
+
+## [P3][done] [flipp] Utgåvestatus sätts inte när sid-URL:erna misslyckas i downloadern
 
 Hittat under arbetet med TASK-1363. I download_issue ligger anropet till client.fetch_issue_pdf_urls UTANFÖR downloaderns egen try/except, som bara omsluter sidhämtning och PDF-sammanslagning. Fallerar hämtningen av sidlistan - ogiltig token, borttagen utgåva, nätverksfel - körs alltså aldrig mark_issue_error, och utgåvan blir kvar i det läge den hade.
 
@@ -233,7 +256,7 @@ Filer som väntas ändras: flipp_dl/downloader.py, tests/test_downloader.py.
 
 ---
 
-## [P3][todo] [flipp] Se över hur knapparna i Action-kolumnen ser ut och radbryter
+## [P3][done] [flipp] Se över hur knapparna i Action-kolumnen ser ut och radbryter
 
 Action-kolumnen i utgåvelistan har vuxit under arbetet: Preview, Open, Re-download, Delete, Retry, Download och Cancel, där flera kan visas samtidigt beroende på status. De ärver olika knappklasser (btn-watch, btn-unwatch, btn-primary-soft) som valts en i taget, och radbrytningen är inte genomtänkt - på en skärmdump vid 1280px hamnar Delete på egen rad under Open och Re-download.
 
@@ -272,7 +295,7 @@ Verifiering: riktade tester för påfyllningen, plus kontroll i webbläsaren att
 
 ---
 
-## [P3][todo] [flipp] Sökning över alla utgåvor, inte bara inom en publikation
+## [P3][done] [flipp] Sökning över alla utgåvor, inte bara inom en publikation
 
 I dag söker man antingen bland utgåvorna på en publikations detaljsida eller på filnamn i Library. Med 17660 kända utgåvor fördelade på 94 publikationer saknas vägen att hitta något på tvärs: alla nummer från ett visst år, allt som saknas i en titel, eller en utgåva vars publikation man inte minns.
 
