@@ -773,6 +773,48 @@ def test_publications_list_shows_downloaded_count(client: TestClient):
     assert "/2" in resp.text
 
 
+def test_publications_list_shows_delisted_marker(client: TestClient):
+    """TASK-1426: a publication missing from the latest poll is flagged.
+
+    The wording must say "no longer listed", never "unavailable" or
+    "removed" - the issue is still fetchable directly, it just isn't
+    offered by the API's publication list any more.
+    """
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        stitch = Publication(
+            custom_code="STITCH",
+            name="Stitch",
+            issues=[
+                Issue(
+                    custom_code="stitch-01", issue_name="Nr 3", issue_date="2026-01-01"
+                )
+            ],
+        )
+        repo.sync_publications([stitch])
+        # Next poll's response no longer contains Stitch or KA... except
+        # KA must stay present so it does NOT get flagged too.
+        ka = repo.get_publication("KA")
+        repo.sync_publications([Publication(custom_code="KA", name=ka.name, issues=[])])
+
+    resp = client.get("/publications?watched=0")
+    assert resp.status_code == 200
+    assert "No longer listed by Flipp" in resp.text
+    assert 'data-code="stitch"' in resp.text
+    stitch_row_start = resp.text.index('id="pub-row-STITCH"')
+    stitch_row_end = resp.text.index("</tr>", stitch_row_start)
+    stitch_row = resp.text[stitch_row_start:stitch_row_end]
+    assert 'data-delisted="1"' in stitch_row
+
+    ka_row_start = resp.text.index('id="pub-row-KA"')
+    ka_row_end = resp.text.index("</tr>", ka_row_start)
+    ka_row = resp.text[ka_row_start:ka_row_end]
+    assert 'data-delisted="0"' in ka_row
+    # Never phrase this as removed/unavailable - it is still downloadable.
+    assert "unavailable" not in resp.text.lower()
+    assert "removed" not in resp.text.lower()
+
+
 def test_publications_list_does_not_query_the_issues_table(client: TestClient):
     """TASK-1338: the list view must not load every issue row.
 

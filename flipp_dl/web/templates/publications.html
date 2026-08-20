@@ -21,6 +21,9 @@
   <label class="watch-filter">
     <input id="pub-watched" type="checkbox" checked> {{ _("Watched only") }}
   </label>
+  <label class="watch-filter">
+    <input id="pub-delisted" type="checkbox"> {{ _("No longer listed only") }}
+  </label>
   <span id="pub-count" class="dim"></span>
 </div>
 
@@ -62,6 +65,7 @@
   const searchInput = document.getElementById("pub-search");
   const categorySelect = document.getElementById("pub-category");
   const watchedOnly = document.getElementById("pub-watched");
+  const delistedOnly = document.getElementById("pub-delisted");
   const tbody = document.getElementById("pub-tbody");
   const empty = document.getElementById("pub-empty");
   const counter = document.getElementById("pub-count");
@@ -92,6 +96,7 @@
     const q = (searchInput.value || "").trim().toLowerCase();
     const cat = categorySelect.value;
     const onlyWatched = watchedOnly.checked;
+    const onlyDelisted = delistedOnly.checked;
     let visible = 0;
     let total = 0;
     tbody.querySelectorAll("tr.pub-row").forEach((row) => {
@@ -100,12 +105,14 @@
       const code = row.dataset.code || "";
       const cats = (row.dataset.categories || "").split(",").filter(Boolean);
       const watched = row.dataset.watched === "1";
+      const delisted = row.dataset.delisted === "1";
 
       const matchesText = !q || name.includes(q) || code.includes(q);
       const matchesCat = !cat || cats.includes(cat);
       const matchesWatched = !onlyWatched || watched;
+      const matchesDelisted = !onlyDelisted || delisted;
 
-      const show = matchesText && matchesCat && matchesWatched;
+      const show = matchesText && matchesCat && matchesWatched && matchesDelisted;
       row.style.display = show ? "" : "none";
       if (show) visible += 1;
     });
@@ -119,6 +126,7 @@
     syncWatchedUrl();
     applyFilter();
   });
+  delistedOnly.addEventListener("change", applyFilter);
 
   // Re-apply after HTMX swaps a row (watch/unwatch replaces the <tr>).
   document.body.addEventListener("htmx:afterSwap", (evt) => {

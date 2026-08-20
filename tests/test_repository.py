@@ -479,6 +479,81 @@ def test_sync_publications_second_run_returns_no_new(repo):
     assert new_issues == []
 
 
+def test_sync_publications_marks_missing_publication_delisted(repo):
+    """A publication absent from a non-empty response is delisted (TASK-1426)."""
+    ka = _publication("KA", "Kalle Anka & Co")
+    frost = _publication("FROST", "Frost Aktivitetspåse")
+    repo.sync_publications([ka, frost])
+    repo.session.commit()
+
+    # Frost drops out of this poll's response - only KA remains.
+    repo.sync_publications([ka])
+    repo.session.commit()
+
+    db_frost = repo.get_publication("FROST")
+    db_ka = repo.get_publication("KA")
+    assert db_frost.delisted_at is not None
+    assert db_ka.delisted_at is None
+
+
+def test_sync_publications_clears_delisted_when_seen_again(repo):
+    ka = _publication("KA")
+    frost = _publication("FROST", "Frost Aktivitetspåse")
+    repo.sync_publications([ka, frost])
+    repo.session.commit()
+    repo.sync_publications([ka])
+    repo.session.commit()
+    assert repo.get_publication("FROST").delisted_at is not None
+
+    # Frost reappears in a later poll - the mark clears automatically.
+    repo.sync_publications([ka, frost])
+    repo.session.commit()
+
+    assert repo.get_publication("FROST").delisted_at is None
+
+
+def test_sync_publications_empty_response_does_not_delist_everything(repo):
+    """An empty (but non-erroring) API response must never nuke the list.
+
+    poll_publications already aborts before sync_publications on a hard
+    FlippError - this guards the remaining risk of a technically
+    successful but empty/degenerate response.
+    """
+    ka = _publication("KA")
+    frost = _publication("FROST", "Frost Aktivitetspåse")
+    repo.sync_publications([ka, frost])
+    repo.session.commit()
+
+    repo.sync_publications([])
+    repo.session.commit()
+
+    assert repo.get_publication("KA").delisted_at is None
+    assert repo.get_publication("FROST").delisted_at is None
+
+
+def test_sync_publications_does_not_delete_delisted_publication(repo):
+    """Nothing about delisting removes the row, its issues, or downloads."""
+    frost = _publication("FROST", "Frost Aktivitetspåse")
+    repo.sync_publications([frost])
+    repo.session.commit()
+    db_frost = repo.get_publication("FROST")
+    issue = db_frost.issues[0]
+    issue.status = IssueStatus.DONE
+    issue.file_path = "/downloads/frost/nr1.pdf"
+    repo.session.commit()
+
+    repo.sync_publications([_publication("KA")])
+    repo.session.commit()
+
+    db_frost = repo.get_publication("FROST")
+    assert db_frost is not None
+    assert db_frost.delisted_at is not None
+    assert len(db_frost.issues) == 2
+    done_issue = next(i for i in db_frost.issues if i.custom_code == issue.custom_code)
+    assert done_issue.status == IssueStatus.DONE
+    assert done_issue.file_path == "/downloads/frost/nr1.pdf"
+
+
 def test_issue_status_transitions(repo):
     db_pub = repo.upsert_publication(_publication())
     repo.session.commit()

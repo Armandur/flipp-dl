@@ -5,6 +5,7 @@
   data-code="{{ publication.custom_code | lower }}"
   data-categories="{% for c in publication.categories %}{{ c.category_id }}{% if not loop.last %},{% endif %}{% endfor %}"
   data-watched="{{ '1' if publication.watched else '0' }}"
+  data-delisted="{{ '1' if publication.delisted_at else '0' }}"
 >
   <td class="cover-cell">
     {% if publication.cover_cache_path %}
@@ -26,6 +27,12 @@
     <a class="pub-link" href="/publications/{{ publication.custom_code }}">
       <strong>{{ publication.name }}</strong>
     </a>
+    {% if publication.delisted_at %}
+      <span
+        class="badge badge-queued"
+        title="{{ _('Flipp stopped listing this publication on %(date)s. It can still be watched and downloaded.') % {'date': publication.delisted_at.strftime('%Y-%m-%d')} }}"
+      >{{ _("No longer listed by Flipp") }}</span>
+    {% endif %}
     <div class="dim mono" style="font-size:11px;">{{ publication.custom_code }}</div>
     {% if publication.folder_name %}
       <div class="dim" style="font-size:11px;">{{ _("Folder:") }} {{ publication.folder_name }}</div>

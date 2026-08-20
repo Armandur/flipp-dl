@@ -1192,19 +1192,57 @@ class DownloadRepository:
     ) -> list[DbIssue]:
         """Upsert all publications + issues from a fresh API response.
 
-        Returns a list of *newly discovered* :class:`DbIssue` rows that
-        the caller can queue for download.
+        Never deletes anything - a publication that drops out of the
+        response keeps its download history and file paths (see
+        ``_sync_delisted_publications``). Returns a list of *newly
+        discovered* :class:`DbIssue` rows that the caller can queue for
+        download.
         """
         new_issues: list[DbIssue] = []
+        seen_codes: set[str] = set()
         for pub in api_publications:
             db_pub = self.upsert_publication(pub)
             db_pub.last_polled_at = _now()
+            db_pub.delisted_at = None
+            seen_codes.add(db_pub.custom_code)
             for issue in pub.issues:
                 db_issue, created = self.upsert_issue(issue, db_pub.id)
                 if created:
                     new_issues.append(db_issue)
         self._disable_watched_folder_collisions()
+        if seen_codes:
+            self._mark_missing_publications_delisted(seen_codes)
         return new_issues
+
+    def _mark_missing_publications_delisted(self, seen_codes: set[str]) -> None:
+        """Mark every publication absent from *seen_codes* as delisted.
+
+        Only called when ``seen_codes`` is non-empty (TASK-1426): an
+        empty or partial API response must never be read as "everything
+        disappeared". A hard failure (network error, non-2xx, ...)
+        already never reaches here at all -
+        :func:`flipp_dl.scheduler.poll_publications` catches
+        ``FlippError`` and calls ``finish_job(error=...)`` before
+        ``sync_publications`` runs. The remaining risk this guards
+        against is a *successful* response that happens to be empty.
+
+        Marked on the very first poll a publication is missing from,
+        not after several misses in a row: sync_publications only runs
+        against a response the caller already treated as a success, so
+        "missing from a successful response" is itself the signal, not
+        noise to debounce. The mark carries no meaning beyond "not
+        currently listed" - the publication, its issues, and any
+        downloaded files are left untouched, and the issue stays
+        reachable straight through the reader API regardless.
+        """
+        now = _now()
+        missing = self.session.scalars(
+            select(DbPublication)
+            .where(DbPublication.custom_code.not_in(seen_codes))
+            .where(DbPublication.delisted_at.is_(None))
+        )
+        for db_pub in missing:
+            db_pub.delisted_at = now
 
     # ------------------------------------------------------------------
     # Settings

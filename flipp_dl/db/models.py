@@ -128,6 +128,16 @@ class DbPublication(Base):
     # the folder-name lookup against Komga's search endpoint is never
     # repeated once a match has been found.
     komga_series_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # When this publication was first noticed missing from a *successful*
+    # Flipp API response (TASK-1426). ``None`` means it is currently
+    # listed. Cleared automatically the moment it reappears in a poll -
+    # see ``DownloadRepository.sync_publications``. This is purely a
+    # "Flipp stopped listing it" marker: the publication, its issues and
+    # any downloaded files are never touched, and the issue is still
+    # fetchable directly by code (the reader API doesn't require the
+    # publication to still be listed) - the UI wording must say
+    # "no longer listed", never "unavailable" or "removed".
+    delisted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     @hybrid_property
     def name(self) -> str:
