@@ -236,6 +236,40 @@ Rätt fix är troligen en riktig claim-fråga mot DB (SELECT ... WHERE status=qu
 
 ---
 
+## [P3][todo] [flipp] Settings: ojämna bredder och grupper som inte hänger ihop
+
+Fälten under Import existing files är breda medan grupperna ovanför (Komga, Notifications) är smala, utan att skillnaden betyder något. Ta reda på varifrån bredden kommer - troligen en .form-card med max-width som bara vissa block ligger i - och gör den enhetlig.
+
+Samtidigt: gruppindelningen är värd att se över. Komga, Notifications, Import existing files och Debug är fyra rubriker på samma nivå fast de gör olika saker - integrationer, aviseringar, en engångsåtgärd och felsökning. Fundera på om de ska delas i sektioner eller flyttas dit de hör hemma (importen är snarare något man gör en gång från Library än en inställning).
+
+- ID: `01M0G2TD5ZS5ERJGJDGR16Z7YF`
+- Type: improvement
+- Actor: human:rasmus
+
+---
+
+## [P3][done] [flipp] Visa miniatyromslag i Recent downloads på dashboarden
+
+Recent downloads listar utgåva, publikation, tidpunkt och filväg som ren text. Publikationslistan och utgåvelistan visar redan miniatyromslag i första kolumnen - dashboarden borde göra likadant.
+
+Underlaget finns: utgåvornas omslag cachas sedan TASK-1345/1374 och serveras från /publications/{code}/issues/{issue_code}/cover. Omslaget ska också gå att klicka för lightbox, som på övriga sidor - lägg data-lightbox-src med /cover/large enligt mönstret i publication_row.html.
+
+Acceptanskriterier:
+- Recent downloads har en omslagskolumn längst till vänster, i samma format som övriga listor.
+- Saknas cachat omslag döljs bilden som på andra sidor, ingen trasig ikon.
+- Omslaget öppnar lightboxen vid klick.
+- Ingen extra databasfråga per rad - list_recent_downloads laddar redan publikationen.
+
+Filer som väntas ändras: flipp_dl/web/templates/dashboard.html, eventuellt flipp_dl/web/routes.py.
+
+Verifiering: browser vid 390px och 1280px - dashboarden har redan flera kolumner och måste rymma en till i mobilbredd. Klicka ett omslag och kontrollera lightboxen.
+
+- ID: `01M0G2R84E6WPKMBGZV99MMPHQ`
+- Type: improvement
+- Actor: ai:claude-opus-5
+
+---
+
 ## [P3][done] [flipp] Öppna omslag i en lightbox
 
 Omslagen i publikationslistan och på detaljsidan ska gå att klicka för att se i större format utan att lämna sidan. En enkel lightbox: klick öppnar, klick utanför eller Escape stänger.
