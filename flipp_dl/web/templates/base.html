@@ -58,6 +58,11 @@
       max-width: 92vw; max-height: 92vh; margin: auto;
     }
     dialog.cover-lightbox::backdrop { background: rgba(9, 9, 16, .85); }
+    /* showModal() focuses the dialog, and the browser draws its focus
+       ring around it - a blue outline around the image. The dialog holds
+       no controls, so nothing is lost by hiding it; Escape still closes. */
+    dialog.cover-lightbox:focus,
+    dialog.cover-lightbox:focus-visible { outline: none; }
     dialog.cover-lightbox img {
       display: block; max-width: 100%; max-height: calc(92vh - 28px);
       border-radius: 8px; box-shadow: 0 8px 32px rgba(0,0,0,.6);
