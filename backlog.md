@@ -264,6 +264,67 @@ Rätt fix är troligen en riktig claim-fråga mot DB (SELECT ... WHERE status=qu
 
 ---
 
+## [P3][todo] [flipp] Undersök om olistade publikationer och utgåvor går att upptäcka
+
+## Context
+Flipps publikationslista (refreshsignintoken) visar bara vad kontot erbjuds just nu. Databasen känner till tre publikationer som fallit ur listan - Frost Aktivitetspåse, Robot Junior Bag och Stitch - och de går fortfarande att ladda ner: Stitch nr 3 2026 gav 44 sidor från reader-API:t 2026-08-20.
+
+Det väcker frågan: hur mycket mer finns det som aldrig listats för kontot? En publikation som aldrig dykt upp i listan finns inte alls i databasen, och då finns inte heller dess utgåvekoder att slå upp.
+
+## Vad som ska utredas
+- get_page_groups_from_eid.aspx kräver ingen autentisering och tar pubid och eid. Finns någon motsvarande oautentiserad väg att LISTA utgåvor eller publikationer, i stil med ett katalog- eller sökanrop?
+- Vad returnerar reader-API:t för en giltig pubid men okänd eid, respektive för en pubid som kontot inte har? Skiljer sig felen åt på ett sätt som avslöjar något?
+- Innehåller svaret från get_page_groups_from_eid några referenser till andra utgåvor - föregående eller nästa nummer, arkiv, relaterade koder?
+- Har Flipps webbapp fler endpoints än de två vi använder? Buntarna ligger på tidningar.flipp.se/flipp/web-app/ och main-bundlen är läsbar. Leta efter API-anrop vi inte känner till.
+- Vad säger accountInformation och categories i refreshsignintoken-svaret? Antyder de ett större utbud än publications-listan?
+
+## Icke-mål
+Detta är en utredning, inte ett bygge. Ingen kod ska ändras.
+
+Gissa inte fram utgåvekoder genom att prova sig fram - koderna är UUID, det är ogörligt och skulle dessutom innebära att hamra någon annans tjänst.
+
+## Leverans
+En backlog-doc som svarar på: går olistat material att upptäcka på något rimligt sätt, och i så fall hur. Om svaret är nej ska det stå tydligt, så frågan inte behöver ställas igen.
+
+Skriv ut vilka anrop som faktiskt gjordes och vad de svarade - inte vad som antas.
+
+- ID: `01M0GCTXPT2XRYSP6WNMTY6MAF`
+- Type: spike
+- Actor: ai:claude-opus-5
+
+---
+
+## [P3][todo] [flipp] Visa vilka publikationer som inte längre listas av Flipp
+
+## Context
+Databasen har 94 publikationer medan Flipp just nu listar 91. Skillnaden är Frost Aktivitetspåse, Robot Junior Bag och Stitch - sammanlagt 16 utgåvor, inga nedladdade.
+
+sync_publications lägger till och uppdaterar men tar aldrig bort, vilket är rätt: en publikation som försvinner ur utbudet ska inte ta med sig nedladdningshistorik och filsökvägar i fallet.
+
+Viktigt att formuleringen blir rätt: de här publikationerna GÅR fortfarande att ladda ner. Kontrollerat 2026-08-20 - Stitch nr 3 2026 gav 44 sidor från reader-API:t. De två API:erna hänger inte ihop: refreshsignintoken returnerar vad kontot erbjuds just nu, medan get_page_groups_from_eid slår upp en utgåva utan att kräva någon autentisering alls. Så länge utgåvans kod finns kvar i databasen är den hämtbar.
+
+Ett märke som antyder att de är otillgängliga vore alltså direkt missvisande. Formuleringen ska vara i stil med "listas inte längre av Flipp, går fortfarande att hämta".
+
+## Acceptance criteria
+- [ ] En publikation som inte kom med i senaste pollen markeras som olistad, med tidpunkt för när den sist sågs.
+- [ ] Markeringen syns i publikationslistan och går att filtrera på.
+- [ ] Ordvalet säger att den inte längre listas, inte att den är borttagen eller otillgänglig.
+- [ ] Dyker publikationen upp igen i en senare poll försvinner markeringen automatiskt.
+- [ ] Ingenting raderas, och en olistad publikation går fortfarande att bevaka och ladda ner.
+
+## Öppen fråga
+En publikation kan saknas i en poll av tillfälliga skäl - ett API-fel eller en ändrad prenumeration. Ska markeringen sättas direkt vid första frånvaron eller först efter flera pollar i rad? Ta ställning och motivera.
+
+## Verification
+- Tester: publikation försvinner ur svaret och markeras, dyker upp igen och avmarkeras, och att inget raderas.
+- Kontroll mot driftinstansen: de tre kända publikationerna markeras, övriga 91 inte.
+
+- ID: `01M0GCT0Q68JY6Z1XGXQXE92E8`
+- Type: improvement
+- Actor: ai:claude-opus-5
+
+---
+
 ## [P3][doing] [flipp] En publikations katalog får inte kunna kopplas till en annan publikation
 
 ## Context
