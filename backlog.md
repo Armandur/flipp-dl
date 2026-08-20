@@ -42,17 +42,58 @@ Verifiering: riktade tester i tests/test_scheduler.py som simulerar ett fel och 
 
 ---
 
-## [P2][todo] [flipp] Begränsa hur mycket bakkatalog som köas när en publikation bevakas
+## [P2][todo] [flipp] Visa storleksuppskattning innan en bulk-köläggning
 
-Watch köar i dag ALLT som inte är nedladdat för publikationen, och poll fyller på med samma logik. Det är sällan vad man vill: driftinstansen har 16568 utgåvor som inte är nedladdade, snittet är 49 MB per utgåva (1092 filer väger 53,2 GB), så en full backfill är i storleksordningen 800 GB och tar mycket lång tid. Att kryssa Watch ska inte kunna starta det av misstag.
+Knappen "Queue missing issues" och Watch säger hur många utgåvor som köas, men inte vad det väger. Med 49 MB som snitt blir 200 utgåvor cirka 10 GB, vilket är värt att veta före klicket.
+
+Underlaget finns nu: 1092 nedladdade filer att räkna median eller snitt på, per publikation där det går och globalt annars. Den ursprungliga TODO:n avbokade en liknande idé, men då fanns ingen nedladdad data att basera uppskattningen på.
 
 Acceptanskriterier:
-- Vid bevakning går det att välja hur mycket bakkatalog som ska hämtas: inget (bara nya utgåvor framåt), ett antal senaste, eller allt.
-- Valet gäller även poll-påfyllningen, inte bara klicket - annars smyger bakkatalogen in ändå vid nästa poll.
-- Befintliga bevakade publikationer behåller dagens beteende tills något annat valts, så utrullningen inte ändrar något i tysthet.
-- queue_missing_issues i repository.py är den gemensamma vägen och bör ta gränsen som parameter.
+- Bekräftelsedialogen för bulk-köläggning visar antal utgåvor OCH uppskattad storlek.
+- Uppskattningen bygger på faktiska filstorlekar, i första hand för samma publikation, med global median som fallback när publikationen saknar nedladdade filer.
+- Saknas underlag helt visas antalet utan storlek, inte en påhittad siffra.
+- Kräver att filstorlek finns tillgänglig per utgåva - avgör om den ska läsas från disk vid behov eller sparas i databasen vid nedladdning, och motivera valet.
 
-Verifiering: riktade tester i tests/test_repository.py och tests/test_scheduler.py för de tre lägena, plus klick på Watch i webbläsaren med kontroll av hur många jobb som faktiskt köas.
+Verifiering: riktade tester för uppskattningen inklusive fallback-fallet, plus browser-verifiering av dialogen vid 390px och 1280px.
+
+Hänger ihop med tasken om att begränsa bakkatalogen - de rör samma klick.
+
+## Används av TASK-1361
+Uppskattningen är förutsättningen för tröskelvarningen när hela bakkatalogen hämtas (5 GB som default). Den här tasken bör därför göras först - utan en siffra finns inget att varna på. Uppskattningen ska gå att anropa för en publikation utan att rendera något, så både dialogen och varningen kan använda samma väg.
+
+- ID: `01M0DWXHZJCQ6JYRVXD6KJ9NXA`
+- Type: feature
+- Actor: ai:claude-opus-5
+
+---
+
+## [P2][todo] [flipp] Skilj på att bevaka framåt och att hämta hela bakkatalogen
+
+Watch köar i dag ALLT som inte är nedladdat, och poll fyller på med samma logik. Det är sällan vad man vill: driftinstansen har 16568 utgåvor som inte är nedladdade, snittet är 49 MB per utgåva (1092 filer väger 53,2 GB), så en full backfill är i storleksordningen 800 GB. Att kryssa Watch ska inte kunna starta det av misstag.
+
+Beslutat av Rasmus 2026-08-20: lösningen är INTE att bara strypa Watch, utan att göra valet explicit med skilda knappar. Bakkatalogsknappen ska dessutom varna när uppskattningen överstiger en tröskel, visa beräknad storlek, och kräva en bekräftelse.
+
+## Acceptanskriterier
+
+- Watch bevakar framåt: nya utgåvor som upptäcks vid poll köas, bakkatalogen rörs inte. Det blir en ofarlig knapp.
+- En egen knapp hämtar bakkatalogen. Den befintliga "Queue missing issues" på publikationens detaljsida är den naturliga platsen - den ska då sluta vara en tyst variant av samma sak och i stället bli det uttryckliga valet.
+- Överstiger uppskattningen tröskeln visar bekräftelsedialogen antal utgåvor OCH beräknad storlek, och kräver ett aktivt godkännande. Under tröskeln räcker dagens bekräftelse.
+- Tröskeln har ett rimligt default (5 GB, motsvarar drygt hundra utgåvor med dagens snitt) och går att ändra via inställning eller env.
+- Poll-påfyllningen följer samma uppdelning: den fyller på utgåvor som upptäckts sedan bevakningen slogs på, inte hela bakkatalogen. Annars smyger den in ändå vid nästa poll.
+- Befintliga bevakade publikationer påverkas inte i tysthet av utrullningen - beskriv i implementationen vad som händer med dem och varför.
+
+## Implementation hints
+
+Filer som väntas ändras: flipp_dl/db/repository.py (queue_missing_issues tar gränsen som parameter), flipp_dl/db/models.py, flipp_dl/scheduler.py, flipp_dl/web/routes.py, flipp_dl/web/templates/publication_detail.html, flipp_dl/web/templates/publication_row.html, tests/test_repository.py, tests/test_scheduler.py, tests/test_web_routes.py. Sannolikt en ny Alembic-revision efter 0008_komga_read_status om bevakningsstarten behöver lagras.
+
+Bekräftelsedialogen går redan genom den egna modalen i base.html, som läser texten ur hx-confirm via htmx:confirm. En storleksberoende text kräver att attributet sätts serverside eller att modalen får hämta uppskattningen - avgör vilket och motivera.
+
+BEROENDE: storleksuppskattningen kommer från TASK-1362, som därför bör göras först. Utan den finns ingen siffra att varna på.
+
+## Verification
+
+- pytest tests/test_repository.py tests/test_scheduler.py tests/test_web_routes.py -q, med tester för båda knapparna, tröskeln över och under, och att poll inte drar in bakkatalogen.
+- Browser: klicka BÅDA knapparna vid 390px och 1280px, kontrollera att varningen visas över tröskeln med rätt siffror och att avbryt inte köar något. Rendering är inte verifiering.
 
 - ID: `01M0DWXHZ3V1T3XH4JKDC8QF2Z`
 - Type: feature
@@ -187,28 +228,6 @@ Acceptanskriterier:
 Verifiering: riktade tester i tests/test_web_routes.py inklusive ett som verifierar att antalet SQL-satser inte växer med antalet utgåvor, plus browser-verifiering vid 390px och 1280px där en sökning faktiskt utförs.
 
 - ID: `01M0DWYFG070H35Y33FW3SDEHB`
-- Type: feature
-- Actor: ai:claude-opus-5
-
----
-
-## [P3][todo] [flipp] Visa storleksuppskattning innan en bulk-köläggning
-
-Knappen "Queue missing issues" och Watch säger hur många utgåvor som köas, men inte vad det väger. Med 49 MB som snitt blir 200 utgåvor cirka 10 GB, vilket är värt att veta före klicket.
-
-Underlaget finns nu: 1092 nedladdade filer att räkna median eller snitt på, per publikation där det går och globalt annars. Den ursprungliga TODO:n avbokade en liknande idé, men då fanns ingen nedladdad data att basera uppskattningen på.
-
-Acceptanskriterier:
-- Bekräftelsedialogen för bulk-köläggning visar antal utgåvor OCH uppskattad storlek.
-- Uppskattningen bygger på faktiska filstorlekar, i första hand för samma publikation, med global median som fallback när publikationen saknar nedladdade filer.
-- Saknas underlag helt visas antalet utan storlek, inte en påhittad siffra.
-- Kräver att filstorlek finns tillgänglig per utgåva - avgör om den ska läsas från disk vid behov eller sparas i databasen vid nedladdning, och motivera valet.
-
-Verifiering: riktade tester för uppskattningen inklusive fallback-fallet, plus browser-verifiering av dialogen vid 390px och 1280px.
-
-Hänger ihop med tasken om att begränsa bakkatalogen - de rör samma klick.
-
-- ID: `01M0DWXHZJCQ6JYRVXD6KJ9NXA`
 - Type: feature
 - Actor: ai:claude-opus-5
 
