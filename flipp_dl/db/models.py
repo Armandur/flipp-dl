@@ -78,6 +78,15 @@ class DbPublication(Base):
     # description contains the standard "Nästa nummer kommer …" line.
     next_issue_date: Mapped[str | None] = mapped_column(String(20), nullable=True)
     watched: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # When watching was (most recently) turned on for this publication
+    # (TASK-1361). Watching only bevakar framåt - it queues nothing by
+    # itself - so poll's catch-up pass uses this as the cutoff: an issue
+    # discovered before this timestamp is part of the back catalogue and
+    # is left alone; only issues discovered from here onward are ever
+    # auto-queued. Reset every time watching is (re-)enabled, including
+    # after an unwatch/watch cycle - re-watching must not silently pull
+    # in whatever accumulated while unwatched either.
+    watch_started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     last_polled_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     # Per-publication poll interval override, in minutes (TASK-1291). None
     # means "use the global default" - today's behaviour, queued/backfilled

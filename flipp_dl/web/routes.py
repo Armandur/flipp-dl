@@ -305,11 +305,14 @@ def register(app: FastAPI) -> None:
 
     @app.post("/publications/{code}/watch", response_class=HTMLResponse)
     async def watch_publication(request: Request, code: str):
-        """Start watching, and queue whatever is not downloaded yet.
+        """Start watching - bevaka framåt only (TASK-1361).
 
-        Without this, watching only affects issues discovered by a
-        later poll and the back catalogue has to be clicked through by
-        hand.
+        Watching queues nothing itself: it just flips the flag so poll
+        starts auto-queuing issues discovered from now on. The back
+        catalogue is a deliberate, separate action - the "Queue missing
+        issues" button on the publication's detail page - so ticking
+        Watch can never accidentally trigger a multi-hundred-gigabyte
+        download.
         """
         if not await check_csrf_form(request):
             return HTMLResponse("CSRF validation failed", status_code=400)
@@ -317,10 +320,6 @@ def register(app: FastAPI) -> None:
             repo = DownloadRepository(session)
             if not repo.set_watched(code, True):
                 return HTMLResponse("Publication not found", status_code=404)
-            pub = repo.get_publication(code)
-            queued = repo.queue_missing_issues(pub.id)
-        if queued:
-            logger.info("Watch %s: queued %d missing issue(s)", code, queued)
         return await _publication_row(request, code)
 
     @app.post("/publications/{code}/unwatch", response_class=HTMLResponse)
@@ -471,6 +470,7 @@ def register(app: FastAPI) -> None:
             issues = sorted(pub.issues, key=lambda i: i.issue_date or "", reverse=True)
             _annotate_file_exists(issues, request.app.state.output_root)
             queue_estimate = repo.estimate_missing_download_size(pub.id)
+            queue_warn_threshold_bytes = repo.queue_warn_threshold_bytes()
             return _templates(request).TemplateResponse(
                 request,
                 "publication_detail.html",
@@ -480,6 +480,7 @@ def register(app: FastAPI) -> None:
                     "komga": _komga_status(repo, pub),
                     "csrf_token": generate_csrf_token(request),
                     "queue_estimate": queue_estimate,
+                    "queue_warn_threshold_bytes": queue_warn_threshold_bytes,
                 },
             )
         finally:

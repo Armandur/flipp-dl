@@ -291,6 +291,94 @@ def test_queue_missing_confirm_says_nothing_to_queue_when_all_downloaded(
     )
 
 
+# ---------------------------------------------------------------------------
+# Backfill warning threshold (TASK-1361)
+# ---------------------------------------------------------------------------
+
+
+def test_queue_missing_confirm_warns_above_default_threshold(client: TestClient):
+    """Above 5 GiB the confirm dialog must spell out the threshold too."""
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        pub = repo.get_publication("KA")
+        issue = repo.get_issue_by_code("ka01", pub.id)
+        issue.file_size = 6 * 1024**3  # 6 GiB average - one missing issue exceeds 5 GiB
+        repo.upsert_issue(
+            Issue(custom_code="miss0", issue_name="Nr 0", issue_date="2023-01-01"),
+            pub.id,
+        )
+
+    resp = client.get("/publications/KA")
+    assert resp.status_code == 200
+    assert "above the 5.0 GB warning threshold" in resp.text
+    assert "6.0 GB" in resp.text
+
+
+def test_queue_missing_confirm_env_threshold_is_honoured(
+    client: TestClient, monkeypatch
+):
+    """A lower FLIPP_QUEUE_WARN_THRESHOLD_BYTES trips the warning sooner."""
+    monkeypatch.setenv("FLIPP_QUEUE_WARN_THRESHOLD_BYTES", str(100 * 1024 * 1024))
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        pub = repo.get_publication("KA")
+        issue = repo.get_issue_by_code("ka01", pub.id)
+        issue.file_size = 50 * 1024 * 1024  # 50 MB
+        for i in range(3):
+            repo.upsert_issue(
+                Issue(
+                    custom_code=f"miss{i}",
+                    issue_name=f"Nr {i}",
+                    issue_date="2023-01-01",
+                ),
+                pub.id,
+            )
+
+    resp = client.get("/publications/KA")
+    assert resp.status_code == 200
+    # 3 issues * 50 MB = 150 MB > 100 MB threshold.
+    assert "above the 100.0 MB warning threshold" in resp.text
+
+
+def test_queue_missing_confirm_stays_below_threshold_by_default(client: TestClient):
+    """150 MB (TASK-1362's own fixture) must not trip the 5 GiB default."""
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        pub = repo.get_publication("KA")
+        issue = repo.get_issue_by_code("ka01", pub.id)
+        issue.file_size = 50 * 1024 * 1024
+        for i in range(3):
+            repo.upsert_issue(
+                Issue(
+                    custom_code=f"miss{i}",
+                    issue_name=f"Nr {i}",
+                    issue_date="2023-01-01",
+                ),
+                pub.id,
+            )
+
+    resp = client.get("/publications/KA")
+    assert resp.status_code == 200
+    assert "warning threshold" not in resp.text
+    assert 'hx-confirm="Queue 3 missing issues (~150.0 MB)?"' in resp.text
+
+
+def test_queue_missing_confirm_does_not_warn_without_size_data(client: TestClient):
+    """No size known - nothing to compare to the threshold, no fabrication."""
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        pub = repo.get_publication("KA")
+        repo.upsert_issue(
+            Issue(custom_code="miss0", issue_name="Nr 0", issue_date="2023-01-01"),
+            pub.id,
+        )
+
+    resp = client.get("/publications/KA")
+    assert resp.status_code == 200
+    assert "warning threshold" not in resp.text
+    assert 'hx-confirm="Queue 1 missing issue?"' in resp.text
+
+
 def test_issue_row_never_hotlinks_pagesuite(client: TestClient):
     resp = client.get("/publications/KA/issues/ka01/row")
     assert resp.status_code == 200
@@ -752,8 +840,14 @@ def test_issue_row_offers_cancel_while_queued(client: TestClient):
     assert "disabled" not in resp.text
 
 
-def test_watching_queues_the_back_catalogue(client: TestClient):
-    """Watch must queue what is already known, not just future issues."""
+def test_watching_does_not_queue_the_back_catalogue(client: TestClient):
+    """TASK-1361: Watch bevakar framåt only - it must queue nothing itself.
+
+    Replaces the old test_watching_queues_the_back_catalogue, which
+    asserted the opposite (TASK-1346 behaviour): that is exactly the
+    "queue everything by accident" bug this task fixes. Fetching the back
+    catalogue is now the dedicated "Queue missing issues" button's job.
+    """
     with get_session(client.app.state.session_factory) as session:
         repo = DownloadRepository(session)
         pub = repo.get_publication("KA")
@@ -773,9 +867,10 @@ def test_watching_queues_the_back_catalogue(client: TestClient):
 
     with get_session(client.app.state.session_factory) as session:
         repo = DownloadRepository(session)
-        # The three back-catalogue issues; ka01 is already downloaded.
-        assert repo.count_jobs_by_status()["queued"] == 3
-        assert repo.get_publication("KA").watched is True
+        assert repo.count_jobs_by_status()["queued"] == 0
+        pub = repo.get_publication("KA")
+        assert pub.watched is True
+        assert pub.watch_started_at is not None
 
 
 def test_unwatching_queues_nothing(client: TestClient):

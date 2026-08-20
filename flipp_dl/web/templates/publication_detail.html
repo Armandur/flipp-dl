@@ -47,8 +47,27 @@
        leave a window where a poll could miss new issues. #}
     {% set missing_count = queue_estimate.issue_count %}
     {% set missing_label = _("issue") if missing_count == 1 else _("issues") %}
+    {% set over_threshold = (
+      queue_estimate.estimated_bytes is not none
+      and queue_estimate.estimated_bytes > queue_warn_threshold_bytes
+    ) %}
     {% if missing_count == 0 %}
       {% set queue_confirm_text = _("Nothing to queue - every issue is already downloaded.") %}
+    {% elif over_threshold %}
+      {# TASK-1361: above the warning threshold, spell out size and the
+         threshold itself so this reads as a deliberate warning rather
+         than the routine confirm below - still the same hx-confirm/
+         base.html modal, an active OK click either way. #}
+      {% set queue_confirm_text = _(
+        "This queues %(count)s missing %(label)s (~%(size)s) - above the "
+        "%(threshold)s warning threshold. This can take a long time and "
+        "use a lot of disk space. Continue?"
+      ) % {
+        "count": missing_count,
+        "label": missing_label,
+        "size": queue_estimate.estimated_bytes | human_size,
+        "threshold": queue_warn_threshold_bytes | human_size,
+      } %}
     {% elif queue_estimate.estimated_bytes is not none %}
       {% set queue_confirm_text = _("Queue %(count)s missing %(label)s (~%(size)s)?") % {
         "count": missing_count,

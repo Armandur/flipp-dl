@@ -171,8 +171,17 @@ def test_recover_leaves_issues_with_a_live_job_alone(repo, session_factory):
         assert issue.status == IssueStatus.QUEUED
 
 
-def test_poll_backfills_watched_publications(repo, session_factory, monkeypatch):
-    """A watched publication catches up on issues it never downloaded."""
+def test_poll_does_not_backfill_issues_that_predate_watching(
+    repo, session_factory, monkeypatch
+):
+    """TASK-1361: poll bevakar framåt - it must not sweep the back catalogue.
+
+    The issue already existed (was discovered) before watching was turned
+    on, so it is part of the back catalogue - only the explicit "Queue
+    missing issues" button may queue it. Replaces the old
+    test_poll_backfills_watched_publications, which asserted the opposite
+    (TASK-1346 behaviour) - that is exactly the bug this task fixes.
+    """
     from flipp_dl.scheduler import poll_publications
 
     issue_id = _seed_issue(repo)
@@ -183,6 +192,45 @@ def test_poll_backfills_watched_publications(repo, session_factory, monkeypatch)
     class FakeClient:
         def fetch_publications(self):
             return []  # nothing new discovered this poll
+
+    poll_publications(FakeClient(), session_factory, Path("/tmp"), workers=1)
+
+    with get_session(session_factory) as session:
+        r = DownloadRepository(session)
+        assert r.get_issue(issue_id).status == IssueStatus.NEW
+        assert r.count_jobs_by_status()["queued"] == 0
+
+
+def test_poll_backfills_issues_discovered_after_watching_started(repo, session_factory):
+    """An issue discovered while watching, but never queued, is caught up.
+
+    Simulates an issue that was discovered by an earlier poll tick (so
+    its discovered_at is after watch_started_at) but never made it to
+    QUEUED - e.g. a restart lost the in-flight job. That one must still
+    be picked up; only the pre-watch back catalogue is excluded.
+    """
+    from datetime import timedelta
+
+    from flipp_dl.models import Issue
+    from flipp_dl.scheduler import poll_publications
+
+    _seed_issue(repo)  # creates publication "KA" with one done-ish issue
+    repo.set_watched("KA", True)
+    repo.set_setting("flipp_token", "test-token")
+    repo.session.commit()
+    pub = repo.get_publication("KA")
+
+    db_issue, _created = repo.upsert_issue(
+        Issue(custom_code="KA-02", issue_name="Nr 2", issue_date="2024-02-01"),
+        pub.id,
+    )
+    db_issue.discovered_at = pub.watch_started_at + timedelta(minutes=5)
+    repo.session.commit()
+    issue_id = db_issue.id
+
+    class FakeClient:
+        def fetch_publications(self):
+            return []
 
     poll_publications(FakeClient(), session_factory, Path("/tmp"), workers=1)
 
@@ -250,6 +298,10 @@ def test_poll_backfills_publication_once_its_own_interval_elapses(
     issue_id = _seed_issue(repo)
     pub = repo.get_publication("KA")
     repo.set_watched("KA", True)
+    # This test is about the poll-interval gate, not the back-catalogue
+    # split (TASK-1361) - push discovered_at to after watch_started_at so
+    # that cutoff doesn't also exclude it.
+    repo.get_issue(issue_id).discovered_at = pub.watch_started_at + timedelta(minutes=1)
     repo.set_setting("flipp_token", "test-token")
     repo.set_publication_poll_interval("KA", 60)
     pub.next_poll_due_at = datetime.utcnow() - timedelta(minutes=1)

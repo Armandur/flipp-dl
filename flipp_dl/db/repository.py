@@ -120,6 +120,28 @@ def _now() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
+# Default warning threshold for the "Queue missing issues" backfill button
+# (TASK-1361): above this many estimated bytes, the confirm dialog must
+# spell out the size explicitly rather than rely on today's plain
+# count/size confirm. 5 GiB is roughly a hundred issues at the production
+# instance's ~49 MB average - comfortably above a routine catch-up, well
+# below the ~800 GB a full 16568-issue backfill would cost.
+_DEFAULT_QUEUE_WARN_THRESHOLD_BYTES = 5 * 1024**3
+_QUEUE_WARN_THRESHOLD_SETTING = "queue_warn_threshold_bytes"
+_QUEUE_WARN_THRESHOLD_ENV = "FLIPP_QUEUE_WARN_THRESHOLD_BYTES"
+
+
+def _parse_positive_int(raw: str) -> int | None:
+    raw = raw.strip()
+    if not raw:
+        return None
+    try:
+        value = int(raw)
+    except ValueError:
+        return None
+    return value if value > 0 else None
+
+
 def _issue_identity(issue: DbIssue) -> dict:
     """A compact, JSON-friendly identity for *issue* used in reports."""
     return {
@@ -265,11 +287,20 @@ class DownloadRepository:
         }
 
     def set_watched(self, custom_code: str, enabled: bool) -> bool:
-        """Toggle the watch flag. Returns False if publication not found."""
+        """Toggle the watch flag. Returns False if publication not found.
+
+        Enabling stamps ``watch_started_at`` to now (TASK-1361) - poll's
+        catch-up pass uses it as the cutoff for what counts as "the back
+        catalogue" versus "discovered while watching". Re-enabling after
+        an unwatch resets it too: whatever accumulated in the meantime is
+        backlog again, not something a poll should silently pick up.
+        """
         db_pub = self.get_publication(custom_code)
         if db_pub is None:
             return False
         db_pub.watched = enabled
+        if enabled:
+            db_pub.watch_started_at = _now()
         return True
 
     def mark_polled(self, custom_code: str) -> None:
@@ -977,14 +1008,20 @@ class DownloadRepository:
         return reset
 
     def queue_missing_issues(
-        self, publication_id: int, *, include_failed: bool = True
+        self,
+        publication_id: int,
+        *,
+        include_failed: bool = True,
+        since: datetime | None = None,
     ) -> int:
-        """Queue every issue of a publication that isn't downloaded yet.
+        """Queue issues of a publication that aren't downloaded yet.
 
-        Watching a publication used to queue nothing, and a poll only
-        queues newly discovered issues - so everything already in the
-        database when watching was turned on never downloaded at all
-        (TASK-1346).
+        This is the explicit "fetch the back catalogue" action (TASK-1361)
+        - watching a publication queues nothing by itself any more, and a
+        poll only auto-queues issues discovered since watching started.
+        Reaching into everything a publication has ever had missing is
+        this method's job, triggered by the dedicated button on the
+        publication's detail page.
 
         Issues already queued or downloading are skipped, so calling
         this repeatedly is safe. *include_failed* re-queues issues that
@@ -992,24 +1029,53 @@ class DownloadRepository:
         automatic poll, where a permanently broken issue would come
         back every six hours.
 
+        *since*, when given, restricts this to issues discovered on or
+        after that timestamp (``DbIssue.discovered_at >= since``). This
+        is how poll's catch-up pass stays inside "bevaka framåt": it
+        passes the publication's ``watch_started_at`` so a back catalogue
+        that predates watching is never silently pulled in (TASK-1361).
+        The explicit button leaves this ``None`` - an intentional click
+        is meant to reach the whole backlog.
+
         Returns the number of issues queued.
         """
         wanted = [IssueStatus.NEW]
         if include_failed:
             wanted.append(IssueStatus.ERROR)
 
-        pending = self.session.scalars(
-            select(DbIssue).where(
-                DbIssue.publication_id == publication_id,
-                DbIssue.status.in_(wanted),
-            )
-        )
+        conditions = [
+            DbIssue.publication_id == publication_id,
+            DbIssue.status.in_(wanted),
+        ]
+        if since is not None:
+            conditions.append(DbIssue.discovered_at >= since)
+
+        pending = self.session.scalars(select(DbIssue).where(*conditions))
         queued = 0
         for issue in pending:
             self.mark_issue_queued(issue.id)
             self.create_job("download", {"issue_id": issue.id})
             queued += 1
         return queued
+
+    def queue_warn_threshold_bytes(self) -> int:
+        """The size, in bytes, above which a backfill confirm must warn.
+
+        Overridable per instance: the ``queue_warn_threshold_bytes``
+        setting wins if set (there is no settings-page field for it yet -
+        set it directly in the ``settings`` table), then the
+        ``FLIPP_QUEUE_WARN_THRESHOLD_BYTES`` env var, else the 5 GiB
+        default (TASK-1361).
+        """
+        from_setting = _parse_positive_int(
+            self.get_setting(_QUEUE_WARN_THRESHOLD_SETTING, "")
+        )
+        if from_setting is not None:
+            return from_setting
+        from_env = _parse_positive_int(os.environ.get(_QUEUE_WARN_THRESHOLD_ENV, ""))
+        if from_env is not None:
+            return from_env
+        return _DEFAULT_QUEUE_WARN_THRESHOLD_BYTES
 
     def estimate_missing_download_size(
         self, publication_id: int, *, include_failed: bool = True

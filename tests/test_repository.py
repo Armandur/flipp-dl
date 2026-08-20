@@ -670,6 +670,99 @@ def test_queue_missing_issues_is_idempotent(session):
     assert repo.count_jobs_by_status()["queued"] == 2
 
 
+def test_queue_missing_issues_since_excludes_issues_discovered_earlier(session):
+    """TASK-1361: poll's catch-up must not sweep in the back catalogue."""
+    from datetime import datetime, timedelta
+
+    repo = DownloadRepository(session)
+    pub = _pub_with_issues(repo, ["new", "new"])
+    session.commit()
+    issues = list(repo.list_issues(publication_id=pub.id))
+    older, newer = issues[0], issues[1]
+    older.discovered_at = datetime(2020, 1, 1)
+    newer.discovered_at = datetime(2026, 1, 1)
+    session.commit()
+
+    cutoff = datetime(2026, 1, 1) - timedelta(days=1)
+    queued = repo.queue_missing_issues(pub.id, since=cutoff)
+    session.commit()
+
+    assert queued == 1
+    assert repo.get_issue(newer.id).status == IssueStatus.QUEUED
+    assert repo.get_issue(older.id).status == IssueStatus.NEW
+
+
+def test_queue_missing_issues_since_none_still_queues_everything(session):
+    """The explicit backfill button must keep reaching the whole backlog."""
+    from datetime import datetime
+
+    repo = DownloadRepository(session)
+    pub = _pub_with_issues(repo, ["new", "new"])
+    session.commit()
+    issues = list(repo.list_issues(publication_id=pub.id))
+    issues[0].discovered_at = datetime.min.replace(year=1901)
+    session.commit()
+
+    queued = repo.queue_missing_issues(pub.id, since=None)
+    session.commit()
+
+    assert queued == 2
+
+
+def test_set_watched_stamps_watch_started_at(repo):
+    repo.upsert_publication(_publication())
+    repo.session.commit()
+
+    repo.set_watched("KA", True)
+    repo.session.commit()
+
+    assert repo.get_publication("KA").watch_started_at is not None
+
+
+def test_set_watched_false_leaves_watch_started_at_untouched(repo):
+    repo.upsert_publication(_publication())
+    repo.set_watched("KA", True)
+    repo.session.commit()
+    started_at = repo.get_publication("KA").watch_started_at
+
+    repo.set_watched("KA", False)
+    repo.session.commit()
+
+    assert repo.get_publication("KA").watch_started_at == started_at
+
+
+def test_queue_warn_threshold_bytes_default_is_5gib(repo):
+    assert repo.queue_warn_threshold_bytes() == 5 * 1024**3
+
+
+def test_queue_warn_threshold_bytes_setting_overrides_default(repo):
+    repo.set_setting("queue_warn_threshold_bytes", "1000")
+    repo.session.commit()
+
+    assert repo.queue_warn_threshold_bytes() == 1000
+
+
+def test_queue_warn_threshold_bytes_env_overrides_default(repo, monkeypatch):
+    monkeypatch.setenv("FLIPP_QUEUE_WARN_THRESHOLD_BYTES", "2000")
+
+    assert repo.queue_warn_threshold_bytes() == 2000
+
+
+def test_queue_warn_threshold_bytes_setting_beats_env(repo, monkeypatch):
+    monkeypatch.setenv("FLIPP_QUEUE_WARN_THRESHOLD_BYTES", "2000")
+    repo.set_setting("queue_warn_threshold_bytes", "1000")
+    repo.session.commit()
+
+    assert repo.queue_warn_threshold_bytes() == 1000
+
+
+def test_queue_warn_threshold_bytes_ignores_garbage_setting(repo):
+    repo.set_setting("queue_warn_threshold_bytes", "not-a-number")
+    repo.session.commit()
+
+    assert repo.queue_warn_threshold_bytes() == 5 * 1024**3
+
+
 # ---------------------------------------------------------------------------
 # estimate_missing_download_size (TASK-1362)
 # ---------------------------------------------------------------------------

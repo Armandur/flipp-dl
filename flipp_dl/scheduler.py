@@ -308,7 +308,9 @@ def poll_publications(
             if cached_covers:
                 logger.info("Poll: cached %d cover image(s)", cached_covers)
 
-            watched_pub_ids = {p.id for p in repo.list_publications(watched_only=True)}
+            watched_pubs = repo.list_publications(watched_only=True)
+            watched_pub_ids = {p.id for p in watched_pubs}
+            watch_started_by_pub_id = {p.id: p.watch_started_at for p in watched_pubs}
             # Publications with their own poll interval (TASK-1291) only
             # have new issues queued/backfilled once their interval has
             # elapsed; publications without an override are always due,
@@ -324,15 +326,29 @@ def poll_publications(
                     repo.create_job("download", {"issue_id": db_issue.id})
                     queued += 1
 
-            # Catch up on anything a due, watched publication never got:
-            # an issue that existed before watching was turned on, one
-            # that was lost to a restart, or one skipped on an earlier
-            # tick because this publication wasn't due yet. Failed issues
-            # stay out of this so a permanently broken issue isn't
-            # retried every poll.
+            # Catch up on anything a due, watched publication discovered
+            # since watching started but never got queued - one that was
+            # lost to a restart, or one skipped on an earlier tick
+            # because this publication wasn't due yet. Bounded by
+            # watch_started_at (TASK-1361): this only follows forward,
+            # never silently pull in the back catalogue that predates
+            # watching - that is the dedicated "Queue missing issues"
+            # button's job. Failed issues stay out of this too, so a
+            # permanently broken issue isn't retried every poll.
             backfilled = 0
             for pub_id in due_pub_ids:
-                backfilled += repo.queue_missing_issues(pub_id, include_failed=False)
+                # Defensive fallback only - every currently-watched
+                # publication has watch_started_at stamped, either by
+                # set_watched() or by the 0010 migration's data backfill
+                # for publications already watched at deploy time. If a
+                # row somehow lacks it anyway, "now" is the safe default:
+                # nothing pre-existing gets swept in by accident.
+                since = watch_started_by_pub_id.get(pub_id) or datetime.now(
+                    timezone.utc
+                ).replace(tzinfo=None)
+                backfilled += repo.queue_missing_issues(
+                    pub_id, include_failed=False, since=since
+                )
                 repo.mark_publication_poll_done(pub_id)
 
             repo.finish_job(job.id)
