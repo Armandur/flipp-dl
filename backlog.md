@@ -44,7 +44,7 @@ Verifiering: tester i tests/test_storage.py och tests/test_downloader.py för kr
 
 ---
 
-## [P2][todo] [flipp] Låt användaren särskilja publikationer som delar katalognamn
+## [P2][doing] [flipp] Låt användaren särskilja publikationer som delar katalognamn
 
 Två publikationer kan heta exakt samma sak och får då samma katalog på disk. Det finns i drift i dag: "Hjemmet" är två skilda publikationer, en norsk och en dansk. Filerna hamnar i samma mapp och ägarskapet blir tvetydigt - importen kan inte avgöra vilken publikation en fil hör till, och sedan TASK-1404 vägrar den därför backfilla dem, vilket är rätt men inte en lösning.
 
