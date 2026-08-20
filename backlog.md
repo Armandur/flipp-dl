@@ -67,7 +67,7 @@ Uppskattningen är förutsättningen för tröskelvarningen när hela bakkatalog
 
 ---
 
-## [P2][todo] [flipp] Skilj på att bevaka framåt och att hämta hela bakkatalogen
+## [P2][done] [flipp] Skilj på att bevaka framåt och att hämta hela bakkatalogen
 
 Watch köar i dag ALLT som inte är nedladdat, och poll fyller på med samma logik. Det är sällan vad man vill: driftinstansen har 16568 utgåvor som inte är nedladdade, snittet är 49 MB per utgåva (1092 filer väger 53,2 GB), så en full backfill är i storleksordningen 800 GB. Att kryssa Watch ska inte kunna starta det av misstag.
 
@@ -764,6 +764,22 @@ Bygg vidare på befintliga byggstenar i stället för att uppfinna nya: `list_is
 
 - ID: `01M0BBY3X4VKXXTRYY9T2EGDP4`
 - Type: feature
+- Actor: ai:claude-opus-5
+
+---
+
+## [P4][todo] [flipp] Lägg tröskeln för köstorlek som fält på inställningssidan
+
+Tröskeln som avgör när en bakkatalogshämtning kräver extra bekräftelse (TASK-1361) går att sätta som DbSetting-nyckeln queue_warn_threshold_bytes eller env FLIPP_QUEUE_WARN_THRESHOLD_BYTES, med 5 GiB som default. Den saknar dock fält på /settings, så den går i praktiken bara att ändra genom att sätta en miljövariabel och starta om.
+
+Lägg ett fält bland de övriga inställningarna. Rimligen i gigabyte snarare än bytes, eftersom det är så gränsen diskuteras.
+
+Filer som väntas ändras: flipp_dl/web/templates/settings.html, flipp_dl/web/routes.py, tests/test_web_routes.py, plus pybabel-uppdatering för den nya texten.
+
+Verifiering: test som sparar ett värde och kontrollerar att tröskeln följer med, samt browser-verifiering av fältet vid 390px och 1280px.
+
+- ID: `01M0FDZA9G5SSC7BMMJ2YYRZYH`
+- Type: improvement
 - Actor: ai:claude-opus-5
 
 ---
