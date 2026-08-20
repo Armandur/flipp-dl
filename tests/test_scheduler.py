@@ -23,10 +23,10 @@ from flipp_dl.db.session import get_session, make_session_factory
 from flipp_dl.komga import KomgaError
 from flipp_dl.models import Category, Issue, Publication
 from flipp_dl.scheduler import (
-    _cache_covers,
     _claim_next_download_job,
     _is_permanent_download_error,
     build_notify_channels,
+    cache_covers,
     recover_stuck_jobs,
     resolve_notify_settings_from_repo,
     run_download_queue,
@@ -633,8 +633,9 @@ def test_cache_covers_backfills_issues_missing_from_before_the_cache_existed(
     monkeypatch.setattr("flipp_dl.scheduler.build_session", lambda: fake_session)
 
     issue_ids = _seed_issues_without_cover(repo, 3)
+    repo.session.commit()
 
-    cached = _cache_covers(repo, new_issues=[])
+    cached = cache_covers(session_factory)
 
     assert cached == 3
     for issue_id in issue_ids:
@@ -653,7 +654,7 @@ def test_cache_covers_backfill_is_capped_per_poll_tick(
 
     _seed_issues_without_cover(repo, 5)
 
-    cached = _cache_covers(repo, new_issues=[])
+    cached = cache_covers(session_factory)
 
     assert cached == 2
     assert len(fake_session.requested_urls) == 2
@@ -672,7 +673,7 @@ def test_cache_covers_backfill_skips_issues_already_cached(
     repo.set_issue_cover_cache(issue_ids[0], "issue-KA-00.jpg")
     repo.session.commit()
 
-    cached = _cache_covers(repo, new_issues=[])
+    cached = cache_covers(session_factory)
 
     assert cached == 1
     assert len(fake_session.requested_urls) == 1
@@ -1301,3 +1302,59 @@ def test_run_download_queue_does_not_retry_permanent_error(
         assert issue.status == IssueStatus.ERROR
         assert issue.retry_count == 0
         assert issue.next_retry_at is None
+
+
+def test_cover_fetching_does_not_hold_the_write_lock(tmp_path, monkeypatch):
+    """Another writer must get through while covers are being fetched.
+
+    The whole poll used to run in one transaction with the cover fetch
+    inside it, so the write lock was held across thousands of HTTP
+    requests. Every other writer - the disk import, a manual download,
+    a cancel - waited out the 30 s lock timeout and failed with
+    "database is locked" (TASK-1391).
+    """
+    from flipp_dl.scheduler import cache_covers
+
+    factory = make_session_factory(tmp_path / "flipp.db")
+    with get_session(factory) as session:
+        repo = DownloadRepository(session)
+        db_pub = repo.upsert_publication(Publication(custom_code="KA", name="Kalle"))
+        for i in range(3):
+            repo.upsert_issue(
+                Issue(
+                    custom_code=f"ka{i}", issue_name=f"Nr {i}", issue_date="2024-01-01"
+                ),
+                db_pub.id,
+            )
+
+    monkeypatch.setattr("flipp_dl.scheduler.default_cover_cache_root", lambda: tmp_path)
+    wrote_during_fetch = []
+
+    class LockProbingSession:
+        """Stands in for the HTTP session; writes from a second session
+        at the moment a cover would be fetched."""
+
+        def get(self, url, **kwargs):
+            with get_session(factory) as other:
+                DownloadRepository(other).set_setting("probe", "written")
+            wrote_during_fetch.append(url)
+
+            class Resp:
+                status_code = 200
+                content = b"\xff\xd8\xff\xe0jpeg"
+                headers = {"content-type": "image/jpeg"}
+
+                def raise_for_status(self):
+                    return None
+
+            return Resp()
+
+    monkeypatch.setattr(
+        "flipp_dl.scheduler.build_session", lambda: LockProbingSession()
+    )
+
+    cache_covers(factory)
+
+    assert wrote_during_fetch, "no cover was fetched - the test proves nothing"
+    with get_session(factory) as session:
+        assert DownloadRepository(session).get_setting("probe") == "written"

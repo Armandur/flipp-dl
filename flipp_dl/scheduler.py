@@ -248,23 +248,7 @@ def _send_download_notifications(
         send_all(channels, f"Flipp-DL: {title}", _format_issue_list(failures))
 
 
-def _fetch_issue_cover(
-    repo: DownloadRepository, http: requests.Session, cache_root: Path, issue: DbIssue
-) -> bool:
-    url = (
-        "https://edition.pagesuite-professional.co.uk/get_image.aspx"
-        f"?w=100&eid={issue.custom_code}"
-    )
-    filename = fetch_and_cache_cover(
-        url, cache_root, f"issue-{issue.custom_code}", http_session=http
-    )
-    if filename:
-        repo.set_issue_cover_cache(issue.id, filename)
-        return True
-    return False
-
-
-def _cache_covers(repo: DownloadRepository, new_issues: list[DbIssue]) -> int:
+def cache_covers(session_factory, new_issue_ids: list[int] | None = None) -> int:
     """Fetch and store local copies of new/changed covers (TASK-1345/1374).
 
     Runs once per poll tick, never during page rendering. Publication
@@ -283,21 +267,54 @@ def _cache_covers(repo: DownloadRepository, new_issues: list[DbIssue]) -> int:
     http = build_session()
     cached = 0
 
-    for pub in repo.publications_needing_cover_refresh():
-        url = pub.cover_url.replace("__b600m.", _COVER_SIZE_VARIANT)
+    # Decide the work first, in a short read-only session, then close it.
+    # Everything below talks to the network, and holding a write lock
+    # across thousands of HTTP requests starved every other writer -
+    # the import button died on a lock timeout because of it
+    # (TASK-1391).
+    with get_session(session_factory) as session:
+        repo = DownloadRepository(session)
+        publications = [
+            (pub.id, pub.custom_code, pub.cover_url)
+            for pub in repo.publications_needing_cover_refresh()
+        ]
+        issues = [
+            (issue.id, issue.custom_code)
+            for issue in repo.issues_needing_cover_backfill(
+                ISSUE_COVER_BACKFILL_PER_POLL
+            )
+        ]
+        if new_issue_ids:
+            known = {issue_id for issue_id, _ in issues}
+            for issue in repo.get_issues_by_ids(new_issue_ids).values():
+                if issue.id not in known:
+                    issues.append((issue.id, issue.custom_code))
+
+    for pub_id, custom_code, cover_url in publications:
+        url = cover_url.replace("__b600m.", _COVER_SIZE_VARIANT)
         filename = fetch_and_cache_cover(
-            url, cache_root, f"pub-{pub.custom_code}", http_session=http
+            url, cache_root, f"pub-{custom_code}", http_session=http
         )
         if filename:
-            repo.set_publication_cover_cache(pub.id, filename, pub.cover_url)
+            # One short transaction per cover: the fetch above already
+            # happened, so the lock is held for a single row update.
+            with get_session(session_factory) as session:
+                DownloadRepository(session).set_publication_cover_cache(
+                    pub_id, filename, cover_url
+                )
             cached += 1
 
-    for issue in new_issues:
-        if _fetch_issue_cover(repo, http, cache_root, issue):
-            cached += 1
-
-    for issue in repo.issues_needing_cover_backfill(ISSUE_COVER_BACKFILL_PER_POLL):
-        if _fetch_issue_cover(repo, http, cache_root, issue):
+    for issue_id, custom_code in issues:
+        url = (
+            "https://edition.pagesuite-professional.co.uk/get_image.aspx"
+            f"?w=100&eid={custom_code}"
+        )
+        filename = fetch_and_cache_cover(
+            url, cache_root, f"issue-{custom_code}", http_session=http
+        )
+        if filename:
+            with get_session(session_factory) as session:
+                DownloadRepository(session).set_issue_cover_cache(issue_id, filename)
             cached += 1
 
     return cached
@@ -334,10 +351,6 @@ def poll_publications(
                 len(publications),
                 len(new_issues),
             )
-
-            cached_covers = _cache_covers(repo, new_issues)
-            if cached_covers:
-                logger.info("Poll: cached %d cover image(s)", cached_covers)
 
             watched_pubs = repo.list_publications(watched_only=True)
             watched_pub_ids = {p.id for p in watched_pubs}
@@ -394,6 +407,7 @@ def poll_publications(
             purged = repo.purge_old_jobs()
             if purged:
                 logger.info("Poll: purged %d old job rows", purged)
+            new_issue_ids = [issue.id for issue in new_issues]
 
             # Same idea for stray preview PDFs (TASK-1344) - they live
             # outside output_root and outside the DB, so this poll tick
@@ -404,6 +418,14 @@ def poll_publications(
         except FlippError as exc:
             repo.finish_job(job.id, error=str(exc))
             logger.error("Poll failed: %s", exc)
+            return
+
+    # Outside the transaction above on purpose: fetching covers talks to
+    # the network for every image, and doing that while holding the
+    # write lock starved every other writer (TASK-1391).
+    cached_covers = cache_covers(session_factory, new_issue_ids)
+    if cached_covers:
+        logger.info("Poll: cached %d cover image(s)", cached_covers)
 
 
 def recover_stuck_jobs(session_factory) -> int:
