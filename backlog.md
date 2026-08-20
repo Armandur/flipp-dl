@@ -44,32 +44,35 @@ Verifiering: tester i tests/test_storage.py och tests/test_downloader.py för kr
 
 ---
 
-## [P2][todo] [flipp] Spara varje polls råsvar så inget mer går förlorat
+## [P2][todo] [flipp] Bevara alla utgåvokoder vi någonsin sett
 
 ## Context
-1916 utgåvor har redan fallit ur Flipps listning, och deras koder finns bara i vår databas. Det finns ingen väg att lista dem på nytt - det är utrett. Faller en kod bort innan vi hunnit se den är den oåtkomlig för alltid, eftersom uppslaget av sidor kräver att man redan känner koden.
+1916 utgåvor har redan fallit ur Flipps listning, och deras koder finns bara i vår databas. Det finns ingen väg att lista dem på nytt - det är utrett och besvarat. Faller en kod bort innan vi hunnit se den är den oåtkomlig för alltid, eftersom uppslaget av sidor kräver att man redan känner koden.
 
-Vi ser bara det Flipp listar just nu. Varje poll är därmed en ögonblicksbild av något som krymper, och den enda som sparar den är vi.
+Vi ser bara det Flipp listar just nu. Varje poll är en ögonblicksbild av något som krymper, och den enda som bevarar den är vi.
 
-## Vad som ska byggas
-Spara råsvaret från varje poll, så att koder som försvinner ur listan ändå finns bevarade i sin ursprungliga form. Detta hjälper inte bakåt, men stoppar blödningen framåt.
+## Beslutat av Rasmus 2026-08-20
+Det är KODERNA som ska sparas, inte hela råsvaret. Resten - namn, beskrivningar, omslagsadresser, kategorier - finns redan i databasen och är återskapbart. Koden är det enda oersättliga.
+
+Det gör uppgiften mindre och tryggare: ingen 3,7 megabyte per poll, ingen token att rensa bort, ingen e-postadress att råka spara.
 
 ## Acceptance criteria
-- [ ] Råsvaret från refreshsignintoken sparas vid varje poll.
-- [ ] Svaret innehåller en giltig token - den får ALDRIG sparas i klartext. Rensa fältet innan lagring, eller lagra bara publications-delen. Kontrollera att inget annat fält bär hemligheter, exempelvis accountInformation med e-postadress.
-- [ ] Lagringen växer inte obegränsat. Svaret är cirka 3,7 megabyte per poll och fyra pollar per dygn blir 5 gigabyte om året. Komprimera, spara bara vid förändring, eller gallra äldre - avgör och motivera.
-- [ ] Det går att se vad som sparats och när.
-- [ ] Ett misslyckat eller tomt svar sparas inte som om det vore giltigt.
+- [ ] Varje publikationskod och utgåvokod som setts i ett poll-svar bevaras, även när utgåvan senare försvinner ur listningen och även om raden i issues-tabellen skulle rensas.
+- [ ] Lagringen innehåller ingen token och inga personuppgifter. Bara koder, med tidpunkt för när de först och senast sågs.
+- [ ] Det går att se hur många koder som bevarats och när de senast sågs.
+- [ ] Ett tomt eller misslyckat svar bevarar ingenting nytt och tar inte bort något.
+- [ ] Bevarandet överlever att databasen byggs om - avgör om det räcker med en egen tabell eller om koderna också ska kunna exporteras till fil, och motivera.
 
 ## Att tänka igenom
-- Räcker det att spara publikationer och utgåvokoder i stället för hela svaret? Det är koderna som är oersättliga, resten är beskrivningar som ändå finns i databasen.
-- Ska filerna ligga utanför output_root, som omslagscachen och previewfilerna? Annars plockar Library och diskimporten upp dem.
+Utgåvorna finns redan i issues-tabellen, som aldrig rensas i dag. Frågan är alltså vad detta tillför utöver det: skyddet mot att någon framtida rensning, migrering eller ombyggnad tar bort koderna av misstag. Väg det mot att bygga en parallell struktur som kan komma i otakt med issues - motivera valet i rapporten.
+
+Formatet i docs/olistade-utgavor.json är redan etablerat för koder som hittats utanför API:t. Överväg samma format, så att det som bevaras och det som importeras (TASK-1437) talar samma språk.
 
 ## Verification
-- Tester: svar sparas, token finns inte i det sparade, tomt svar sparas inte, och gallringen fungerar.
-- Kontroll: kör en poll mot driftinstansen och granska det sparade svaret manuellt för hemligheter innan det anses klart.
+- Tester: koder bevaras vid poll, försvinner inte när utgåvan slutar listas, tomt svar ändrar inget.
+- Kontroll mot driftinstansen: antalet bevarade koder stämmer med de 17673 utgåvor databasen känner till.
 
-Detta var spår 5 i TASK-1436 och bryts ut hit eftersom det är ett bygge, inte en utredning.
+Detta var spår 5 i TASK-1436 och bröts ut hit eftersom det är ett bygge, inte en utredning.
 
 - ID: `01M0GFG2B5TRQ8VFT1GE9DC73J`
 - Type: feature
