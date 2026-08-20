@@ -258,6 +258,9 @@ Filer som väntas ändras: flipp_dl/storage.py, tests/test_storage.py.
 
 Samma todo finns i prenly-dl som TASK-1401. Lösningarna behöver inte vara identiska - flipp-dl filtrerar mot en whitelist medan prenly-dl ersätter otillåtna tecken - men problembilden är densamma.
 
+## Migrering (Rasmus 2026-08-20)
+Här FINNS redan nedladdade filer i drift - 1094 stycken. Namnregeln får därför ändras, men då krävs en engångsmigrering som döper om befintliga filer och uppdaterar file_path i databasen. Kör den som ett eget steg, inte som en tyst sidoeffekt av en nedladdning, och gör den återstartbar.
+
 - ID: `01M0G3QEVDPABMP1TQBAJGM7D0`
 - Type: improvement
 - Actor: ai:claude-opus-5
@@ -986,6 +989,42 @@ Bygg vidare på befintliga byggstenar i stället för att uppfinna nya: `list_is
 - Browser: `shot` av /settings vid 390px och vid 1280px - knappen för att importera nuläge ska synas och vara klickbar i båda bredderna, och efter klick ska rapporten (orphan-filer, saknade filer, delade filer) renderas synligt på sidan.
 
 - ID: `01M0BBY3X4VKXXTRYY9T2EGDP4`
+- Type: feature
+- Actor: ai:claude-opus-5
+
+---
+
+## [P4][todo] [flipp] Filträdsväljare för sökvägsfält
+
+## Context
+Sökvägar matas in som fritext, vilket betyder att man måste veta exakt hur katalogstrukturen ser ut inifrån containern och skriva rätt på första försöket. Ett stavfel eller en katalog som inte är skrivbar upptäcks först när något går fel.
+
+En sökikon intill fältet ska öppna en enkel filträdsväljare: navigera nedåt, en nivå upp, och välj denna katalog - varpå sökvägen skrivs in i textfältet.
+
+## Säkerhet, avgörande för designen
+Detta är en inloggad webbtjänst som skulle kunna lista godtyckliga kataloger. Väljaren ska utgå från en vitlista av rötter, inte från filsystemets rot, och kontrollen ska ligga i endpointen - inte bara i gränssnittet. Samma containment-tänk som resolve_safe_path redan gör för filserveringen.
+
+## Vad användaren ser
+Tjänsten kör i container och ser bara sina monterade volymer. Väljaren visar alltså containerns vy, exempelvis /output och /data, medan användaren tänker i värdens sökvägar som /mnt/user/Downloads/Flipp. Säg det tydligt i gränssnittet så ingen letar efter sin NAS-struktur.
+
+## Acceptance criteria
+- [ ] En sökikon intill sökvägsfältet öppnar väljaren. Vald katalog skrivs in i fältet.
+- [ ] Navigering nedåt i underkataloger och en nivå upp, aldrig ovanför den vitlistade roten.
+- [ ] Endpointen vägrar lista kataloger utanför vitlistan även vid handskrivna anrop med .. eller absoluta sökvägar.
+- [ ] Varje katalog visar om den är skrivbar. En icke skrivbar katalog går inte att välja, eller varnar tydligt.
+- [ ] Tom eller oläsbar katalog visas som tom, inte som ett fel.
+- [ ] Ny text går genom gettext.
+
+## Verification
+- Tester för traversal-försök: .., absoluta sökvägar, symlänk som pekar ut ur roten.
+- Browser: öppna väljaren, navigera ned och upp, välj en katalog och kontrollera att fältet fylls. Vid 390px och 1280px.
+
+## Läget i flipp-dl
+Här finns i dag INGET sökvägsfält i gränssnittet - utdatakatalogen sätts med FLIPP_OUTPUT och databasen med FLIPP_DB, båda som miljövariabler. Tasken blir därför aktuell först om eller när någon sökväg ska gå att ställa in i gränssnittet. Prioriterad lägre av det skälet.
+
+Samma task finns i prenly-dl (prenly TASK-1402), där fältet redan finns och behovet är konkret. Bygg där först och återanvänd lösningen här.
+
+- ID: `01M0G44NDJ25HTQD7HWX21GXMP`
 - Type: feature
 - Actor: ai:claude-opus-5
 
