@@ -130,39 +130,39 @@ class IssueDownloader:
 
         target.parent.mkdir(parents=True, exist_ok=True)
 
-        pdf_urls = self.client.fetch_issue_pdf_urls(
-            publication.custom_code, issue.custom_code
-        )
-        logger.info(
-            "Downloading %s / %s (%d pages, %d workers)",
-            publication.name,
-            issue.issue_name,
-            len(pdf_urls),
-            self.workers,
-        )
-
-        if db_issue_id is not None and self.repository is not None:
-            self.repository.mark_issue_downloading(db_issue_id)
-            self._write_progress(db_issue_id, 0, len(pdf_urls))
-
-        progress_cb: Callable[[int, int], None] | None = None
-        if db_issue_id is not None and self.repository is not None:
-            issue_id = db_issue_id
-            last_write = 0.0
-
-            def progress_cb(done: int, total: int) -> None:
-                # The counter only feeds a UI label, so throttle it: one
-                # write per page meant hundreds of commits competing with
-                # the web thread for the SQLite write lock. The final page
-                # always writes so the UI doesn't stop short of the total.
-                nonlocal last_write
-                now = time.monotonic()
-                if done < total and now - last_write < PROGRESS_INTERVAL_SECONDS:
-                    return
-                last_write = now
-                self._write_progress(issue_id, done, total)
-
         try:
+            pdf_urls = self.client.fetch_issue_pdf_urls(
+                publication.custom_code, issue.custom_code
+            )
+            logger.info(
+                "Downloading %s / %s (%d pages, %d workers)",
+                publication.name,
+                issue.issue_name,
+                len(pdf_urls),
+                self.workers,
+            )
+
+            if db_issue_id is not None and self.repository is not None:
+                self.repository.mark_issue_downloading(db_issue_id)
+                self._write_progress(db_issue_id, 0, len(pdf_urls))
+
+            progress_cb: Callable[[int, int], None] | None = None
+            if db_issue_id is not None and self.repository is not None:
+                issue_id = db_issue_id
+                last_write = 0.0
+
+                def progress_cb(done: int, total: int) -> None:
+                    # The counter only feeds a UI label, so throttle it: one
+                    # write per page meant hundreds of commits competing with
+                    # the web thread for the SQLite write lock. The final page
+                    # always writes so the UI doesn't stop short of the total.
+                    nonlocal last_write
+                    now = time.monotonic()
+                    if done < total and now - last_write < PROGRESS_INTERVAL_SECONDS:
+                        return
+                    last_write = now
+                    self._write_progress(issue_id, done, total)
+
             pages = self._fetch_pages_parallel(pdf_urls, progress_cb=progress_cb)
 
             writer = PdfWriter()

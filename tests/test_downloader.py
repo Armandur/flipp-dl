@@ -348,3 +348,32 @@ def test_purge_old_previews_on_missing_dir_is_a_noop(tmp_path):
     from flipp_dl.downloader import purge_old_previews
 
     assert purge_old_previews(tmp_path / "does-not-exist") == 0
+
+
+def test_download_issue_marks_error_when_the_page_list_fetch_fails(wired):
+    """TASK-1377: a failure before any page is fetched must still land as error.
+
+    fetch_issue_pdf_urls used to run outside download_issue's own
+    try/except, so a failure there left the issue in whatever status it
+    already had instead of being marked error - the scheduler's own
+    except-block papered over this for queue-driven runs, but a direct
+    caller (e.g. the CLI) saw the incomplete behaviour.
+    """
+    factory, out = wired
+
+    class BoomingClient(FakeClient):
+        def fetch_issue_pdf_urls(self, _pub_code: str, _issue_code: str) -> list[str]:
+            raise RuntimeError("token invalid")
+
+    with get_session(factory) as session:
+        repo = DownloadRepository(session)
+        downloader = IssueDownloader(
+            BoomingClient(pages=2), out, workers=1, repository=repo
+        )
+        with pytest.raises(RuntimeError, match="token invalid"):
+            downloader.download_issue(PUB, ISSUE, skip_existing=False)
+
+    with get_session(factory) as session:
+        repo = DownloadRepository(session)
+        issue = repo.get_issue_by_code("ka01", repo.get_publication("KA").id)
+        assert issue.status == "error"
