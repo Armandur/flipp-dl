@@ -232,6 +232,11 @@
     .field input[type="search"]:focus,
     .field select:focus { border-color: #7c3aed; }
     .field select { cursor: pointer; }
+    /* A button after an input in the same field would otherwise sit
+       flush against it. */
+    .field input + .btn,
+    .field select + .btn,
+    .field > div + .btn { margin-top: 10px; }
     .field .note { margin-top: 8px; margin-bottom: 0; }
 
     /* checkboxes */

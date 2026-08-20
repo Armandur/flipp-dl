@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-08-20 17:11+0200\n"
+"POT-Creation-Date: 2026-08-20 17:59+0200\n"
 "PO-Revision-Date: 2026-08-19 18:14+0200\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: sv\n"
@@ -18,50 +18,50 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.18.0\n"
 
-#: flipp_dl/web/templates/base.html:248 flipp_dl/web/templates/dashboard.html:2
+#: flipp_dl/web/templates/base.html:277 flipp_dl/web/templates/dashboard.html:2
 #: flipp_dl/web/templates/dashboard.html:5
 msgid "Dashboard"
 msgstr "Översikt"
 
-#: flipp_dl/web/templates/base.html:249
+#: flipp_dl/web/templates/base.html:278
 #: flipp_dl/web/templates/publications.html:2
 #: flipp_dl/web/templates/publications.html:5
 #: flipp_dl/web/templates/stats_cards.html:3
 msgid "Publications"
 msgstr "Publikationer"
 
-#: flipp_dl/web/templates/base.html:250 flipp_dl/web/templates/search.html:2
+#: flipp_dl/web/templates/base.html:279 flipp_dl/web/templates/search.html:2
 #: flipp_dl/web/templates/search.html:5 flipp_dl/web/templates/search.html:31
 msgid "Search"
 msgstr "Sök"
 
-#: flipp_dl/web/templates/base.html:251 flipp_dl/web/templates/library.html:2
+#: flipp_dl/web/templates/base.html:280 flipp_dl/web/templates/library.html:2
 #: flipp_dl/web/templates/library.html:5
 #: flipp_dl/web/templates/settings.html:153
 msgid "Library"
 msgstr "Bibliotek"
 
-#: flipp_dl/web/templates/base.html:252 flipp_dl/web/templates/jobs.html:2
+#: flipp_dl/web/templates/base.html:281 flipp_dl/web/templates/jobs.html:2
 #: flipp_dl/web/templates/jobs.html:5
 msgid "Jobs"
 msgstr "Jobb"
 
-#: flipp_dl/web/templates/base.html:253 flipp_dl/web/templates/settings.html:2
+#: flipp_dl/web/templates/base.html:282 flipp_dl/web/templates/settings.html:2
 #: flipp_dl/web/templates/settings.html:5
 msgid "Settings"
 msgstr "Inställningar"
 
-#: flipp_dl/web/templates/base.html:260
+#: flipp_dl/web/templates/base.html:289
 msgid "Sign out"
 msgstr "Logga ut"
 
-#: flipp_dl/web/templates/base.html:274
+#: flipp_dl/web/templates/base.html:303
 #: flipp_dl/web/templates/issue_row.html:78
 #: flipp_dl/web/templates/issue_row.html:90
 msgid "Cancel"
 msgstr "Avbryt"
 
-#: flipp_dl/web/templates/base.html:275
+#: flipp_dl/web/templates/base.html:304
 msgid "Confirm"
 msgstr "Bekräfta"
 
@@ -557,8 +557,8 @@ msgid ""
 "%(count)s downloaded issues have no recorded size (downloaded before size"
 " tracking was added)."
 msgstr ""
-"%(count)s nedladdade utgåvor saknar registrerad storlek (nedladdade "
-"innan storleksspårning infördes)."
+"%(count)s nedladdade utgåvor saknar registrerad storlek (nedladdade innan"
+" storleksspårning infördes)."
 
 #: flipp_dl/web/templates/publication_row.html:52
 msgid "unknown"
@@ -570,8 +570,8 @@ msgid ""
 "%(count)s downloaded issues have no recorded size (downloaded before size"
 " tracking was added) and are not included in this total."
 msgstr ""
-"%(count)s nedladdade utgåvor saknar registrerad storlek (nedladdade "
-"innan storleksspårning infördes) och räknas inte in i summan."
+"%(count)s nedladdade utgåvor saknar registrerad storlek (nedladdade innan"
+" storleksspårning infördes) och räknas inte in i summan."
 
 #: flipp_dl/web/templates/publication_row.html:70
 msgid "Yes"
@@ -914,4 +914,24 @@ msgstr "körs"
 #: flipp_dl/web/templates/stats_cards.html:29
 msgid "idle"
 msgstr "vilar"
+
+#: flipp_dl/web/routes.py:63
+msgid ""
+"the address did not respond. Check that the URL is correct and that Komga"
+" is running."
+msgstr "adressen svarade inte. Kontrollera att URL:en stämmer och att Komga körs."
+
+#: flipp_dl/web/routes.py:66
+msgid "the login was rejected. Check the username, password or API key."
+msgstr "inloggningen nekades. Kontrollera användarnamn, lösenord eller API-nyckel."
+
+#: flipp_dl/web/routes.py:68
+msgid ""
+"the address responded, but the content doesn't look like it came from "
+"Komga."
+msgstr "adressen svarade, men innehållet verkar inte komma från Komga."
+
+#: flipp_dl/web/routes.py:71
+msgid "something went wrong. Check the address and try again."
+msgstr "något gick fel. Kontrollera adressen och försök igen."
 

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-08-20 17:11+0200\n"
+"POT-Creation-Date: 2026-08-20 17:59+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,50 +17,50 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.18.0\n"
 
-#: flipp_dl/web/templates/base.html:248 flipp_dl/web/templates/dashboard.html:2
+#: flipp_dl/web/templates/base.html:277 flipp_dl/web/templates/dashboard.html:2
 #: flipp_dl/web/templates/dashboard.html:5
 msgid "Dashboard"
 msgstr ""
 
-#: flipp_dl/web/templates/base.html:249
+#: flipp_dl/web/templates/base.html:278
 #: flipp_dl/web/templates/publications.html:2
 #: flipp_dl/web/templates/publications.html:5
 #: flipp_dl/web/templates/stats_cards.html:3
 msgid "Publications"
 msgstr ""
 
-#: flipp_dl/web/templates/base.html:250 flipp_dl/web/templates/search.html:2
+#: flipp_dl/web/templates/base.html:279 flipp_dl/web/templates/search.html:2
 #: flipp_dl/web/templates/search.html:5 flipp_dl/web/templates/search.html:31
 msgid "Search"
 msgstr ""
 
-#: flipp_dl/web/templates/base.html:251 flipp_dl/web/templates/library.html:2
+#: flipp_dl/web/templates/base.html:280 flipp_dl/web/templates/library.html:2
 #: flipp_dl/web/templates/library.html:5
 #: flipp_dl/web/templates/settings.html:153
 msgid "Library"
 msgstr ""
 
-#: flipp_dl/web/templates/base.html:252 flipp_dl/web/templates/jobs.html:2
+#: flipp_dl/web/templates/base.html:281 flipp_dl/web/templates/jobs.html:2
 #: flipp_dl/web/templates/jobs.html:5
 msgid "Jobs"
 msgstr ""
 
-#: flipp_dl/web/templates/base.html:253 flipp_dl/web/templates/settings.html:2
+#: flipp_dl/web/templates/base.html:282 flipp_dl/web/templates/settings.html:2
 #: flipp_dl/web/templates/settings.html:5
 msgid "Settings"
 msgstr ""
 
-#: flipp_dl/web/templates/base.html:260
+#: flipp_dl/web/templates/base.html:289
 msgid "Sign out"
 msgstr ""
 
-#: flipp_dl/web/templates/base.html:274
+#: flipp_dl/web/templates/base.html:303
 #: flipp_dl/web/templates/issue_row.html:78
 #: flipp_dl/web/templates/issue_row.html:90
 msgid "Cancel"
 msgstr ""
 
-#: flipp_dl/web/templates/base.html:275
+#: flipp_dl/web/templates/base.html:304
 msgid "Confirm"
 msgstr ""
 
@@ -876,5 +876,25 @@ msgstr ""
 
 #: flipp_dl/web/templates/stats_cards.html:29
 msgid "idle"
+msgstr ""
+
+#: flipp_dl/web/routes.py:63
+msgid ""
+"the address did not respond. Check that the URL is correct and that Komga"
+" is running."
+msgstr ""
+
+#: flipp_dl/web/routes.py:66
+msgid "the login was rejected. Check the username, password or API key."
+msgstr ""
+
+#: flipp_dl/web/routes.py:68
+msgid ""
+"the address responded, but the content doesn't look like it came from "
+"Komga."
+msgstr ""
+
+#: flipp_dl/web/routes.py:71
+msgid "something went wrong. Check the address and try again."
 msgstr ""
 

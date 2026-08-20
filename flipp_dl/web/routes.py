@@ -39,6 +39,40 @@ from .auth import auth_enabled, check_csrf_form, generate_csrf_token, verify_pas
 logger = logging.getLogger(__name__)
 
 
+def _mark_for_translation(message: str) -> str:
+    """Return *message* unchanged - marks it for ``pybabel extract`` only.
+
+    The actual translation happens later, at request time, via
+    :func:`flipp_dl.web.i18n.translate` (the language isn't known yet at
+    module load time). This mirrors ``gettext_noop``/``gettext_lazy`` from
+    other frameworks: pybabel's python extractor recognises a call named
+    ``_`` (aliased below) and pulls its argument into the catalog even
+    though nothing is translated at the call site itself.
+    """
+    return message
+
+
+_ = _mark_for_translation
+
+# Short, non-technical messages for the "Test connection" button
+# (komga_test_connection below), keyed by KomgaError.reason. The
+# technical requests/urllib3 text stays out of the UI - it's logged
+# instead (see the `logger.warning` call at the raise site) - so
+# troubleshooting still has it even though the user only sees this.
+_KOMGA_TEST_CONNECTION_MESSAGES: dict[str, str] = {
+    "unreachable": _(
+        "the address did not respond. Check that the URL is correct and "
+        "that Komga is running."
+    ),
+    "auth": _("the login was rejected. Check the username, password or API key."),
+    "bad_response": _(
+        "the address responded, but the content doesn't look like it came "
+        "from Komga."
+    ),
+    "other": _("something went wrong. Check the address and try again."),
+}
+
+
 def _repo(request: Request) -> DownloadRepository:
     session = request.app.state.session_factory()
     return DownloadRepository(session)
@@ -1185,10 +1219,18 @@ def register(app: FastAPI) -> None:
         try:
             libraries = client.list_libraries()
         except KomgaError as exc:
+            logger.warning("Komga test connection to %s failed: %s", url, exc)
+            lang = i18n.get_language(request)
+            message = i18n.translate(
+                lang,
+                _KOMGA_TEST_CONNECTION_MESSAGES.get(
+                    exc.reason, _KOMGA_TEST_CONNECTION_MESSAGES["other"]
+                ),
+            )
             return _templates(request).TemplateResponse(
                 request,
                 "komga_library_select.html",
-                {"error": str(exc), "libraries": None, "selected": selected},
+                {"error": message, "libraries": None, "selected": selected},
             )
 
         return _templates(request).TemplateResponse(

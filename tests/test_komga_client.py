@@ -18,15 +18,23 @@ from flipp_dl.komga import (
 
 
 class FakeResponse:
-    def __init__(self, status_code: int = 200, json_data=None):
+    def __init__(
+        self,
+        status_code: int = 200,
+        json_data=None,
+        json_error: Exception | None = None,
+    ):
         self.status_code = status_code
         self._json_data = json_data if json_data is not None else []
+        self._json_error = json_error
 
     def raise_for_status(self):
         if self.status_code >= 400:
             raise requests.HTTPError(f"{self.status_code} error", response=self)
 
     def json(self):
+        if self._json_error is not None:
+            raise self._json_error
         return self._json_data
 
 
@@ -98,6 +106,83 @@ def test_list_libraries_raises_komga_error_on_connection_failure():
 
     with pytest.raises(KomgaError):
         client.list_libraries()
+
+
+# ---------------------------------------------------------------------------
+# TASK-1388: KomgaError.reason categorisation
+# ---------------------------------------------------------------------------
+
+
+def test_connection_error_gets_unreachable_reason():
+    session = FakeSession(raise_exc=requests.ConnectionError("Connection refused"))
+    client = KomgaClient("http://127.0.0.1:9", session=session)
+
+    with pytest.raises(KomgaError) as excinfo:
+        client.list_libraries()
+
+    assert excinfo.value.reason == "unreachable"
+
+
+def test_timeout_gets_unreachable_reason():
+    session = FakeSession(raise_exc=requests.ConnectTimeout("timed out"))
+    client = KomgaClient("http://127.0.0.1:9", session=session)
+
+    with pytest.raises(KomgaError) as excinfo:
+        client.list_libraries()
+
+    assert excinfo.value.reason == "unreachable"
+
+
+def test_401_gets_auth_reason():
+    session = FakeSession(FakeResponse(401))
+    client = KomgaClient("http://localhost:25600", api_key="wrong", session=session)
+
+    with pytest.raises(KomgaError) as excinfo:
+        client.list_libraries()
+
+    assert excinfo.value.reason == "auth"
+
+
+def test_403_gets_auth_reason():
+    session = FakeSession(FakeResponse(403))
+    client = KomgaClient("http://localhost:25600", api_key="wrong", session=session)
+
+    with pytest.raises(KomgaError) as excinfo:
+        client.list_libraries()
+
+    assert excinfo.value.reason == "auth"
+
+
+def test_500_gets_other_reason():
+    session = FakeSession(FakeResponse(500))
+    client = KomgaClient("http://localhost:25600", api_key="key", session=session)
+
+    with pytest.raises(KomgaError) as excinfo:
+        client.list_libraries()
+
+    assert excinfo.value.reason == "other"
+
+
+def test_non_json_response_gets_bad_response_reason():
+    session = FakeSession(
+        FakeResponse(200, json_error=requests.exceptions.JSONDecodeError("bad", "", 0))
+    )
+    client = KomgaClient("http://localhost:25600", session=session)
+
+    with pytest.raises(KomgaError) as excinfo:
+        client.list_libraries()
+
+    assert excinfo.value.reason == "bad_response"
+
+
+def test_unexpected_json_shape_gets_bad_response_reason():
+    session = FakeSession(FakeResponse(200, json_data={"not": "a list"}))
+    client = KomgaClient("http://localhost:25600", session=session)
+
+    with pytest.raises(KomgaError) as excinfo:
+        client.list_libraries()
+
+    assert excinfo.value.reason == "bad_response"
 
 
 # ---------------------------------------------------------------------------

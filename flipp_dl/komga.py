@@ -147,7 +147,29 @@ def parse_issue_number(issue_name: str | None) -> tuple[str | None, float | None
 
 
 class KomgaError(Exception):
-    """Raised when the Komga API returns an unexpected response."""
+    """Raised when a Komga API call fails or returns something unexpected.
+
+    ``reason`` is a stable category the web layer maps to a short,
+    non-technical message for the user (see ``komga_test_connection`` in
+    :mod:`flipp_dl.web.routes`):
+
+    - ``"unreachable"`` - the address didn't respond at all (connection
+      refused, DNS failure, timeout).
+    - ``"auth"`` - the request reached a server but was rejected as
+      unauthenticated/forbidden (401/403).
+    - ``"bad_response"`` - a response came back but its content doesn't
+      look like it came from Komga (not JSON, or not the shape expected).
+    - ``"other"`` - anything else (other HTTP errors, unexpected
+      exceptions).
+
+    The exception's own message (``str(exc)``) keeps the technical detail
+    - the ``requests`` exception text - so it stays available in the logs
+    for troubleshooting even though the user never sees it directly.
+    """
+
+    def __init__(self, message: str, *, reason: str = "other") -> None:
+        super().__init__(message)
+        self.reason = reason
 
 
 def build_session() -> requests.Session:
@@ -198,13 +220,30 @@ class KomgaClient:
     # ------------------------------------------------------------------
 
     def list_libraries(self) -> list[dict]:
-        """Return the raw library list from ``GET /api/v1/libraries``."""
+        """Return the raw library list from ``GET /api/v1/libraries``.
+
+        Unlike the other calls, this one also checks that the response
+        looks like it actually came from Komga - it's the call behind the
+        "Test connection" button, which may be pointed at any URL a user
+        typed in, including one that answers with an HTML error page or
+        some unrelated JSON API.
+        """
         response = self._request("get", "/api/v1/libraries")
+        self._raise_for_status(response, "Failed to list Komga libraries")
         try:
-            response.raise_for_status()
-        except requests.HTTPError as exc:
-            raise KomgaError(f"Failed to list Komga libraries: {exc}") from exc
-        return response.json()
+            data = response.json()
+        except ValueError as exc:
+            raise KomgaError(
+                f"Komga response from {self.url}/api/v1/libraries was not valid JSON: {exc}",
+                reason="bad_response",
+            ) from exc
+        if not isinstance(data, list):
+            raise KomgaError(
+                "Komga response from "
+                f"{self.url}/api/v1/libraries did not look like a library list: {data!r}",
+                reason="bad_response",
+            )
+        return data
 
     def scan_library(self, library_id: str) -> None:
         """Trigger a scan of *library_id* via ``POST .../scan``.
@@ -213,12 +252,9 @@ class KomgaClient:
         asynchronously on its side) - there is nothing to wait for here.
         """
         response = self._request("post", f"/api/v1/libraries/{library_id}/scan")
-        try:
-            response.raise_for_status()
-        except requests.HTTPError as exc:
-            raise KomgaError(
-                f"Failed to trigger scan for library {library_id}: {exc}"
-            ) from exc
+        self._raise_for_status(
+            response, f"Failed to trigger scan for library {library_id}"
+        )
 
     def find_series_by_name(self, library_id: str, name: str) -> dict | None:
         """Find the series in *library_id* whose name exactly matches *name*.
@@ -235,12 +271,7 @@ class KomgaClient:
             "/api/v1/series",
             params={"search": name, "library_id": library_id},
         )
-        try:
-            response.raise_for_status()
-        except requests.HTTPError as exc:
-            raise KomgaError(
-                f"Failed to search Komga series for {name!r}: {exc}"
-            ) from exc
+        self._raise_for_status(response, f"Failed to search Komga series for {name!r}")
         data = response.json()
         content = data.get("content", data) if isinstance(data, dict) else data
         for series in content:
@@ -256,12 +287,9 @@ class KomgaClient:
         response = self._request(
             "patch", f"/api/v1/series/{series_id}/metadata", json_body=fields
         )
-        try:
-            response.raise_for_status()
-        except requests.HTTPError as exc:
-            raise KomgaError(
-                f"Failed to update metadata for series {series_id}: {exc}"
-            ) from exc
+        self._raise_for_status(
+            response, f"Failed to update metadata for series {series_id}"
+        )
 
     def list_series_books(self, series_id: int | str) -> list[dict]:
         """Return every book Komga has indexed for *series_id*."""
@@ -270,12 +298,7 @@ class KomgaClient:
             f"/api/v1/series/{series_id}/books",
             params={"size": 5000, "unpaged": "true"},
         )
-        try:
-            response.raise_for_status()
-        except requests.HTTPError as exc:
-            raise KomgaError(
-                f"Failed to list books for series {series_id}: {exc}"
-            ) from exc
+        self._raise_for_status(response, f"Failed to list books for series {series_id}")
         data = response.json()
         return data.get("content", data) if isinstance(data, dict) else data
 
@@ -302,12 +325,9 @@ class KomgaClient:
         response = self._request(
             "patch", f"/api/v1/books/{book_id}/metadata", json_body=fields
         )
-        try:
-            response.raise_for_status()
-        except requests.HTTPError as exc:
-            raise KomgaError(
-                f"Failed to update metadata for book {book_id}: {exc}"
-            ) from exc
+        self._raise_for_status(
+            response, f"Failed to update metadata for book {book_id}"
+        )
 
     def get_book_read_progress(self, book_id: int | str) -> dict:
         """Return read status for *book_id* via ``GET /api/v1/books/{id}``.
@@ -322,12 +342,9 @@ class KomgaClient:
         ``{"read": False, "page": 0, "completed": False}``.
         """
         response = self._request("get", f"/api/v1/books/{book_id}")
-        try:
-            response.raise_for_status()
-        except requests.HTTPError as exc:
-            raise KomgaError(
-                f"Failed to fetch read progress for book {book_id}: {exc}"
-            ) from exc
+        self._raise_for_status(
+            response, f"Failed to fetch read progress for book {book_id}"
+        )
         data = response.json()
         progress = data.get("readProgress") or {}
         completed = bool(progress.get("completed", False))
@@ -351,12 +368,9 @@ class KomgaClient:
             params={"selected": "true"},
             files=files,
         )
-        try:
-            response.raise_for_status()
-        except requests.HTTPError as exc:
-            raise KomgaError(
-                f"Failed to upload thumbnail for series {series_id}: {exc}"
-            ) from exc
+        self._raise_for_status(
+            response, f"Failed to upload thumbnail for series {series_id}"
+        )
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -373,6 +387,19 @@ class KomgaClient:
         if self.username:
             return (self.username, self.password)
         return None
+
+    def _raise_for_status(self, response: requests.Response, action: str) -> None:
+        """Turn a non-2xx *response* into a categorised :class:`KomgaError`.
+
+        401/403 gets ``reason="auth"`` (login rejected) - everything else
+        (other HTTP errors) gets ``reason="other"``, since ``requests``
+        doesn't give us anything more specific to go on there.
+        """
+        try:
+            response.raise_for_status()
+        except requests.HTTPError as exc:
+            reason = "auth" if response.status_code in (401, 403) else "other"
+            raise KomgaError(f"{action}: {exc}", reason=reason) from exc
 
     def _request(
         self,
@@ -395,5 +422,13 @@ class KomgaClient:
                 json=json_body,
                 files=files,
             )
+        except requests.Timeout as exc:
+            raise KomgaError(
+                f"Komga request to {url} timed out: {exc}", reason="unreachable"
+            ) from exc
+        except requests.ConnectionError as exc:
+            raise KomgaError(
+                f"Komga request to {url} failed: {exc}", reason="unreachable"
+            ) from exc
         except requests.RequestException as exc:
             raise KomgaError(f"Komga request to {url} failed: {exc}") from exc

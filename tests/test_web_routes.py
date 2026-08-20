@@ -1622,7 +1622,8 @@ def test_komga_test_connection_shows_error_on_failure(client: TestClient, monkey
             pass
 
         def list_libraries(self):
-            raise KomgaError("connection refused")
+            # The raw text stays in the log; the user gets the short form.
+            raise KomgaError("connection refused", reason="unreachable")
 
     monkeypatch.setattr("flipp_dl.web.routes.KomgaClient", FailingKomgaClient)
 
@@ -1638,7 +1639,9 @@ def test_komga_test_connection_shows_error_on_failure(client: TestClient, monkey
         },
     )
     assert resp.status_code == 200
-    assert "connection refused" in resp.text
+    assert "the address did not respond" in resp.text
+    # The requests-level detail must not reach the page (TASK-1388).
+    assert "connection refused" not in resp.text
 
 
 def test_komga_test_connection_requires_csrf(client: TestClient):
