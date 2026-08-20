@@ -6,6 +6,7 @@ import argparse
 import logging
 import sys
 from collections.abc import Iterable
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from .api import FlippClient, FlippError
@@ -100,6 +101,14 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "Reconcile the database against files already in --output "
             "(no network calls), print a summary, and exit."
+        ),
+    )
+    parser.add_argument(
+        "--migrate-filenames",
+        action="store_true",
+        help=(
+            "Rename downloaded files to the current OS-safe naming scheme, "
+            "update their database paths, print a summary, and exit."
         ),
     )
 
@@ -244,6 +253,142 @@ def _run_import_existing(args: argparse.Namespace) -> int:
     return 0
 
 
+@dataclass
+class _FilenameMigrationReport:
+    renamed: list[tuple[str, str]] = field(default_factory=list)
+    recovered: list[str] = field(default_factory=list)
+    unchanged: int = 0
+    missing: list[str] = field(default_factory=list)
+    conflicts: list[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
+
+
+def _print_migration_items(title: str, label: str, items: list[str]) -> None:
+    print(f"{title}: {len(items)}")
+    for item in items:
+        print(f"  {label}: {item}")
+
+
+def _print_filename_migration_report(report: _FilenameMigrationReport) -> None:
+    print(f"Renamed file(s): {len(report.renamed)}")
+    for source, target in report.renamed:
+        print(f"  renamed: {source} -> {target}")
+    _print_migration_items(
+        "Recovered database path(s) after an earlier move",
+        "recovered",
+        report.recovered,
+    )
+    print(f"Already using the current filename: {report.unchanged}")
+    _print_migration_items("Missing source file(s)", "missing", report.missing)
+    _print_migration_items(
+        "Naming conflict(s), left unchanged", "conflict", report.conflicts
+    )
+    _print_migration_items("Migration error(s), left unchanged", "error", report.errors)
+
+
+def _migration_source(output_root: Path, file_path: str) -> Path | None:
+    raw = Path(file_path)
+    try:
+        source = (raw if raw.is_absolute() else output_root / raw).resolve()
+        source.relative_to(output_root)
+    except (OSError, RuntimeError, ValueError):
+        return None
+    return source
+
+
+def _run_filename_migration(args: argparse.Namespace) -> int:
+    from collections import Counter
+
+    from sqlalchemy import select
+    from sqlalchemy.orm import selectinload
+
+    from . import storage
+    from .db.models import DbIssue
+    from .db.session import get_session
+
+    output_root = (args.output or default_output_path()).resolve()
+    session_factory = make_session_factory(args.db)
+    report = _FilenameMigrationReport()
+
+    with get_session(session_factory) as session:
+        issues = list(
+            session.scalars(
+                select(DbIssue)
+                .options(selectinload(DbIssue.publication))
+                .where(DbIssue.file_path.is_not(None))
+                .order_by(DbIssue.id)
+            )
+        )
+        plans: list[tuple[DbIssue, Path | None, Path]] = []
+        for issue in issues:
+            assert issue.file_path is not None
+            source = _migration_source(output_root, issue.file_path)
+            disambiguation_tail = storage.safe_name(f" ({issue.custom_code[:8]}).pdf")
+            disambiguate = Path(issue.file_path).name.endswith(disambiguation_tail)
+            target = storage.issue_path(
+                output_root,
+                issue.publication,
+                issue,
+                disambiguate=disambiguate,
+            )
+            plans.append((issue, source, target))
+
+        source_counts = Counter(source for _, source, _ in plans if source is not None)
+        target_counts = Counter(target for _, _, target in plans)
+
+        for issue, source, target in plans:
+            stored_path = issue.file_path or ""
+            if source is None:
+                report.missing.append(stored_path)
+                continue
+            if source_counts[source] > 1:
+                report.conflicts.append(f"several issues use the source path {source}")
+                continue
+            if target_counts[target] > 1:
+                report.conflicts.append(
+                    f"several issues would use the target path {target}"
+                )
+                continue
+
+            if source.is_file():
+                if source == target:
+                    if issue.file_path != str(target):
+                        issue.file_path = str(target)
+                        report.recovered.append(str(target))
+                    else:
+                        report.unchanged += 1
+                    continue
+                if target.exists():
+                    try:
+                        same_file = source.samefile(target)
+                    except OSError:
+                        same_file = False
+                    if same_file:
+                        issue.file_path = str(target)
+                        report.recovered.append(str(target))
+                    else:
+                        report.conflicts.append(f"target already exists: {target}")
+                    continue
+                try:
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    source.replace(target)
+                except OSError as exc:
+                    report.errors.append(f"{source} -> {target}: {exc}")
+                    continue
+                issue.file_path = str(target)
+                report.renamed.append((str(source), str(target)))
+                continue
+
+            if target.is_file():
+                issue.file_path = str(target)
+                report.recovered.append(str(target))
+            else:
+                report.missing.append(str(source))
+
+    _print_filename_migration_report(report)
+    return 1 if report.conflicts or report.errors else 0
+
+
 # ----------------------------------------------------------------------
 # Main
 # ----------------------------------------------------------------------
@@ -255,6 +400,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.import_existing:
         return _run_import_existing(args)
+    if args.migrate_filenames:
+        return _run_filename_migration(args)
 
     # ------------------------------------------------------------------
     # Scheduler mode – hand off and block

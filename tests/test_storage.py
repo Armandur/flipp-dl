@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from flipp_dl.models import Category, Issue, Publication
 from flipp_dl.storage import (
     issue_filename,
@@ -23,6 +25,24 @@ def test_safe_name_drops_disallowed_chars():
 
 def test_safe_name_keeps_parentheses_and_dots():
     assert safe_name("Nr.1 (2024).pdf") == "Nr.1 (2024).pdf"
+
+
+@pytest.mark.parametrize("value", ["CON", "con.pdf", "PRN.txt", "COM1", "LPT9.pdf"])
+def test_safe_name_prefixes_windows_reserved_names(value):
+    assert safe_name(value).startswith("_")
+
+
+def test_safe_name_removes_trailing_dots_and_spaces():
+    assert safe_name("Kalle Anka.  ") == "Kalle Anka"
+
+
+def test_safe_name_uses_fallback_when_every_character_is_removed():
+    assert safe_name("!?<>:|*") == "unnamed"
+    assert safe_name("!?<>:|*.pdf") == "unnamed.pdf"
+
+
+def test_safe_name_normalizes_equivalent_unicode_to_nfc():
+    assert safe_name("Ra\u0308ven") == safe_name("Räven") == "Räven"
 
 
 def _publication() -> Publication:
@@ -85,3 +105,39 @@ def test_issue_filename_can_be_disambiguated():
     # The plain name stays as it is, so existing files are not renamed.
     assert issue_filename(pub, a) == "91an - 2022-02-25 - Nr 6 2022.pdf"
     assert issue_filename(pub, a, disambiguate=True).endswith("(ab2041c2).pdf")
+
+
+def test_issue_path_shortens_long_paths_with_a_stable_unique_hash(tmp_path):
+    publication = Publication(custom_code="LONG", name="A" * 170)
+    issue_a = Issue(
+        custom_code="issue-a",
+        issue_name="B" * 220 + "A",
+        issue_date="2026-08-20",
+    )
+    issue_b = Issue(
+        custom_code="issue-b",
+        issue_name="B" * 220 + "B",
+        issue_date="2026-08-20",
+    )
+
+    path_a = issue_path(tmp_path, publication, issue_a)
+    path_b = issue_path(tmp_path, publication, issue_b)
+
+    assert len(str(path_a.absolute())) <= 259
+    assert len(str(path_b.absolute())) <= 259
+    assert path_a != path_b
+    assert path_a.suffix == ".pdf"
+
+
+def test_long_disambiguated_filename_keeps_the_existing_suffix(tmp_path):
+    publication = Publication(custom_code="LONG", name="A" * 170)
+    issue = Issue(
+        custom_code="ab2041c2-bb4d",
+        issue_name="B" * 220,
+        issue_date="2026-08-20",
+    )
+
+    path = issue_path(tmp_path, publication, issue, disambiguate=True)
+
+    assert len(str(path.absolute())) <= 259
+    assert path.name.endswith("(ab2041c2).pdf")

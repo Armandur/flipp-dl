@@ -3,11 +3,22 @@
 from __future__ import annotations
 
 import string
+import unicodedata
+from hashlib import sha256
 from pathlib import Path
 
 from .models import Issue, Publication
 
 _VALID_CHARS = frozenset("-_.()åäöÅÄÖ " + string.ascii_letters + string.digits)
+_WINDOWS_RESERVED_NAMES = frozenset(
+    {"CON", "PRN", "AUX", "NUL"}
+    | {f"COM{i}" for i in range(1, 10)}
+    | {f"LPT{i}" for i in range(1, 10)}
+)
+_WINDOWS_MAX_PATH = 259  # 260 including the terminating null character
+_MAX_COMPONENT_LENGTH = 255
+_HASH_LENGTH = 12
+_EMPTY_NAME = "unnamed"
 
 
 def safe_name(value: str) -> str:
@@ -16,12 +27,47 @@ def safe_name(value: str) -> str:
     Slashes become dashes, ampersands become "och", and any character
     outside a small whitelist is dropped.
     """
+    value = unicodedata.normalize("NFC", value)
     value = value.replace("/", "-").replace("&", "och")
-    return "".join(c for c in value if c in _VALID_CHARS)
+    value = "".join(c for c in value if c in _VALID_CHARS).rstrip(" .")
+    if not value:
+        value = _EMPTY_NAME
+    elif value.startswith("."):
+        # If the stem was entirely filtered out, preserve a remaining
+        # extension without producing an extension-only filename.
+        value = f"{_EMPTY_NAME}{value}"
+
+    # Windows reserves these device names case-insensitively, even when
+    # followed by an extension (for example CON.pdf).
+    base_name = value.split(".", 1)[0].rstrip(" ").upper()
+    if base_name in _WINDOWS_RESERVED_NAMES:
+        value = f"_{value}"
+    return value
+
+
+def _shorten_component(value: str, max_length: int, *, protected_tail: str = "") -> str:
+    """Shorten one path component and retain uniqueness with a hash."""
+    if len(value) <= max_length:
+        return value
+
+    digest = sha256(value.encode("utf-8")).hexdigest()[:_HASH_LENGTH]
+    marker = f" ({digest})"
+    prefix_length = max_length - len(marker) - len(protected_tail)
+    if prefix_length < 1:
+        raise ValueError("Output path is too long for a safe filename")
+    prefix = value[:prefix_length].rstrip(" .") or _EMPTY_NAME
+    return f"{prefix}{marker}{protected_tail}"
+
+
+def _disambiguation_tail(issue: Issue, disambiguate: bool) -> str:
+    if not disambiguate:
+        return ".pdf"
+    return safe_name(f" ({issue.custom_code[:8]}).pdf")
 
 
 def publication_folder(output_root: Path, publication: Publication) -> Path:
-    return output_root / safe_name(publication.name)
+    folder = _shorten_component(safe_name(publication.name), _MAX_COMPONENT_LENGTH)
+    return output_root / folder
 
 
 def issue_filename(
@@ -34,10 +80,10 @@ def issue_filename(
     *disambiguate* appends part of the issue code so the second issue
     gets a file of its own instead of silently reusing the first one's.
     """
-    stem = f"{publication.name} - {issue.issue_date} - {issue.issue_name}"
-    if disambiguate:
-        stem = f"{stem} ({issue.custom_code[:8]})"
-    return safe_name(f"{stem}.pdf")
+    stem = safe_name(f"{publication.name} - {issue.issue_date} - {issue.issue_name}")
+    tail = _disambiguation_tail(issue, disambiguate)
+    filename = safe_name(f"{stem}{tail}")
+    return _shorten_component(filename, _MAX_COMPONENT_LENGTH, protected_tail=tail)
 
 
 def issue_path(
@@ -47,9 +93,32 @@ def issue_path(
     *,
     disambiguate: bool = False,
 ) -> Path:
-    return publication_folder(output_root, publication) / issue_filename(
-        publication, issue, disambiguate=disambiguate
+    folder = publication_folder(output_root, publication)
+    filename = issue_filename(publication, issue, disambiguate=disambiguate)
+    candidate = folder / filename
+    if len(str(candidate.absolute())) <= _WINDOWS_MAX_PATH:
+        return candidate
+
+    tail = _disambiguation_tail(issue, disambiguate)
+    filename_budget = _WINDOWS_MAX_PATH - len(str(folder.absolute())) - 1
+    minimum_filename_length = 1 + len(f" ({'0' * _HASH_LENGTH})") + len(tail)
+    filename = _shorten_component(
+        filename,
+        max(filename_budget, minimum_filename_length),
+        protected_tail=tail,
     )
+    candidate = folder / filename
+    if len(str(candidate.absolute())) <= _WINDOWS_MAX_PATH:
+        return candidate
+
+    folder_budget = (
+        _WINDOWS_MAX_PATH - len(str(Path(output_root).absolute())) - len(filename) - 2
+    )
+    folder_name = _shorten_component(folder.name, folder_budget)
+    candidate = Path(output_root) / folder_name / filename
+    if len(str(candidate.absolute())) > _WINDOWS_MAX_PATH:
+        raise ValueError("Output root is too long for a Windows-safe path")
+    return candidate
 
 
 def resolve_safe_path(output_root: Path, candidate: str | Path | None) -> Path | None:

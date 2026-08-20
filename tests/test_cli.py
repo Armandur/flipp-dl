@@ -59,6 +59,7 @@ def test_parser_defaults():
     assert args.list_publications is False
     assert args.workers == 4
     assert args.no_skip_existing is False
+    assert args.migrate_filenames is False
     assert args.verbose == 0
 
 
@@ -85,6 +86,11 @@ def test_parser_accepts_multiple_categories_and_publications():
 def test_parser_accepts_import_existing_flag():
     args = build_parser().parse_args(["--import-existing"])
     assert args.import_existing is True
+
+
+def test_parser_accepts_migrate_filenames_flag():
+    args = build_parser().parse_args(["--migrate-filenames"])
+    assert args.migrate_filenames is True
 
 
 # ---------------------------------------------------------------------------
@@ -153,3 +159,98 @@ def test_main_import_existing_backfills_a_file_already_on_disk(
     with get_session(factory) as session:
         repo = DownloadRepository(session)
         assert repo.get_issue(issue_id).status == "done"
+
+
+# ---------------------------------------------------------------------------
+# --migrate-filenames (TASK-1400) - explicit and restartable
+# ---------------------------------------------------------------------------
+
+
+def test_main_migrate_filenames_renames_file_and_updates_database(
+    tmp_path, monkeypatch, capsys
+):
+    from flipp_dl import storage
+    from flipp_dl.cli import main
+    from flipp_dl.db.repository import DownloadRepository
+    from flipp_dl.db.session import get_session, make_session_factory
+
+    monkeypatch.delenv("FLIPP_TOKEN", raising=False)
+    db_path = tmp_path / "flipp.db"
+    output = tmp_path / "Output"
+    pub = _pub("CON", "CON", cats=[52], issues=1)
+    old_path = output / "CON" / "CON - 2024 - Nr 0.pdf"
+    old_path.parent.mkdir(parents=True)
+    old_path.write_bytes(b"%PDF-1.4\n%dummy\n")
+
+    factory = make_session_factory(db_path)
+    with get_session(factory) as session:
+        repo = DownloadRepository(session)
+        db_pub = repo.upsert_publication(pub)
+        db_issue, _ = repo.upsert_issue(pub.issues[0], db_pub.id)
+        repo.mark_issue_done(
+            db_issue.id, str(old_path), file_size=old_path.stat().st_size
+        )
+        issue_id = db_issue.id
+
+    exit_code = main(
+        ["--migrate-filenames", "--db", str(db_path), "--output", str(output)]
+    )
+
+    new_path = storage.issue_path(output.resolve(), pub, pub.issues[0])
+    assert exit_code == 0
+    assert not old_path.exists()
+    assert new_path.is_file()
+    assert "Renamed file(s): 1" in capsys.readouterr().out
+    with get_session(factory) as session:
+        assert DownloadRepository(session).get_issue(issue_id).file_path == str(
+            new_path
+        )
+
+    assert (
+        main(["--migrate-filenames", "--db", str(db_path), "--output", str(output)])
+        == 0
+    )
+    assert "Already using the current filename: 1" in capsys.readouterr().out
+
+
+def test_main_migrate_filenames_recovers_database_after_interrupted_move(
+    tmp_path, monkeypatch, capsys
+):
+    from flipp_dl import storage
+    from flipp_dl.cli import main
+    from flipp_dl.db.repository import DownloadRepository
+    from flipp_dl.db.session import get_session, make_session_factory
+
+    monkeypatch.delenv("FLIPP_TOKEN", raising=False)
+    db_path = tmp_path / "flipp.db"
+    output = tmp_path / "Output"
+    pub = _pub("CON", "CON", cats=[52], issues=1)
+    stale_path = output / "CON" / "CON - 2024 - Nr 0.pdf"
+    migrated_path = storage.issue_path(output.resolve(), pub, pub.issues[0])
+    migrated_path.parent.mkdir(parents=True)
+    migrated_path.write_bytes(b"%PDF-1.4\n%dummy\n")
+
+    factory = make_session_factory(db_path)
+    with get_session(factory) as session:
+        repo = DownloadRepository(session)
+        db_pub = repo.upsert_publication(pub)
+        db_issue, _ = repo.upsert_issue(pub.issues[0], db_pub.id)
+        repo.mark_issue_done(
+            db_issue.id,
+            str(stale_path),
+            file_size=migrated_path.stat().st_size,
+        )
+        issue_id = db_issue.id
+
+    exit_code = main(
+        ["--migrate-filenames", "--db", str(db_path), "--output", str(output)]
+    )
+
+    assert exit_code == 0
+    assert (
+        "Recovered database path(s) after an earlier move: 1" in capsys.readouterr().out
+    )
+    with get_session(factory) as session:
+        assert DownloadRepository(session).get_issue(issue_id).file_path == str(
+            migrated_path
+        )
