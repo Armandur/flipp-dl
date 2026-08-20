@@ -20,6 +20,9 @@
     <div class="dim detail-meta">
       <span class="mono">{{ publication.custom_code }}</span>
       · {{ issues | length }} {{ _("issue") if issues | length == 1 else _("issues") }}
+      {% if delisted_issue_count %}
+        · <span class="badge badge-queued">{{ _("%(count)s no longer listed") % {"count": delisted_issue_count} }}</span>
+      {% endif %}
       {% if publication.next_issue_date %}
         · {{ _("Next issue:") }} <strong>{{ publication.next_issue_date }}</strong>
       {% endif %}
@@ -163,6 +166,9 @@
     <option value="read">{{ _("Read") }}</option>
     <option value="unread">{{ _("Unread") }}</option>
   </select>
+  <label class="watch-filter">
+    <input id="issue-delisted" type="checkbox"> {{ _("No longer listed only") }}
+  </label>
   <span id="issue-count" class="dim"></span>
 </div>
 
@@ -203,6 +209,7 @@
   const search = document.getElementById("issue-search");
   const statusSel = document.getElementById("issue-status");
   const readSel = document.getElementById("issue-read-filter");
+  const delistedOnly = document.getElementById("issue-delisted");
   const tbody = document.getElementById("issue-tbody");
   const empty = document.getElementById("issue-empty");
   const counter = document.getElementById("issue-count");
@@ -223,6 +230,7 @@
     const q = (search.value || "").trim().toLowerCase();
     const st = statusSel.value;
     const rd = readSel ? readSel.value : "";
+    const onlyDelisted = delistedOnly ? delistedOnly.checked : false;
     let visible = 0;
     let total = 0;
     tbody.querySelectorAll("tr").forEach((row) => {
@@ -234,7 +242,8 @@
       // read-status attribute at all - they only show up in "All", never
       // when "Read"/"Unread" is picked (TASK-1328).
       const matchesRead = !rd || row.dataset.readStatus === rd;
-      const show = matchesText && matchesStatus && matchesRead;
+      const matchesDelisted = !onlyDelisted || row.dataset.delisted === "1";
+      const show = matchesText && matchesStatus && matchesRead && matchesDelisted;
       row.style.display = show ? "" : "none";
       if (show) visible += 1;
     });
@@ -245,6 +254,7 @@
   search.addEventListener("input", applyFilter);
   statusSel.addEventListener("change", applyFilter);
   if (readSel) readSel.addEventListener("change", applyFilter);
+  if (delistedOnly) delistedOnly.addEventListener("change", applyFilter);
   document.body.addEventListener("htmx:afterSwap", (evt) => {
     if (evt.target && evt.target.closest && evt.target.closest("#issue-tbody")) {
       applyFilter();

@@ -637,12 +637,14 @@ def register(app: FastAPI) -> None:
             _annotate_file_exists(issues, request.app.state.output_root)
             queue_estimate = repo.estimate_missing_download_size(pub.id)
             queue_warn_threshold_bytes = repo.queue_warn_threshold_bytes()
+            delisted_issue_count = sum(1 for i in issues if i.delisted_at)
             return _templates(request).TemplateResponse(
                 request,
                 "publication_detail.html",
                 {
                     "publication": pub,
                     "issues": issues,
+                    "delisted_issue_count": delisted_issue_count,
                     "komga": _komga_status(repo, pub),
                     "csrf_token": generate_csrf_token(request),
                     "queue_estimate": queue_estimate,

@@ -554,6 +554,99 @@ def test_sync_publications_does_not_delete_delisted_publication(repo):
     assert done_issue.file_path == "/downloads/frost/nr1.pdf"
 
 
+def test_sync_publications_marks_missing_issue_delisted(repo):
+    """An issue absent from a non-empty issue list is delisted (TASK-1429)."""
+    pub = _publication()
+    repo.sync_publications([pub])
+    repo.session.commit()
+
+    # KA-02 drops out of this poll's response - only KA-01 remains.
+    only_first = Publication(
+        custom_code="KA",
+        name="Kalle Anka & Co",
+        issues=[Issue(custom_code="KA-01", issue_name="Nr 1", issue_date="2024-01-01")],
+    )
+    repo.sync_publications([only_first])
+    repo.session.commit()
+
+    db_pub = repo.get_publication("KA")
+    issue1 = next(i for i in db_pub.issues if i.custom_code == "KA-01")
+    issue2 = next(i for i in db_pub.issues if i.custom_code == "KA-02")
+    assert issue1.delisted_at is None
+    assert issue2.delisted_at is not None
+
+
+def test_sync_publications_clears_issue_delisted_when_seen_again(repo):
+    pub = _publication()
+    repo.sync_publications([pub])
+    repo.session.commit()
+
+    only_first = Publication(
+        custom_code="KA",
+        name="Kalle Anka & Co",
+        issues=[Issue(custom_code="KA-01", issue_name="Nr 1", issue_date="2024-01-01")],
+    )
+    repo.sync_publications([only_first])
+    repo.session.commit()
+    db_pub = repo.get_publication("KA")
+    issue2 = next(i for i in db_pub.issues if i.custom_code == "KA-02")
+    assert issue2.delisted_at is not None
+
+    # KA-02 reappears in a later poll - the mark clears automatically.
+    repo.sync_publications([pub])
+    repo.session.commit()
+
+    db_pub = repo.get_publication("KA")
+    issue2 = next(i for i in db_pub.issues if i.custom_code == "KA-02")
+    assert issue2.delisted_at is None
+
+
+def test_sync_publications_empty_issue_list_does_not_delist_all_issues(repo):
+    """A publication that syncs with an empty issue list must not read as
+    "every one of its issues vanished" - only a hard failure or an
+    empty *publications* response are already excluded upstream; this
+    guards the remaining "one publication's issue list came back empty"
+    case.
+    """
+    pub = _publication()
+    repo.sync_publications([pub])
+    repo.session.commit()
+
+    empty_issues = Publication(custom_code="KA", name="Kalle Anka & Co", issues=[])
+    repo.sync_publications([empty_issues])
+    repo.session.commit()
+
+    db_pub = repo.get_publication("KA")
+    assert all(i.delisted_at is None for i in db_pub.issues)
+
+
+def test_sync_publications_does_not_delete_delisted_issue(repo):
+    """Nothing about delisting an issue removes the row or its download."""
+    pub = _publication()
+    repo.sync_publications([pub])
+    repo.session.commit()
+    db_pub = repo.get_publication("KA")
+    issue2 = next(i for i in db_pub.issues if i.custom_code == "KA-02")
+    issue2.status = IssueStatus.DONE
+    issue2.file_path = "/downloads/ka/nr2.pdf"
+    repo.session.commit()
+
+    only_first = Publication(
+        custom_code="KA",
+        name="Kalle Anka & Co",
+        issues=[Issue(custom_code="KA-01", issue_name="Nr 1", issue_date="2024-01-01")],
+    )
+    repo.sync_publications([only_first])
+    repo.session.commit()
+
+    db_pub = repo.get_publication("KA")
+    assert len(db_pub.issues) == 2
+    issue2 = next(i for i in db_pub.issues if i.custom_code == "KA-02")
+    assert issue2.delisted_at is not None
+    assert issue2.status == IssueStatus.DONE
+    assert issue2.file_path == "/downloads/ka/nr2.pdf"
+
+
 def test_issue_status_transitions(repo):
     db_pub = repo.upsert_publication(_publication())
     repo.session.commit()

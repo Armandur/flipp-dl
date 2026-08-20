@@ -321,6 +321,17 @@ class DbIssue(Base):
     komga_read_synced_at: Mapped[datetime | None] = mapped_column(
         DateTime, nullable=True
     )
+    # When this issue was first noticed missing from a *successful* Flipp
+    # API response, within its own publication's issue list (TASK-1429,
+    # same mechanism as ``DbPublication.delisted_at`` from TASK-1426).
+    # ``None`` means it is currently listed. Cleared automatically the
+    # moment it reappears in a poll - see
+    # ``DownloadRepository.sync_publications``. Purely a "Flipp stopped
+    # listing it" marker: the issue and any downloaded file are never
+    # touched, and it stays fetchable straight through the reader API
+    # regardless - the UI wording must say "no longer listed", never
+    # "unavailable" or "removed".
+    delisted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     publication: Mapped[DbPublication] = relationship(
         "DbPublication", back_populates="issues"

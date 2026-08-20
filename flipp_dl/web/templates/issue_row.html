@@ -1,6 +1,7 @@
 {% set komga_read_known = issue.komga_book_id and issue.komga_read is not none %}
 <tr id="issue-row-{{ issue.custom_code }}"
   data-read-status="{% if komga_read_known %}{{ 'read' if issue.komga_read else 'unread' }}{% endif %}"
+  data-delisted="{{ '1' if issue.delisted_at else '0' }}"
   {% if issue.status in ("queued", "downloading") %}
   hx-get="/publications/{{ publication.custom_code }}/issues/{{ issue.custom_code }}/row"
   hx-trigger="every 2s"
@@ -19,7 +20,15 @@
       onerror="this.style.visibility='hidden';"
     >
   </td>
-  <td><strong>{{ issue.issue_name or "—" }}</strong></td>
+  <td>
+    <strong>{{ issue.issue_name or "—" }}</strong>
+    {% if issue.delisted_at %}
+      <span
+        class="badge badge-queued"
+        title="{{ _('Flipp stopped listing this issue on %(date)s. It can still be downloaded.') % {'date': issue.delisted_at.strftime('%Y-%m-%d')} }}"
+      >{{ _("No longer listed") }}</span>
+    {% endif %}
+  </td>
   <td class="dim">{{ issue.issue_date or "—" }}</td>
   <td>
     {% if issue.status == "done" %}

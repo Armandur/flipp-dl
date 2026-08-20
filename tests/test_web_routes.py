@@ -815,6 +815,59 @@ def test_publications_list_shows_delisted_marker(client: TestClient):
     assert "removed" not in resp.text.lower()
 
 
+def test_publication_detail_shows_delisted_issue_marker(client: TestClient):
+    """TASK-1429: an issue missing from the latest poll is flagged, on the
+    publication's own detail page, without touching the "no longer
+    listed" publication-level marker (KA itself stays listed).
+
+    Wording must say "no longer listed", matching the publication-level
+    convention - never "unavailable" or "removed".
+    """
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        ka = repo.get_publication("KA")
+        # ka01 (seeded by the fixture) stays listed; ka02 is added first
+        # and then dropped from the next poll's response.
+        pub_with_two = Publication(
+            custom_code="KA",
+            name=ka.name,
+            issues=[
+                Issue(custom_code="ka01", issue_name="Nr 1", issue_date="2024-01-01"),
+                Issue(custom_code="ka02", issue_name="Nr 2", issue_date="2024-02-01"),
+            ],
+        )
+        repo.sync_publications([pub_with_two])
+        # Next poll only returns ka01 - ka02 drops out.
+        pub_with_one = Publication(
+            custom_code="KA",
+            name=ka.name,
+            issues=[
+                Issue(custom_code="ka01", issue_name="Nr 1", issue_date="2024-01-01"),
+            ],
+        )
+        repo.sync_publications([pub_with_one])
+
+    resp = client.get("/publications/KA")
+    assert resp.status_code == 200
+    assert "No longer listed" in resp.text
+    assert "1 no longer listed" in resp.text
+
+    ka01_start = resp.text.index('id="issue-row-ka01"')
+    ka01_end = resp.text.index("</tr>", ka01_start)
+    assert 'data-delisted="0"' in resp.text[ka01_start:ka01_end]
+
+    ka02_start = resp.text.index('id="issue-row-ka02"')
+    ka02_end = resp.text.index("</tr>", ka02_start)
+    ka02_row = resp.text[ka02_start:ka02_end]
+    assert 'data-delisted="1"' in ka02_row
+
+    # The KA publication itself is still listed - only the issue is flagged.
+    assert 'data-delisted="1"' not in resp.text[: resp.text.index("<h1>")]
+    assert "No longer listed only" in resp.text
+    assert "unavailable" not in resp.text.lower()
+    assert "removed" not in resp.text.lower()
+
+
 def test_publications_list_does_not_query_the_issues_table(client: TestClient):
     """TASK-1338: the list view must not load every issue row.
 

@@ -1205,10 +1205,15 @@ class DownloadRepository:
             db_pub.last_polled_at = _now()
             db_pub.delisted_at = None
             seen_codes.add(db_pub.custom_code)
+            seen_issue_codes: set[str] = set()
             for issue in pub.issues:
                 db_issue, created = self.upsert_issue(issue, db_pub.id)
+                db_issue.delisted_at = None
+                seen_issue_codes.add(db_issue.custom_code)
                 if created:
                     new_issues.append(db_issue)
+            if seen_issue_codes:
+                self._mark_missing_issues_delisted(db_pub.id, seen_issue_codes)
         self._disable_watched_folder_collisions()
         if seen_codes:
             self._mark_missing_publications_delisted(seen_codes)
@@ -1243,6 +1248,40 @@ class DownloadRepository:
         )
         for db_pub in missing:
             db_pub.delisted_at = now
+
+    def _mark_missing_issues_delisted(
+        self, publication_id: int, seen_codes: set[str]
+    ) -> None:
+        """Mark every issue of *publication_id* absent from *seen_codes*.
+
+        Same mechanism, and the same rationale, as
+        ``_mark_missing_publications_delisted`` (TASK-1426) - just scoped
+        to one publication's issue list instead of the whole publication
+        set. Only called when ``seen_codes`` is non-empty: an empty or
+        partial issue list for a publication that otherwise synced fine
+        must never be read as "every issue of this publication vanished
+        at once" - that guard is what caller (``sync_publications``)
+        enforces before calling this. Codes for a delisted issue exist
+        nowhere but this database once marked - a publication dropping
+        1900+ issues in one poll is exactly the case that must not read
+        as noise to ignore.
+
+        Marked on the first poll an issue is missing from a *successful*
+        response, not after repeated misses - "missing from a response
+        the caller already treated as a success" is itself the signal.
+        The mark carries no meaning beyond "not currently listed": the
+        issue and any downloaded file are left untouched, and the issue
+        stays reachable straight through the reader API regardless.
+        """
+        now = _now()
+        missing = self.session.scalars(
+            select(DbIssue)
+            .where(DbIssue.publication_id == publication_id)
+            .where(DbIssue.custom_code.not_in(seen_codes))
+            .where(DbIssue.delisted_at.is_(None))
+        )
+        for db_issue in missing:
+            db_issue.delisted_at = now
 
     # ------------------------------------------------------------------
     # Settings
