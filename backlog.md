@@ -768,7 +768,7 @@ Bygg vidare på befintliga byggstenar i stället för att uppfinna nya: `list_is
 
 ---
 
-## [P4][todo] [flipp] Lägg tröskeln för köstorlek som fält på inställningssidan
+## [P4][done] [flipp] Lägg tröskeln för köstorlek som fält på inställningssidan
 
 Tröskeln som avgör när en bakkatalogshämtning kräver extra bekräftelse (TASK-1361) går att sätta som DbSetting-nyckeln queue_warn_threshold_bytes eller env FLIPP_QUEUE_WARN_THRESHOLD_BYTES, med 5 GiB som default. Den saknar dock fält på /settings, så den går i praktiken bara att ändra genom att sätta en miljövariabel och starta om.
 
