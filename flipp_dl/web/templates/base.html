@@ -149,8 +149,12 @@
     .htmx-indicator { display: none; }
     .htmx-request .htmx-indicator { display: inline; }
     .htmx-request.htmx-indicator { display: inline; }
-    .debug-error { background: #3a1a1a; border: 1px solid #5a2a2a; color: #f38ba8;
-                   border-radius: 6px; padding: 12px 14px; margin-bottom: 12px; }
+    .debug-error,
+    .field .error { background: #3a1a1a; border: 1px solid #5a2a2a; color: #f38ba8;
+                    border-radius: 6px; padding: 12px 14px; margin-bottom: 12px; }
+    /* Scoped to .field so login.html's own .error (its CSS is embedded and
+       does not extend this template) keeps its own look. */
+    .field .error { font-size: 13px; word-break: break-word; }
     .debug-error pre { white-space: pre-wrap; word-break: break-word;
                        font-family: "SFMono-Regular", Consolas, monospace;
                        font-size: 12px; margin-top: 6px; }
