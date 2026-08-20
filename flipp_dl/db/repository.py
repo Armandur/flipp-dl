@@ -221,6 +221,18 @@ class QueueSizeEstimate:
     basis: str  # "publication" | "global" | "none"
 
 
+class PublicationFolderError(ValueError):
+    """The selected publication folder name cannot be used."""
+
+
+class PublicationFolderConflict(PublicationFolderError):
+    """The selected folder is already owned by another publication."""
+
+
+class PublicationFolderMoveError(PublicationFolderError):
+    """Existing downloaded files could not be moved safely."""
+
+
 class DownloadRepository:
     def __init__(self, session: Session) -> None:
         self.session = session
@@ -354,6 +366,126 @@ class DownloadRepository:
         db_pub.watched = enabled
         if enabled:
             db_pub.watch_started_at = _now()
+        return True
+
+    @staticmethod
+    def _publication_folder_component(publication: DbPublication) -> str:
+        return storage.publication_folder(Path(), publication).name
+
+    def publication_folder_conflict(self, custom_code: str) -> DbPublication | None:
+        """Return the other publication claiming the same folder, if any."""
+        publication = self.get_publication(custom_code)
+        if publication is None:
+            return None
+        component = self._publication_folder_component(publication).casefold()
+        for other in self.session.scalars(
+            select(DbPublication).where(DbPublication.id != publication.id)
+        ):
+            if self._publication_folder_component(other).casefold() == component:
+                return other
+        return None
+
+    def _disable_watched_folder_collisions(self) -> None:
+        """Pause watched publications whose effective folders now collide.
+
+        Flipp can rename a publication after watching was enabled. Pausing
+        every affected publication makes the next Watch click ask for an
+        explicit folder name instead of letting a later poll download into
+        an ambiguous directory.
+        """
+        by_component: dict[str, list[DbPublication]] = {}
+        for publication in self.session.scalars(select(DbPublication)):
+            component = self._publication_folder_component(publication).casefold()
+            by_component.setdefault(component, []).append(publication)
+        for publications in by_component.values():
+            if len(publications) < 2:
+                continue
+            for publication in publications:
+                if publication.watched:
+                    publication.watched = False
+                    logger.warning(
+                        "Paused watching %s because its publication folder collides",
+                        publication.custom_code,
+                    )
+
+    def set_publication_folder_name(
+        self, custom_code: str, folder_name: str, output_root: Path
+    ) -> bool:
+        """Set a user-owned folder name and move this publication's files.
+
+        Returns False if the publication does not exist. Files tracked by
+        issues are moved one by one so an old folder shared by two
+        publications is never moved wholesale.
+        """
+        publication = self.get_publication(custom_code)
+        if publication is None:
+            return False
+
+        selected = folder_name.strip()
+        if not selected:
+            selected_value: str | None = None
+        elif storage.safe_name(selected) != selected:
+            raise PublicationFolderError(
+                "Use only characters that are valid in a folder name."
+            )
+        else:
+            selected_value = selected
+
+        old_folder = storage.publication_folder(output_root, publication).resolve()
+        previous = publication.folder_name
+        publication.folder_name = selected_value
+        new_folder = storage.publication_folder(output_root, publication).resolve()
+
+        conflict = self.publication_folder_conflict(custom_code)
+        if conflict is not None:
+            publication.folder_name = previous
+            raise PublicationFolderConflict(
+                f'Folder name is already used by "{conflict.name}".'
+            )
+
+        if old_folder == new_folder:
+            return True
+
+        moves: list[tuple[Path, Path, DbIssue, str]] = []
+        for issue in publication.issues:
+            if not issue.file_path:
+                continue
+            source = storage.resolve_safe_path(output_root, issue.file_path)
+            if source is None:
+                continue
+            try:
+                relative = source.relative_to(old_folder)
+            except ValueError:
+                continue
+            target = new_folder / relative
+            if target.exists():
+                publication.folder_name = previous
+                raise PublicationFolderMoveError(
+                    f'Cannot move files because "{target.name}" already exists.'
+                )
+            moves.append((source, target, issue, issue.file_path))
+
+        completed: list[tuple[Path, Path, DbIssue, str]] = []
+        try:
+            for source, target, issue, old_file_path in moves:
+                target.parent.mkdir(parents=True, exist_ok=True)
+                source.replace(target)
+                if Path(old_file_path).is_absolute():
+                    issue.file_path = str(target.resolve())
+                else:
+                    issue.file_path = str(
+                        target.resolve().relative_to(Path(output_root).resolve())
+                    )
+                completed.append((source, target, issue, old_file_path))
+        except OSError as exc:
+            for source, target, issue, old_file_path in reversed(completed):
+                source.parent.mkdir(parents=True, exist_ok=True)
+                target.replace(source)
+                issue.file_path = old_file_path
+            publication.folder_name = previous
+            raise PublicationFolderMoveError(
+                "The downloaded files could not be moved."
+            ) from exc
         return True
 
     def mark_polled(self, custom_code: str) -> None:
@@ -1071,6 +1203,7 @@ class DownloadRepository:
                 db_issue, created = self.upsert_issue(issue, db_pub.id)
                 if created:
                     new_issues.append(db_issue)
+        self._disable_watched_folder_collisions()
         return new_issues
 
     # ------------------------------------------------------------------

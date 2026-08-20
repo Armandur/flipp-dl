@@ -1001,6 +1001,59 @@ def test_watching_does_not_queue_the_back_catalogue(client: TestClient):
         assert pub.watch_started_at is not None
 
 
+def test_second_same_named_publication_requires_own_folder_before_watch(
+    client: TestClient,
+):
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        repo.upsert_publication(Publication(custom_code="HJ-NO", name="Hjemmet"))
+        repo.upsert_publication(Publication(custom_code="HJ-DK", name="Hjemmet"))
+
+    token = _csrf_for(client)
+    response = client.post("/publications/HJ-DK/watch", data={"_csrf_token": token})
+
+    assert response.status_code == 200
+    assert 'name="folder_name"' in response.text
+    assert "Choose a unique folder name before watching" in response.text
+    with get_session(client.app.state.session_factory) as session:
+        assert DownloadRepository(session).get_publication("HJ-DK").watched is False
+
+    response = client.post(
+        "/publications/HJ-DK/watch",
+        data={"_csrf_token": token, "folder_name": "Hjemmet (DK)"},
+    )
+    assert response.status_code == 200
+    with get_session(client.app.state.session_factory) as session:
+        publication = DownloadRepository(session).get_publication("HJ-DK")
+        assert publication.watched is True
+        assert publication.folder_name == "Hjemmet (DK)"
+
+
+def test_watch_rejects_invalid_or_colliding_own_folder_name(client: TestClient):
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        repo.upsert_publication(Publication(custom_code="HJ-NO", name="Hjemmet"))
+        repo.upsert_publication(Publication(custom_code="HJ-DK", name="Hjemmet"))
+        repo.set_publication_folder_name(
+            "HJ-NO", "Hjemmet (NO)", client.app.state.output_root
+        )
+
+    token = _csrf_for(client)
+    invalid = client.post(
+        "/publications/HJ-DK/watch",
+        data={"_csrf_token": token, "folder_name": "../Hjemmet"},
+    )
+    assert "Use only characters" in invalid.text
+
+    conflict = client.post(
+        "/publications/HJ-DK/watch",
+        data={"_csrf_token": token, "folder_name": "Hjemmet (NO)"},
+    )
+    assert "already used by another publication" in conflict.text
+    with get_session(client.app.state.session_factory) as session:
+        assert DownloadRepository(session).get_publication("HJ-DK").watched is False
+
+
 def test_unwatching_queues_nothing(client: TestClient):
     with get_session(client.app.state.session_factory) as session:
         repo = DownloadRepository(session)

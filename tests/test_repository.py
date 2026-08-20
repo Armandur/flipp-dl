@@ -13,6 +13,8 @@ from flipp_dl.db.repository import (
     MAX_AUTO_RETRIES,
     RETRY_DELAYS_MINUTES,
     DownloadRepository,
+    PublicationFolderConflict,
+    PublicationFolderError,
     default_cover_cache_root,
     fetch_and_cache_cover,
 )
@@ -100,6 +102,64 @@ def test_set_watched(repo):
 
 def test_set_watched_unknown_returns_false(repo):
     assert repo.set_watched("NOPE", True) is False
+
+
+def test_publication_folder_name_is_validated_and_must_be_unique(repo, tmp_path):
+    repo.upsert_publication(_publication("A", "Hjemmet"))
+    repo.upsert_publication(_publication("B", "Hjemmet"))
+    repo.session.commit()
+
+    with pytest.raises(PublicationFolderError):
+        repo.set_publication_folder_name("B", "../Hjemmet", tmp_path)
+    with pytest.raises(PublicationFolderConflict):
+        repo.set_publication_folder_name("B", "Hjemmet", tmp_path)
+
+    assert repo.set_publication_folder_name("B", "Hjemmet (DK)", tmp_path)
+    repo.session.commit()
+    assert repo.get_publication("B").folder_name == "Hjemmet (DK)"
+
+
+def test_setting_folder_name_moves_downloaded_files_and_updates_path(repo, tmp_path):
+    pub = _publication("A", "Hjemmet")
+    db_pub = repo.upsert_publication(pub)
+    db_issue, _ = repo.upsert_issue(pub.issues[0], db_pub.id)
+    old_path = storage.issue_path(tmp_path, db_pub, db_issue)
+    old_path.parent.mkdir(parents=True)
+    old_path.write_bytes(b"%PDF-1.4\n")
+    repo.mark_issue_done(db_issue.id, str(old_path.resolve()))
+    repo.session.commit()
+
+    repo.set_publication_folder_name("A", "Hjemmet (NO)", tmp_path)
+    repo.session.commit()
+
+    moved = tmp_path / "Hjemmet (NO)" / old_path.name
+    assert moved.is_file()
+    assert not old_path.exists()
+    assert repo.get_issue(db_issue.id).file_path == str(moved.resolve())
+
+
+def test_folder_name_reaches_detached_domain_publication(repo, tmp_path):
+    db_pub = repo.upsert_publication(_publication("A", "Hjemmet"))
+    repo.set_publication_folder_name("A", "Hjemmet (NO)", tmp_path)
+    repo.session.commit()
+
+    detached = Publication(custom_code=db_pub.custom_code, name=db_pub.name)
+
+    assert storage.publication_folder(tmp_path, detached) == tmp_path / "Hjemmet (NO)"
+
+
+def test_sync_pauses_watched_publications_when_names_later_collide(repo):
+    first = repo.upsert_publication(_publication("A", "Hjemmet Norge"))
+    second = repo.upsert_publication(_publication("B", "Hjemmet Danmark"))
+    first.watched = True
+    second.watched = True
+    repo.session.commit()
+
+    repo.sync_publications([_publication("A", "Hjemmet"), _publication("B", "Hjemmet")])
+    repo.session.commit()
+
+    assert repo.get_publication("A").watched is False
+    assert repo.get_publication("B").watched is False
 
 
 # ---------------------------------------------------------------------------
@@ -1192,6 +1252,31 @@ def test_import_existing_reports_ambiguous_publication_folder(repo, tmp_path):
         }
     ]
     assert repo.get_issue(db_issue.id).status == IssueStatus.QUEUED
+
+
+def test_import_existing_is_unambiguous_after_folder_names_are_separated(
+    repo, tmp_path
+):
+    first = _publication("A", "Hjemmet")
+    second = _publication("B", "Hjemmet")
+    repo.upsert_publication(first)
+    db_second = repo.upsert_publication(second)
+    db_issue, _ = repo.upsert_issue(second.issues[0], db_second.id)
+    repo.set_publication_folder_name("A", "Hjemmet (NO)", tmp_path)
+    repo.set_publication_folder_name("B", "Hjemmet (DK)", tmp_path)
+    repo.mark_issue_queued(db_issue.id)
+    repo.session.commit()
+
+    target = storage.issue_path(tmp_path, db_second, db_issue)
+    target.parent.mkdir(parents=True)
+    target.write_bytes(b"%PDF-1.4\n%dummy\n")
+
+    report = repo.import_existing_files(tmp_path)
+    repo.session.commit()
+
+    assert [item["issue_id"] for item in report.backfilled] == [db_issue.id]
+    assert report.misplaced_files == []
+    assert repo.get_issue(db_issue.id).file_path == str(target.resolve())
 
 
 def test_import_existing_leaves_an_already_done_issue_alone(repo, tmp_path):

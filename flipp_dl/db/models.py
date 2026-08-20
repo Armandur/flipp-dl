@@ -14,6 +14,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -23,6 +24,17 @@ def _now() -> datetime:
 
 class Base(DeclarativeBase):
     pass
+
+
+class _PublicationName(str):
+    """Display name carrying its separate storage name across detaching."""
+
+    folder_name: str | None
+
+    def __new__(cls, value: str, folder_name: str | None = None):
+        instance = super().__new__(cls, value)
+        instance.folder_name = folder_name
+        return instance
 
 
 # ---------------------------------------------------------------------------
@@ -64,7 +76,10 @@ class DbPublication(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     custom_code: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
-    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    _name: Mapped[str] = mapped_column("name", String(255), nullable=False)
+    # User-selected output folder component. The Flipp name remains in
+    # name and continues to be used in the UI and PDF filenames.
+    folder_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     # Direct cover-art URL as returned by the Flipp API
     # (``latestCoverImageUrl``). Nullable because older rows predate this
     # column and the API may omit it for some publications.
@@ -113,6 +128,19 @@ class DbPublication(Base):
     # the folder-name lookup against Komga's search endpoint is never
     # repeated once a match has been found.
     komga_series_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    @hybrid_property
+    def name(self) -> str:
+        return _PublicationName(self._name, self.folder_name)
+
+    @name.inplace.setter
+    def _set_name(self, value: str) -> None:
+        self._name = value
+
+    @name.inplace.expression
+    @classmethod
+    def _name_expression(cls):
+        return cls._name
 
     issues: Mapped[list[DbIssue]] = relationship(
         "DbIssue", back_populates="publication", cascade="all, delete-orphan"

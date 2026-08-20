@@ -66,6 +66,14 @@ def test_publication_folder_uses_safe_name():
     assert publication_folder(root, pub) == root / "Kalle Anka och Co"
 
 
+def test_publication_folder_uses_own_name_when_present():
+    root = Path("/tmp/out")
+    pub = _publication()
+    pub.folder_name = "Kalle Anka (SE)"
+
+    assert publication_folder(root, pub) == root / "Kalle Anka (SE)"
+
+
 def test_issue_filename_combines_fields():
     pub = _publication()
     issue = pub.issues[0]

@@ -115,6 +115,24 @@
       >
       <button class="btn btn-watch" type="submit">{{ _("Save") }}</button>
     </form>
+    <form
+      class="detail-actions"
+      method="post"
+      action="/publications/{{ publication.custom_code }}/folder-name"
+      style="margin-top:8px;"
+    >
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+      <label for="folder_name" class="dim">{{ _("Own folder name") }}</label>
+      <input
+        class="inline-input"
+        id="folder_name"
+        name="folder_name"
+        value="{{ publication.folder_name or '' }}"
+        placeholder="{{ publication.name }}"
+      >
+      <button class="btn btn-watch" type="submit">{{ _("Save") }}</button>
+      <span class="dim">{{ _("Leave blank to use the publication name.") }}</span>
+    </form>
   </div>
 </div>
 

@@ -24,6 +24,9 @@ from ..config import load_token
 from ..db.models import IssueStatus, JobStatus
 from ..db.repository import (
     DownloadRepository,
+    PublicationFolderConflict,
+    PublicationFolderError,
+    PublicationFolderMoveError,
     default_cover_cache_root,
     fetch_and_cache_cover,
     find_cached_cover,
@@ -58,6 +61,10 @@ def _mark_for_translation(message: str) -> str:
 
 
 _ = _mark_for_translation
+
+_INVALID_FOLDER_NAME = _("Use only characters that are valid in a folder name.")
+_FOLDER_NAME_CONFLICT = _("That folder name is already used by another publication.")
+_FOLDER_MOVE_FAILED = _("The downloaded files could not be moved.")
 
 # Short, non-technical messages for the "Test connection" button
 # (komga_test_connection below), keyed by KomgaError.reason. The
@@ -390,7 +397,9 @@ def register(app: FastAPI) -> None:
             repo.session.close()
 
     @app.post("/publications/{code}/watch", response_class=HTMLResponse)
-    async def watch_publication(request: Request, code: str):
+    async def watch_publication(
+        request: Request, code: str, folder_name: str = Form("")
+    ):
         """Start watching - bevaka framåt only (TASK-1361).
 
         Watching queues nothing itself: it just flips the flag so poll
@@ -402,11 +411,42 @@ def register(app: FastAPI) -> None:
         """
         if not await check_csrf_form(request):
             return HTMLResponse("CSRF validation failed", status_code=400)
+        folder_error = None
+        folder_required = False
+        folder_name_response_value = folder_name
         with get_session(request.app.state.session_factory) as session:
             repo = DownloadRepository(session)
-            if not repo.set_watched(code, True):
+            publication = repo.get_publication(code)
+            if publication is None:
                 return HTMLResponse("Publication not found", status_code=404)
-        return await _publication_row(request, code)
+            conflict = repo.publication_folder_conflict(code)
+            if folder_name or conflict is not None:
+                if not folder_name:
+                    folder_required = True
+                else:
+                    try:
+                        repo.set_publication_folder_name(
+                            code, folder_name, request.app.state.output_root
+                        )
+                    except PublicationFolderConflict:
+                        folder_error = _FOLDER_NAME_CONFLICT
+                        folder_required = True
+                    except PublicationFolderMoveError:
+                        folder_error = _FOLDER_MOVE_FAILED
+                        folder_required = True
+                    except PublicationFolderError:
+                        folder_error = _INVALID_FOLDER_NAME
+                        folder_required = True
+            if not folder_required:
+                repo.set_watched(code, True)
+            folder_name_response_value = folder_name or publication.folder_name or ""
+        return await _publication_row(
+            request,
+            code,
+            folder_name_required=folder_required,
+            folder_error=folder_error,
+            folder_name_value=folder_name_response_value,
+        )
 
     @app.post("/publications/{code}/unwatch", response_class=HTMLResponse)
     async def unwatch_publication(request: Request, code: str):
@@ -495,7 +535,14 @@ def register(app: FastAPI) -> None:
             cached = cache_root / filename
         return FileResponse(cached)
 
-    async def _publication_row(request: Request, code: str) -> HTMLResponse:
+    async def _publication_row(
+        request: Request,
+        code: str,
+        *,
+        folder_name_required: bool = False,
+        folder_error: str | None = None,
+        folder_name_value: str = "",
+    ) -> HTMLResponse:
         repo = _repo(request)
         try:
             pub = repo.get_publication(code)
@@ -505,6 +552,9 @@ def register(app: FastAPI) -> None:
                 {
                     "publication": pub,
                     "csrf_token": generate_csrf_token(request),
+                    "folder_name_required": folder_name_required,
+                    "folder_error": folder_error,
+                    "folder_name_value": folder_name_value,
                 },
             )
         finally:
@@ -601,6 +651,34 @@ def register(app: FastAPI) -> None:
             )
         finally:
             repo.session.close()
+
+    @app.post("/publications/{code}/folder-name", response_class=HTMLResponse)
+    async def set_publication_folder_name(
+        request: Request, code: str, folder_name: str = Form("")
+    ):
+        """Set or clear the user-selected folder name, moving owned files."""
+        if not await check_csrf_form(request):
+            return HTMLResponse("CSRF validation failed", status_code=400)
+        lang = i18n.get_language(request)
+        try:
+            with get_session(request.app.state.session_factory) as session:
+                changed = DownloadRepository(session).set_publication_folder_name(
+                    code, folder_name, request.app.state.output_root
+                )
+                if not changed:
+                    return HTMLResponse("Publication not found", status_code=404)
+        except PublicationFolderConflict:
+            message = i18n.translate(lang, _FOLDER_NAME_CONFLICT)
+            return HTMLResponse(message, status_code=400)
+        except PublicationFolderMoveError:
+            return HTMLResponse(
+                i18n.translate(lang, _FOLDER_MOVE_FAILED), status_code=400
+            )
+        except PublicationFolderError:
+            return HTMLResponse(
+                i18n.translate(lang, _INVALID_FOLDER_NAME), status_code=400
+            )
+        return RedirectResponse(f"/publications/{code}", status_code=303)
 
     @app.post("/publications/{code}/queue-missing", response_class=HTMLResponse)
     async def queue_missing(request: Request, code: str):

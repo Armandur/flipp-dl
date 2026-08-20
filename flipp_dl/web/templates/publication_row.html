@@ -27,6 +27,9 @@
       <strong>{{ publication.name }}</strong>
     </a>
     <div class="dim mono" style="font-size:11px;">{{ publication.custom_code }}</div>
+    {% if publication.folder_name %}
+      <div class="dim" style="font-size:11px;">{{ _("Folder:") }} {{ publication.folder_name }}</div>
+    {% endif %}
   </td>
   <td class="dim">
     {% if publication.categories %}
@@ -74,7 +77,30 @@
     {% endif %}
   </td>
   <td>
-    {% if publication.watched %}
+    {% if folder_name_required %}
+      <form
+        hx-post="/publications/{{ publication.custom_code }}/watch"
+        hx-target="closest tr"
+        hx-swap="outerHTML"
+      >
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+        <label class="dim" for="folder-name-{{ publication.custom_code }}">
+          {{ _("Choose a unique folder name before watching") }}
+        </label>
+        <input
+          class="inline-input"
+          id="folder-name-{{ publication.custom_code }}"
+          name="folder_name"
+          required
+          value="{{ folder_name_value }}"
+          placeholder="{{ publication.name }} (DK)"
+        >
+        {% if folder_error %}
+          <div class="error-text">{{ _(folder_error) }}</div>
+        {% endif %}
+        <button class="btn btn-watch" type="submit">{{ _("Save and watch") }}</button>
+      </form>
+    {% elif publication.watched %}
       <button
         class="btn btn-unwatch"
         hx-post="/publications/{{ publication.custom_code }}/unwatch"

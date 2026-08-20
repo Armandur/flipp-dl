@@ -66,7 +66,15 @@ def _disambiguation_tail(issue: Issue, disambiguate: bool) -> str:
 
 
 def publication_folder(output_root: Path, publication: Publication) -> Path:
-    folder = _shorten_component(safe_name(publication.name), _MAX_COMPONENT_LENGTH)
+    # Persisted publications expose folder_name directly. Download workers
+    # detach them into the domain model first, where the DB model's str
+    # subclass carries the same value on publication.name.
+    folder_name = getattr(publication, "folder_name", None) or getattr(
+        publication.name, "folder_name", None
+    )
+    folder = _shorten_component(
+        safe_name(folder_name or publication.name), _MAX_COMPONENT_LENGTH
+    )
     return output_root / folder
 
 
