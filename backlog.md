@@ -1,6 +1,6 @@
 # Backlog Export
 
-## [P1][doing] [flipp] Pollen håller skrivlåset medan omslag hämtas över nätet
+## [P1][done] [flipp] Pollen håller skrivlåset medan omslag hämtas över nätet
 
 Observerat i drift 2026-08-20: knappen Import existing files svarar 500 efter exakt 34,5 sekunder, upprepningsbart. Det är SQLite-anslutningens 30-sekunders lock-timeout plus arbetet - alltså database is locked, inte ett fel i importen.
 
