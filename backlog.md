@@ -214,6 +214,30 @@ Rätt fix är troligen en riktig claim-fråga mot DB (SELECT ... WHERE status=qu
 
 ---
 
+## [P3][done] [flipp] Formulärfälten på inställningssidan använder inte projektets stil
+
+Inställningssidan ser trasig ut: de flesta fälten är vita och smala utan padding, "Test connection" är en grå systemknapp och rullistan för Komga-bibliotek är ostilad. Kontrollerat i drift 2026-08-20 med skärmdump.
+
+Orsaken är en enda: CSS-regeln i base.html rad 214 gäller bara input[type="number"]. Sidan innehåller i dag 3 number-fält (som ser rätt ut), men också 4 password, 3 url, 2 text, 3 checkbox, en select och fyra button-element - inget av det täcks. Varje sektion som lagts till (token, Komga, notiser, tröskel) har kopierat markup från ett fält som råkade fungera, medan regeln aldrig utvidgades.
+
+Acceptanskriterier:
+- Text-, password-, url-, number- och search-fält delar samma stil: mörk bakgrund, padding, rundade hörn, fokusmarkering.
+- Select-elementet följer samma formspråk.
+- Knappar i formulär använder projektets btn-klasser i stället för webbläsarens standardknapp. "Test connection" är den som sticker ut mest.
+- Checkboxar och deras etiketter linjerar med övrig text.
+- Fält och hjälptexter har konsekvent avstånd till varandra - i dag ligger vissa hjälprutor tätt mot fältet ovanför.
+- Ingen regression på andra sidor: filterraderna på /publications, /library, /jobs och /search använder egna input-regler som inte får överskuggas.
+
+Filer som väntas ändras: flipp_dl/web/templates/base.html, flipp_dl/web/templates/settings.html, eventuellt komga_library_select.html.
+
+Verifiering: skärmdumpar av /settings vid 390px och 1280px före och efter, plus en kontroll av /publications, /library, /jobs och /search vid samma bredder så att de inte påverkats. Klicka Test connection och kontrollera att den fortfarande fungerar.
+
+- ID: `01M0FWWKY02DHS8KJ0EXAKJWAX`
+- Type: bug
+- Actor: ai:claude-opus-5
+
+---
+
 ## [P3][done] [flipp] Visa storlek på disk som kolumn i publikationslistan
 
 Publikationslistan visar nedladdade av totalt, men inte vad publikationen väger. Med 94 publikationer och 53 GB på disk är det den siffra som säger var utrymmet tar vägen.
@@ -845,6 +869,20 @@ Bygg vidare på befintliga byggstenar i stället för att uppfinna nya: `list_is
 
 - ID: `01M0BBY3X4VKXXTRYY9T2EGDP4`
 - Type: feature
+- Actor: ai:claude-opus-5
+
+---
+
+## [P4][todo] [flipp] Felrutan vid misslyckad Komga-anslutning är ostilad
+
+Hittat under TASK-1385. Fältstilarna på inställningssidan är åtgärdade, men error-diven som visas när Test connection misslyckas har ingen stil alls - den ritas som ren svart text utan bakgrund eller ram, till skillnad från övriga meddelanden i gränssnittet.
+
+Ge den samma formspråk som andra felmeddelanden, exempelvis .debug-error eller badge-error som redan finns i base.html.
+
+Verifiering: klicka Test connection mot en ogiltig adress och skärmdumpa resultatet vid 390px och 1280px.
+
+- ID: `01M0FXH62B2SSPHYMAV82RQCA5`
+- Type: bug
 - Actor: ai:claude-opus-5
 
 ---
