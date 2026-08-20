@@ -236,6 +236,34 @@ Rätt fix är troligen en riktig claim-fråga mot DB (SELECT ... WHERE status=qu
 
 ---
 
+## [P3][todo] [flipp] Gör filnamnen OS-säkra, inte bara tecken-filtrerade
+
+safe_name filtrerar bort allt utom en whitelist av tecken: bokstäver, siffror, bindestreck, understreck, punkt, parenteser, mellanslag och åäö. Det räcker för att undvika snedstreck, men täcker inte allt som gör en sökväg problematisk på andra filsystem än ext4.
+
+Att hantera:
+- Windows-reserverade namn: CON, PRN, AUX, NUL, COM1-9, LPT1-9 - även med filändelse. En publikation som heter så ger en fil som inte går att skapa.
+- Namn som slutar med punkt eller mellanslag - Windows tar tyst bort dem, vilket gör att sökvägen i databasen inte matchar filen på disk.
+- Namn som blir tomma efter filtrering, exempelvis en titel som bara består av tecken utanför whitelisten. I dag ger det ett filnamn som bara är ".pdf".
+- Total sökvägslängd. Windows har 260 tecken som standardgräns, och publikationsnamn plus utgåvenamn plus datum blir långt. Avgör om namnet ska kortas och hur unikheten då bevaras.
+- Unicode-normalisering: åäö kan kodas på två sätt (NFC/NFD), vilket ger olika filnamn för samma titel beroende på var strängen kommer ifrån. macOS normaliserar till NFD.
+
+Verktyget körs i Linux-container i dag, men output-katalogen monteras ofta från en NAS och läses av Windows- och macOS-klienter, och biblioteksprogram som Komga läser samma filer.
+
+Acceptanskriterier:
+- Reserverade namn, avslutande punkt eller mellanslag, och tomt resultat efter filtrering hanteras alla med ett förutsägbart namn.
+- Befintliga filnamn ändras inte i onödan - en ändrad namnregel får inte göra att redan nedladdade filer inte längre hittas. Bestäm hur det säkras och beskriv det.
+- Tester för varje fall ovan.
+
+Filer som väntas ändras: flipp_dl/storage.py, tests/test_storage.py.
+
+Samma todo finns i prenly-dl som TASK-1401. Lösningarna behöver inte vara identiska - flipp-dl filtrerar mot en whitelist medan prenly-dl ersätter otillåtna tecken - men problembilden är densamma.
+
+- ID: `01M0G3QEVDPABMP1TQBAJGM7D0`
+- Type: improvement
+- Actor: ai:claude-opus-5
+
+---
+
 ## [P3][todo] [flipp] Settings: ojämna bredder och grupper som inte hänger ihop
 
 Fälten under Import existing files är breda medan grupperna ovanför (Komga, Notifications) är smala, utan att skillnaden betyder något. Ta reda på varifrån bredden kommer - troligen en .form-card med max-width som bara vissa block ligger i - och gör den enhetlig.
