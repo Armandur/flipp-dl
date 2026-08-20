@@ -8,4 +8,4 @@ venv/
 .env
 *.db
 data/
-output/
+output/flipp-dl-covers/
