@@ -873,7 +873,30 @@ Bygg vidare på befintliga byggstenar i stället för att uppfinna nya: `list_is
 
 ---
 
-## [P4][todo] [flipp] Felrutan vid misslyckad Komga-anslutning är ostilad
+## [P4][todo] [flipp] Anslutningsfel mot Komga visas som rå Python-stacktext
+
+Felrutan är stilad sedan TASK-1387, men innehållet är obegripligt för den som bara vill koppla upp sig. Ett anslutningsfel visas i dag som:
+
+  Could not connect to Komga: Komga request to http://127.0.0.1:9/api/v1/libraries failed: HTTPConnectionPool(host=127.0.0.1, port=9): Max retries exceeded with url: /api/v1/libraries (Caused by NewConnectionError(HTTPConnection object: Failed to establish a new connection: [Errno 111] Connection refused))
+
+Det är requests interna undantagstext rakt igenom. Användaren behöver veta vad som är fel och vad hen kan göra: att adressen inte svarar, att inloggningen nekades, eller att svaret inte såg ut som Komga.
+
+Acceptanskriterier:
+- Vanliga fall ger ett kort, begripligt meddelande: adressen svarar inte, fel användarnamn eller lösenord, adressen svarade men verkar inte vara en Komga-instans.
+- Den tekniska texten kastas inte bort utan loggas, så felsökning fortfarande är möjlig.
+- Meddelandet går genom gettext som resten av gränssnittet.
+
+Filer som väntas ändras: flipp_dl/komga.py, flipp_dl/web/routes.py, tests/test_komga_client.py, locale-filerna.
+
+Verifiering: klicka Test connection mot en adress som vägrar anslutning och en som svarar med fel innehåll, och kontrollera texten vid 390px och 1280px.
+
+- ID: `01M0FY1PBK12X701E4ZSBTYYJ4`
+- Type: improvement
+- Actor: ai:claude-opus-5
+
+---
+
+## [P4][done] [flipp] Felrutan vid misslyckad Komga-anslutning är ostilad
 
 Hittat under TASK-1385. Fältstilarna på inställningssidan är åtgärdade, men error-diven som visas när Test connection misslyckas har ingen stil alls - den ritas som ren svart text utan bakgrund eller ram, till skillnad från övriga meddelanden i gränssnittet.
 
