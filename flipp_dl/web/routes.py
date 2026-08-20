@@ -22,7 +22,12 @@ from .. import storage
 from ..api import FlippClient, FlippError
 from ..config import load_token
 from ..db.models import IssueStatus, JobStatus
-from ..db.repository import DownloadRepository, default_cover_cache_root
+from ..db.repository import (
+    DownloadRepository,
+    default_cover_cache_root,
+    fetch_and_cache_cover,
+    find_cached_cover,
+)
 from ..db.session import get_session
 from ..downloader import IssueDownloader
 from ..komga import KomgaClient, KomgaError
@@ -460,6 +465,36 @@ def register(app: FastAPI) -> None:
             return HTMLResponse("Cover not cached", status_code=404)
         return FileResponse(resolved)
 
+    @app.get("/publications/{code}/cover/large")
+    async def serve_publication_cover_large(request: Request, code: str):
+        """Serve a larger cover for the lightbox (TASK-1396), fetched on demand.
+
+        Unlike ``serve_publication_cover`` above, this *does* hit
+        pagesuite directly - but only when a user actually opens the
+        lightbox, not on every list render. ``cover_url`` already is the
+        600m variant (``scheduler.cache_covers`` downgrades it to 300m
+        for the thumbnail cache), so no size juggling is needed here.
+        Cached to disk by filename convention only - no DB column tracks
+        it, so there is no write transaction to hold open across the
+        network call.
+        """
+        repo = _repo(request)
+        try:
+            pub = repo.get_publication(code)
+        finally:
+            repo.session.close()
+        if pub is None or not pub.cover_url:
+            return HTMLResponse("Cover not available", status_code=404)
+        cache_root = default_cover_cache_root()
+        stem = f"pub-{code}-large"
+        cached = find_cached_cover(cache_root, stem)
+        if cached is None:
+            filename = fetch_and_cache_cover(pub.cover_url, cache_root, stem)
+            if filename is None:
+                return HTMLResponse("Cover not available", status_code=502)
+            cached = cache_root / filename
+        return FileResponse(cached)
+
     async def _publication_row(request: Request, code: str) -> HTMLResponse:
         repo = _repo(request)
         try:
@@ -732,6 +767,41 @@ def register(app: FastAPI) -> None:
         if resolved is None:
             return HTMLResponse("Cover not cached", status_code=404)
         return FileResponse(resolved)
+
+    @app.get("/publications/{code}/issues/{issue_code}/cover/large")
+    async def serve_issue_cover_large(request: Request, code: str, issue_code: str):
+        """Serve a larger issue cover for the lightbox (TASK-1396), on demand.
+
+        The thumbnail cache uses ``w=100``; ``w=600`` is the largest
+        width pagesuite serves before returning 403 (measured directly -
+        ``w=1200`` is forbidden). Fetched only when a user opens the
+        lightbox, then cached to disk by filename convention - see
+        ``serve_publication_cover_large`` for why that avoids a DB write
+        transaction around the network call.
+        """
+        repo = _repo(request)
+        try:
+            pub = repo.get_publication(code)
+            if pub is None:
+                return HTMLResponse("Publication not found", status_code=404)
+            issue = repo.get_issue_by_code(issue_code, pub.id)
+        finally:
+            repo.session.close()
+        if issue is None:
+            return HTMLResponse("Issue not found", status_code=404)
+        cache_root = default_cover_cache_root()
+        stem = f"issue-{issue_code}-large"
+        cached = find_cached_cover(cache_root, stem)
+        if cached is None:
+            url = (
+                "https://edition.pagesuite-professional.co.uk/get_image.aspx"
+                f"?w=600&eid={issue_code}"
+            )
+            filename = fetch_and_cache_cover(url, cache_root, stem)
+            if filename is None:
+                return HTMLResponse("Cover not available", status_code=502)
+            cached = cache_root / filename
+        return FileResponse(cached)
 
     @app.get("/publications/{code}/issues/{issue_code}/file")
     async def serve_issue_file(request: Request, code: str, issue_code: str):

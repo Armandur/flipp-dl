@@ -116,6 +116,22 @@ def fetch_and_cache_cover(
     return filename
 
 
+def find_cached_cover(cache_root: Path, filename_stem: str) -> Path | None:
+    """Return an already-cached cover file for *filename_stem*, if any.
+
+    Tries every extension :func:`fetch_and_cache_cover` can produce,
+    since the content type (and therefore the extension) isn't known
+    ahead of time. Used by the lightbox cover routes (TASK-1396) to
+    avoid re-fetching a large cover that's already on disk - no DB
+    column tracks these, the filesystem itself is the cache index.
+    """
+    for ext in _COVER_CONTENT_TYPES.values():
+        candidate = cache_root / f"{filename_stem}{ext}"
+        if candidate.is_file():
+            return candidate
+    return None
+
+
 def _now() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
 

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-08-20 17:59+0200\n"
+"POT-Creation-Date: 2026-08-20 18:54+0200\n"
 "PO-Revision-Date: 2026-08-19 18:14+0200\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: sv\n"
@@ -18,50 +18,50 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.18.0\n"
 
-#: flipp_dl/web/templates/base.html:277 flipp_dl/web/templates/dashboard.html:2
+#: flipp_dl/web/templates/base.html:289 flipp_dl/web/templates/dashboard.html:2
 #: flipp_dl/web/templates/dashboard.html:5
 msgid "Dashboard"
 msgstr "Översikt"
 
-#: flipp_dl/web/templates/base.html:278
+#: flipp_dl/web/templates/base.html:290
 #: flipp_dl/web/templates/publications.html:2
 #: flipp_dl/web/templates/publications.html:5
 #: flipp_dl/web/templates/stats_cards.html:3
 msgid "Publications"
 msgstr "Publikationer"
 
-#: flipp_dl/web/templates/base.html:279 flipp_dl/web/templates/search.html:2
+#: flipp_dl/web/templates/base.html:291 flipp_dl/web/templates/search.html:2
 #: flipp_dl/web/templates/search.html:5 flipp_dl/web/templates/search.html:31
 msgid "Search"
 msgstr "Sök"
 
-#: flipp_dl/web/templates/base.html:280 flipp_dl/web/templates/library.html:2
+#: flipp_dl/web/templates/base.html:292 flipp_dl/web/templates/library.html:2
 #: flipp_dl/web/templates/library.html:5
 #: flipp_dl/web/templates/settings.html:153
 msgid "Library"
 msgstr "Bibliotek"
 
-#: flipp_dl/web/templates/base.html:281 flipp_dl/web/templates/jobs.html:2
+#: flipp_dl/web/templates/base.html:293 flipp_dl/web/templates/jobs.html:2
 #: flipp_dl/web/templates/jobs.html:5
 msgid "Jobs"
 msgstr "Jobb"
 
-#: flipp_dl/web/templates/base.html:282 flipp_dl/web/templates/settings.html:2
+#: flipp_dl/web/templates/base.html:294 flipp_dl/web/templates/settings.html:2
 #: flipp_dl/web/templates/settings.html:5
 msgid "Settings"
 msgstr "Inställningar"
 
-#: flipp_dl/web/templates/base.html:289
+#: flipp_dl/web/templates/base.html:301
 msgid "Sign out"
 msgstr "Logga ut"
 
-#: flipp_dl/web/templates/base.html:303
-#: flipp_dl/web/templates/issue_row.html:78
-#: flipp_dl/web/templates/issue_row.html:90
+#: flipp_dl/web/templates/base.html:315
+#: flipp_dl/web/templates/issue_row.html:79
+#: flipp_dl/web/templates/issue_row.html:91
 msgid "Cancel"
 msgstr "Avbryt"
 
-#: flipp_dl/web/templates/base.html:304
+#: flipp_dl/web/templates/base.html:316
 msgid "Confirm"
 msgstr "Bekräfta"
 
@@ -70,7 +70,7 @@ msgid "Recent Downloads"
 msgstr "Senaste nedladdningar"
 
 #: flipp_dl/web/templates/dashboard.html:17
-#: flipp_dl/web/templates/publication_detail.html:156
+#: flipp_dl/web/templates/publication_detail.html:157
 #: flipp_dl/web/templates/search.html:43
 msgid "Issue"
 msgstr "Utgåva"
@@ -86,7 +86,7 @@ msgstr "Nedladdad"
 
 #: flipp_dl/web/templates/dashboard.html:20
 #: flipp_dl/web/templates/library.html:41
-#: flipp_dl/web/templates/publication_detail.html:160
+#: flipp_dl/web/templates/publication_detail.html:161
 msgid "File"
 msgstr "Fil"
 
@@ -107,7 +107,7 @@ msgstr "Typ"
 #: flipp_dl/web/templates/dashboard.html:67
 #: flipp_dl/web/templates/job_detail.html:19
 #: flipp_dl/web/templates/jobs.html:28
-#: flipp_dl/web/templates/publication_detail.html:158
+#: flipp_dl/web/templates/publication_detail.html:159
 #: flipp_dl/web/templates/search.html:46
 msgid "Status"
 msgstr "Status"
@@ -125,10 +125,10 @@ msgid "Finished"
 msgstr "Klar"
 
 #: flipp_dl/web/templates/dashboard.html:70
-#: flipp_dl/web/templates/issue_row.html:35
+#: flipp_dl/web/templates/issue_row.html:36
 #: flipp_dl/web/templates/job_detail.html:82
 #: flipp_dl/web/templates/jobs.html:32
-#: flipp_dl/web/templates/publication_detail.html:139
+#: flipp_dl/web/templates/publication_detail.html:140
 #: flipp_dl/web/templates/search.html:24 flipp_dl/web/templates/search.html:68
 msgid "Error"
 msgstr "Fel"
@@ -190,99 +190,113 @@ msgid "issue(s) already on disk."
 msgstr "utgåva/utgåvor som redan fanns på disk."
 
 #: flipp_dl/web/templates/import_existing_result.html:11
+msgid "Recorded a file size for"
+msgstr "Registrerade filstorlek för"
+
+#: flipp_dl/web/templates/import_existing_result.html:11
+msgid "issue(s) that were downloaded before sizes were tracked."
+msgstr "utgåva/utgåvor som laddades ner innan storleksspårning fanns."
+
+#: flipp_dl/web/templates/import_existing_result.html:13
 msgid "File(s) with no matching issue (orphans):"
 msgstr "Fil(er) utan matchande utgåva (herrelösa):"
 
-#: flipp_dl/web/templates/import_existing_result.html:20
+#: flipp_dl/web/templates/import_existing_result.html:22
 msgid "Issue(s) marked done whose file is missing on disk:"
 msgstr "Utgåva/utgåvor markerade klara vars fil saknas på disk:"
 
-#: flipp_dl/web/templates/import_existing_result.html:29
+#: flipp_dl/web/templates/import_existing_result.html:31
 msgid "File(s) shared by more than one issue:"
 msgstr "Fil(er) som delas av mer än en utgåva:"
 
-#: flipp_dl/web/templates/import_existing_result.html:46
+#: flipp_dl/web/templates/import_existing_result.html:48
 msgid "No drift found - the database and the output folder agree."
 msgstr "Ingen avvikelse hittad - databasen och utdatamappen stämmer överens."
 
-#: flipp_dl/web/templates/issue_row.html:25
-#: flipp_dl/web/templates/publication_detail.html:138
+#: flipp_dl/web/templates/issue_row.html:15
+#: flipp_dl/web/templates/publication_detail.html:13
+#: flipp_dl/web/templates/publication_row.html:15
+msgid "Enlarge cover"
+msgstr "Förstora omslag"
+
+#: flipp_dl/web/templates/issue_row.html:26
+#: flipp_dl/web/templates/publication_detail.html:139
 #: flipp_dl/web/templates/publications.html:36
 #: flipp_dl/web/templates/search.html:23 flipp_dl/web/templates/search.html:60
 #: flipp_dl/web/templates/stats_cards.html:15
 msgid "Downloaded"
 msgstr "Nedladdad"
 
-#: flipp_dl/web/templates/issue_row.html:28
-#: flipp_dl/web/templates/publication_detail.html:137
+#: flipp_dl/web/templates/issue_row.html:29
+#: flipp_dl/web/templates/publication_detail.html:138
 #: flipp_dl/web/templates/search.html:21
 msgid "Downloading"
 msgstr "Laddar ner"
 
-#: flipp_dl/web/templates/issue_row.html:30
+#: flipp_dl/web/templates/issue_row.html:31
 #: flipp_dl/web/templates/search.html:62
 msgid "Downloading…"
 msgstr "Laddar ner…"
 
-#: flipp_dl/web/templates/issue_row.html:33
-#: flipp_dl/web/templates/publication_detail.html:136
+#: flipp_dl/web/templates/issue_row.html:34
+#: flipp_dl/web/templates/publication_detail.html:137
 #: flipp_dl/web/templates/search.html:20 flipp_dl/web/templates/search.html:64
 msgid "Queued"
 msgstr "Köad"
 
-#: flipp_dl/web/templates/issue_row.html:37
+#: flipp_dl/web/templates/issue_row.html:38
 #: flipp_dl/web/templates/search.html:22 flipp_dl/web/templates/search.html:66
 msgid "Retry pending"
 msgstr "Väntar på omförsök"
 
-#: flipp_dl/web/templates/issue_row.html:39
-#: flipp_dl/web/templates/publication_detail.html:135
+#: flipp_dl/web/templates/issue_row.html:40
+#: flipp_dl/web/templates/publication_detail.html:136
 #: flipp_dl/web/templates/search.html:19 flipp_dl/web/templates/search.html:70
 msgid "Not downloaded"
 msgstr "Ej nedladdad"
 
-#: flipp_dl/web/templates/issue_row.html:45
-#: flipp_dl/web/templates/publication_detail.html:143
-#: flipp_dl/web/templates/publication_detail.html:159
+#: flipp_dl/web/templates/issue_row.html:46
+#: flipp_dl/web/templates/publication_detail.html:144
+#: flipp_dl/web/templates/publication_detail.html:160
 msgid "Read"
 msgstr "Läst"
 
-#: flipp_dl/web/templates/issue_row.html:47
-#: flipp_dl/web/templates/publication_detail.html:144
+#: flipp_dl/web/templates/issue_row.html:48
+#: flipp_dl/web/templates/publication_detail.html:145
 msgid "Unread"
 msgstr "Oläst"
 
-#: flipp_dl/web/templates/issue_row.html:64
+#: flipp_dl/web/templates/issue_row.html:65
 msgid "View the first pages without marking this issue as downloaded"
 msgstr "Visa de första sidorna utan att markera utgåvan som nedladdad"
 
-#: flipp_dl/web/templates/issue_row.html:65
+#: flipp_dl/web/templates/issue_row.html:66
 msgid "Preview"
 msgstr "Förhandsgranska"
 
-#: flipp_dl/web/templates/issue_row.html:77
+#: flipp_dl/web/templates/issue_row.html:78
 msgid "Cancel this download? The issue goes back to not downloaded."
 msgstr "Avbryta den här nedladdningen? Utgåvan blir ej nedladdad igen."
 
-#: flipp_dl/web/templates/issue_row.html:89
+#: flipp_dl/web/templates/issue_row.html:90
 msgid "Cancel the pending automatic retry? The issue goes back to not downloaded."
 msgstr ""
 "Avbryta det schemalagda automatiska omförsöket? Utgåvan blir ej nedladdad"
 " igen."
 
-#: flipp_dl/web/templates/issue_row.html:98
+#: flipp_dl/web/templates/issue_row.html:99
 msgid "Open"
 msgstr "Öppna"
 
-#: flipp_dl/web/templates/issue_row.html:106
+#: flipp_dl/web/templates/issue_row.html:107
 msgid "Re-download this issue?"
 msgstr "Ladda ner den här utgåvan igen?"
 
-#: flipp_dl/web/templates/issue_row.html:107
+#: flipp_dl/web/templates/issue_row.html:108
 msgid "Re-download"
 msgstr "Ladda ner igen"
 
-#: flipp_dl/web/templates/issue_row.html:118
+#: flipp_dl/web/templates/issue_row.html:119
 msgid ""
 "Delete the downloaded PDF from disk? The issue will be marked as not "
 "downloaded."
@@ -290,15 +304,15 @@ msgstr ""
 "Radera den nedladdade PDF-filen från disk? Utgåvan markeras som ej "
 "nedladdad."
 
-#: flipp_dl/web/templates/issue_row.html:119
+#: flipp_dl/web/templates/issue_row.html:120
 msgid "Delete"
 msgstr "Radera"
 
-#: flipp_dl/web/templates/issue_row.html:128
+#: flipp_dl/web/templates/issue_row.html:129
 msgid "Retry"
 msgstr "Försök igen"
 
-#: flipp_dl/web/templates/issue_row.html:136
+#: flipp_dl/web/templates/issue_row.html:137
 msgid "Download"
 msgstr "Ladda ner"
 
@@ -359,7 +373,7 @@ msgid "Payload"
 msgstr "Nyttolast"
 
 #: flipp_dl/web/templates/jobs.html:104
-#: flipp_dl/web/templates/publication_row.html:72
+#: flipp_dl/web/templates/publication_row.html:73
 msgid "No"
 msgstr "Nej"
 
@@ -445,43 +459,43 @@ msgstr "Logga in"
 msgid "All publications"
 msgstr "Alla publikationer"
 
-#: flipp_dl/web/templates/publication_detail.html:21
-#: flipp_dl/web/templates/publication_detail.html:49
+#: flipp_dl/web/templates/publication_detail.html:22
+#: flipp_dl/web/templates/publication_detail.html:50
 msgid "issue"
 msgstr "utgåva"
 
-#: flipp_dl/web/templates/publication_detail.html:21
-#: flipp_dl/web/templates/publication_detail.html:49
+#: flipp_dl/web/templates/publication_detail.html:22
+#: flipp_dl/web/templates/publication_detail.html:50
 msgid "issues"
 msgstr "utgåvor"
 
-#: flipp_dl/web/templates/publication_detail.html:23
+#: flipp_dl/web/templates/publication_detail.html:24
 msgid "Next issue:"
 msgstr "Nästa utgåva:"
 
-#: flipp_dl/web/templates/publication_detail.html:26
+#: flipp_dl/web/templates/publication_detail.html:27
 #: flipp_dl/web/templates/publications.html:39
 #: flipp_dl/web/templates/stats_cards.html:7
 msgid "Watched"
 msgstr "Bevakad"
 
-#: flipp_dl/web/templates/publication_detail.html:31
+#: flipp_dl/web/templates/publication_detail.html:32
 msgid "synced ✓"
 msgstr "synkad ✓"
 
-#: flipp_dl/web/templates/publication_detail.html:34
+#: flipp_dl/web/templates/publication_detail.html:35
 msgid "series"
 msgstr "serie"
 
-#: flipp_dl/web/templates/publication_detail.html:37
+#: flipp_dl/web/templates/publication_detail.html:38
 msgid "unknown - will look up on next poll"
 msgstr "okänd - söker nästa gång"
 
-#: flipp_dl/web/templates/publication_detail.html:55
+#: flipp_dl/web/templates/publication_detail.html:56
 msgid "Nothing to queue - every issue is already downloaded."
 msgstr "Inget att köa - alla utgåvor är redan nedladdade."
 
-#: flipp_dl/web/templates/publication_detail.html:61
+#: flipp_dl/web/templates/publication_detail.html:62
 #, python-format
 msgid ""
 "This queues %(count)s missing %(label)s (~%(size)s) - above the "
@@ -492,66 +506,66 @@ msgstr ""
 " på %(threshold)s. Det kan ta lång tid och använda mycket diskutrymme. "
 "Fortsätt?"
 
-#: flipp_dl/web/templates/publication_detail.html:72
+#: flipp_dl/web/templates/publication_detail.html:73
 #, python-format
 msgid "Queue %(count)s missing %(label)s (~%(size)s)?"
 msgstr "Köa %(count)s saknade %(label)s (~%(size)s)?"
 
-#: flipp_dl/web/templates/publication_detail.html:78
+#: flipp_dl/web/templates/publication_detail.html:79
 #, python-format
 msgid "Queue %(count)s missing %(label)s?"
 msgstr "Köa %(count)s saknade %(label)s?"
 
-#: flipp_dl/web/templates/publication_detail.html:91
+#: flipp_dl/web/templates/publication_detail.html:92
 msgid "Queue missing issues"
 msgstr "Köa saknade utgåvor"
 
-#: flipp_dl/web/templates/publication_detail.html:102
+#: flipp_dl/web/templates/publication_detail.html:103
 msgid "Own poll interval (minutes)"
 msgstr "Eget poll-intervall (minuter)"
 
-#: flipp_dl/web/templates/publication_detail.html:110
+#: flipp_dl/web/templates/publication_detail.html:111
 msgid "Global default"
 msgstr "Global standard"
 
-#: flipp_dl/web/templates/publication_detail.html:114
+#: flipp_dl/web/templates/publication_detail.html:115
 msgid "Save"
 msgstr "Spara"
 
-#: flipp_dl/web/templates/publication_detail.html:129
+#: flipp_dl/web/templates/publication_detail.html:130
 msgid "Search issues…"
 msgstr "Sök utgåvor…"
 
-#: flipp_dl/web/templates/publication_detail.html:134
+#: flipp_dl/web/templates/publication_detail.html:135
 #: flipp_dl/web/templates/search.html:18
 msgid "All statuses"
 msgstr "Alla statusar"
 
-#: flipp_dl/web/templates/publication_detail.html:142
+#: flipp_dl/web/templates/publication_detail.html:143
 msgid "Read/unread"
 msgstr "Läst/oläst"
 
-#: flipp_dl/web/templates/publication_detail.html:157
+#: flipp_dl/web/templates/publication_detail.html:158
 #: flipp_dl/web/templates/search.html:44
 msgid "Date"
 msgstr "Datum"
 
-#: flipp_dl/web/templates/publication_detail.html:161
+#: flipp_dl/web/templates/publication_detail.html:162
 #: flipp_dl/web/templates/search.html:47
 msgid "Action"
 msgstr "Åtgärd"
 
-#: flipp_dl/web/templates/publication_detail.html:172
+#: flipp_dl/web/templates/publication_detail.html:173
 msgid "No issues match the current filters."
 msgstr "Inga utgåvor matchar de aktuella filtren."
 
-#: flipp_dl/web/templates/publication_detail.html:176
+#: flipp_dl/web/templates/publication_detail.html:177
 msgid "No issues for this publication yet. Run a poll to refresh."
 msgstr ""
 "Inga utgåvor för den här publikationen än. Kör en pollning för att "
 "uppdatera."
 
-#: flipp_dl/web/templates/publication_row.html:52
+#: flipp_dl/web/templates/publication_row.html:53
 #, python-format
 msgid ""
 "%(count)s downloaded issues have no recorded size (downloaded before size"
@@ -560,11 +574,11 @@ msgstr ""
 "%(count)s nedladdade utgåvor saknar registrerad storlek (nedladdade innan"
 " storleksspårning infördes)."
 
-#: flipp_dl/web/templates/publication_row.html:52
+#: flipp_dl/web/templates/publication_row.html:53
 msgid "unknown"
 msgstr "okänd"
 
-#: flipp_dl/web/templates/publication_row.html:56
+#: flipp_dl/web/templates/publication_row.html:57
 #, python-format
 msgid ""
 "%(count)s downloaded issues have no recorded size (downloaded before size"
@@ -573,15 +587,15 @@ msgstr ""
 "%(count)s nedladdade utgåvor saknar registrerad storlek (nedladdade innan"
 " storleksspårning infördes) och räknas inte in i summan."
 
-#: flipp_dl/web/templates/publication_row.html:70
+#: flipp_dl/web/templates/publication_row.html:71
 msgid "Yes"
 msgstr "Ja"
 
-#: flipp_dl/web/templates/publication_row.html:83
+#: flipp_dl/web/templates/publication_row.html:84
 msgid "Unwatch"
 msgstr "Sluta bevaka"
 
-#: flipp_dl/web/templates/publication_row.html:91
+#: flipp_dl/web/templates/publication_row.html:92
 msgid "Watch"
 msgstr "Bevaka"
 
@@ -915,23 +929,23 @@ msgstr "körs"
 msgid "idle"
 msgstr "vilar"
 
-#: flipp_dl/web/routes.py:63
+#: flipp_dl/web/routes.py:69
 msgid ""
 "the address did not respond. Check that the URL is correct and that Komga"
 " is running."
 msgstr "adressen svarade inte. Kontrollera att URL:en stämmer och att Komga körs."
 
-#: flipp_dl/web/routes.py:66
+#: flipp_dl/web/routes.py:72
 msgid "the login was rejected. Check the username, password or API key."
 msgstr "inloggningen nekades. Kontrollera användarnamn, lösenord eller API-nyckel."
 
-#: flipp_dl/web/routes.py:68
+#: flipp_dl/web/routes.py:74
 msgid ""
 "the address responded, but the content doesn't look like it came from "
 "Komga."
 msgstr "adressen svarade, men innehållet verkar inte komma från Komga."
 
-#: flipp_dl/web/routes.py:71
+#: flipp_dl/web/routes.py:77
 msgid "something went wrong. Check the address and try again."
 msgstr "något gick fel. Kontrollera adressen och försök igen."
 

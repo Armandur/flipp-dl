@@ -51,6 +51,18 @@
       margin: auto;
     }
     dialog.confirm-dialog::backdrop { background: rgba(9, 9, 16, .72); }
+
+    /* cover lightbox (TASK-1396) */
+    dialog.cover-lightbox {
+      border: none; background: transparent; padding: 14px;
+      max-width: 92vw; max-height: 92vh; margin: auto;
+    }
+    dialog.cover-lightbox::backdrop { background: rgba(9, 9, 16, .85); }
+    dialog.cover-lightbox img {
+      display: block; max-width: 100%; max-height: calc(92vh - 28px);
+      border-radius: 8px; box-shadow: 0 8px 32px rgba(0,0,0,.6);
+    }
+    img[data-lightbox-src] { cursor: pointer; }
     .confirm-body { padding: 22px 24px 18px; line-height: 1.55; }
     .confirm-actions {
       display: flex; justify-content: flex-end; gap: 10px;
@@ -334,6 +346,38 @@
         dialog.showModal();
         document.getElementById("confirm-yes").focus();
       });
+    })();
+  </script>
+
+  {# Cover lightbox (TASK-1396): any <img data-lightbox-src="..."> opens
+     it. Click opens, click outside or Escape closes - the latter is
+     the <dialog> element's native behaviour, same as confirm-dialog
+     above. If the larger variant fails to load, fall back to the
+     thumbnail already on the page instead of showing a broken image. #}
+  <dialog class="cover-lightbox" id="cover-lightbox">
+    <img id="cover-lightbox-img" alt="">
+  </dialog>
+  <script>
+    (function () {
+      const dialog = document.getElementById("cover-lightbox");
+      const img = document.getElementById("cover-lightbox-img");
+      if (!dialog || !img) return;
+
+      document.body.addEventListener("click", (evt) => {
+        const trigger = evt.target.closest("img[data-lightbox-src]");
+        if (!trigger) return;
+        evt.preventDefault();
+        img.onerror = function () {
+          img.onerror = null;
+          img.src = trigger.getAttribute("src");
+        };
+        img.alt = trigger.getAttribute("alt") || "";
+        img.src = trigger.getAttribute("data-lightbox-src");
+        dialog.showModal();
+      });
+
+      dialog.addEventListener("click", (e) => { if (e.target === dialog) dialog.close(); });
+      dialog.addEventListener("close", () => { img.removeAttribute("src"); });
     })();
   </script>
 </body>

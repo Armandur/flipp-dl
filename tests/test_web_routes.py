@@ -190,6 +190,134 @@ def test_serve_issue_cover_404_when_not_cached(client: TestClient):
     assert resp.status_code == 404
 
 
+# ---------------------------------------------------------------------------
+# Cover lightbox (TASK-1396) - the larger, on-click-only variant
+# ---------------------------------------------------------------------------
+
+
+def test_serve_publication_cover_large_serves_existing_cache_without_fetching(
+    client: TestClient, cover_cache_root: Path, monkeypatch
+):
+    (cover_cache_root / "pub-KA-large.jpg").write_bytes(b"\xff\xd8\xff-pub-large")
+
+    def _boom(*args, **kwargs):
+        raise AssertionError("must not fetch when already cached")
+
+    monkeypatch.setattr("flipp_dl.web.routes.fetch_and_cache_cover", _boom)
+
+    resp = client.get("/publications/KA/cover/large")
+    assert resp.status_code == 200
+    assert resp.content == b"\xff\xd8\xff-pub-large"
+
+
+def test_serve_publication_cover_large_fetches_on_demand(
+    client: TestClient, cover_cache_root: Path, monkeypatch
+):
+    calls = []
+
+    def _fake_fetch(url, cache_root, stem, **kwargs):
+        calls.append((url, cache_root, stem))
+        (cache_root / f"{stem}.jpg").write_bytes(b"\xff\xd8\xff-fetched")
+        return f"{stem}.jpg"
+
+    monkeypatch.setattr("flipp_dl.web.routes.fetch_and_cache_cover", _fake_fetch)
+
+    resp = client.get("/publications/KA/cover/large")
+    assert resp.status_code == 200
+    assert resp.content == b"\xff\xd8\xff-fetched"
+    assert len(calls) == 1
+    url, cache_root, stem = calls[0]
+    # The stored cover_url already is the large (600m) variant - no size
+    # juggling needed, unlike the thumbnail cache which downgrades it.
+    assert url == "https://reader.flipp.se/covers/ka__b600m.jpg"
+    assert stem == "pub-KA-large"
+
+
+def test_serve_publication_cover_large_404_when_fetch_fails(
+    client: TestClient, monkeypatch
+):
+    monkeypatch.setattr(
+        "flipp_dl.web.routes.fetch_and_cache_cover", lambda *a, **k: None
+    )
+    resp = client.get("/publications/KA/cover/large")
+    assert resp.status_code == 502
+
+
+def test_serve_publication_cover_large_404_for_unknown_publication(
+    client: TestClient,
+):
+    resp = client.get("/publications/NOPE/cover/large")
+    assert resp.status_code == 404
+
+
+def test_serve_issue_cover_large_serves_existing_cache_without_fetching(
+    client: TestClient, cover_cache_root: Path, monkeypatch
+):
+    (cover_cache_root / "issue-ka01-large.jpg").write_bytes(b"\xff\xd8\xff-issue-large")
+
+    def _boom(*args, **kwargs):
+        raise AssertionError("must not fetch when already cached")
+
+    monkeypatch.setattr("flipp_dl.web.routes.fetch_and_cache_cover", _boom)
+
+    resp = client.get("/publications/KA/issues/ka01/cover/large")
+    assert resp.status_code == 200
+    assert resp.content == b"\xff\xd8\xff-issue-large"
+
+
+def test_serve_issue_cover_large_fetches_w600_on_demand(
+    client: TestClient, cover_cache_root: Path, monkeypatch
+):
+    calls = []
+
+    def _fake_fetch(url, cache_root, stem, **kwargs):
+        calls.append((url, cache_root, stem))
+        (cache_root / f"{stem}.jpg").write_bytes(b"\xff\xd8\xff-fetched")
+        return f"{stem}.jpg"
+
+    monkeypatch.setattr("flipp_dl.web.routes.fetch_and_cache_cover", _fake_fetch)
+
+    resp = client.get("/publications/KA/issues/ka01/cover/large")
+    assert resp.status_code == 200
+    assert resp.content == b"\xff\xd8\xff-fetched"
+    assert len(calls) == 1
+    url, _cache_root, stem = calls[0]
+    # w=600 is the largest width pagesuite serves before 403ing - w=1200
+    # was measured and confirmed forbidden.
+    assert url == (
+        "https://edition.pagesuite-professional.co.uk/get_image.aspx" "?w=600&eid=ka01"
+    )
+    assert stem == "issue-ka01-large"
+
+
+def test_serve_issue_cover_large_404_for_unknown_issue(client: TestClient):
+    resp = client.get("/publications/KA/issues/nope/cover/large")
+    assert resp.status_code == 404
+
+
+def test_serve_issue_cover_large_404_for_unknown_publication(client: TestClient):
+    resp = client.get("/publications/NOPE/issues/ka01/cover/large")
+    assert resp.status_code == 404
+
+
+def test_publication_row_cover_links_to_lightbox(client: TestClient):
+    resp = client.get("/publications")
+    assert resp.status_code == 200
+    assert 'data-lightbox-src="/publications/KA/cover/large"' in resp.text
+
+
+def test_issue_row_cover_links_to_lightbox(client: TestClient):
+    resp = client.get("/publications/KA")
+    assert resp.status_code == 200
+    assert 'data-lightbox-src="/publications/KA/issues/ka01/cover/large"' in resp.text
+
+
+def test_publication_detail_cover_links_to_lightbox(client: TestClient):
+    resp = client.get("/publications/KA")
+    assert resp.status_code == 200
+    assert 'data-lightbox-src="/publications/KA/cover/large"' in resp.text
+
+
 def test_publications_list_never_hotlinks_pagesuite_or_flipp(client: TestClient):
     """The whole point of TASK-1345: no direct requests to the source CDN."""
     resp = client.get("/publications")
