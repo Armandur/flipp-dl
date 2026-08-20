@@ -252,7 +252,7 @@ Utgåvor som väntar på ett automatiskt omförsök har sedan TASK-1363 en egen 
 
 ---
 
-## [P3][todo] [flipp] Utgåveomslagen saknas för allt som upptäcktes före omslagscachen
+## [P3][done] [flipp] Utgåveomslagen saknas för allt som upptäcktes före omslagscachen
 
 Utgåvelistan på /publications/{code} pekar redan på den lokala cachen (issue_row.html rad 13, /publications/{code}/issues/{code}/cover) sedan TASK-1345. Men kolumnen är tom i drift: kontrollerat 2026-08-20 svarar publikationens eget omslag 200 med 45 kB, medan utgåvornas omslag ger 404.
 
