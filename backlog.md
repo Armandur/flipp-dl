@@ -22,7 +22,7 @@ Verifiering: tester i tests/test_storage.py och tests/test_downloader.py för kr
 
 ---
 
-## [P2][todo] [flipp] Kör om felade nedladdningar automatiskt med backoff
+## [P2][doing] [flipp] Kör om felade nedladdningar automatiskt med backoff
 
 En utgåva som felar stannar som error för alltid. Poll-påfyllningen hoppar medvetet över felade (annars skulle en permanent trasig utgåva köas om var sjätte timme), så enda vägen tillbaka är ett manuellt klick på Retry eller Watch. Övergående fel - nätverksglapp, en låst databas, Flipp som svarar konstigt - läker därmed inte av sig själva.
 
@@ -209,6 +209,42 @@ Sekundärt att kolla:
 Rätt fix är troligen en riktig claim-fråga mot DB (SELECT ... WHERE status=queued ORDER BY created_at ASC LIMIT 1) i stället för att filtrera i Python över ett fönster, plus en uppstädning vid uppstart som återställer running-jobb till queued.
 
 - ID: `01M0BBXMEPZZWZVNYZR3SF7RWF`
+- Type: bug
+- Actor: ai:claude-opus-5
+
+---
+
+## [P3][todo] [flipp] Se över hur knapparna i Action-kolumnen ser ut och radbryter
+
+Action-kolumnen i utgåvelistan har vuxit under arbetet: Preview, Open, Re-download, Delete, Retry, Download och Cancel, där flera kan visas samtidigt beroende på status. De ärver olika knappklasser (btn-watch, btn-unwatch, btn-primary-soft) som valts en i taget, och radbrytningen är inte genomtänkt - på en skärmdump vid 1280px hamnar Delete på egen rad under Open och Re-download.
+
+Se över helheten: vilka knappar som ska synas samtidigt, vilken som är den primära handlingen per status, färgsättningen, och hur de radbryter i mobilbredd. En knapp som raderar en fil bör inte se ut som den som öppnar den.
+
+Filer som väntas ändras: flipp_dl/web/templates/issue_row.html, flipp_dl/web/templates/base.html (knappklasserna), eventuellt flipp_dl/web/templates/publication_detail.html.
+
+Verifiering: skärmdumpar vid 390px och 1280px för varje status en rad kan ha (inte nedladdad, köad, laddar ner, nedladdad, fel), på både engelska och svenska eftersom knapptexterna är översatta och byter längd.
+
+- ID: `01M0FGJZJDZD60HGGDDXW1NHE7`
+- Type: improvement
+- Actor: ai:claude-opus-5
+
+---
+
+## [P3][todo] [flipp] Utgåveomslagen saknas för allt som upptäcktes före omslagscachen
+
+Utgåvelistan på /publications/{code} pekar redan på den lokala cachen (issue_row.html rad 13, /publications/{code}/issues/{code}/cover) sedan TASK-1345. Men kolumnen är tom i drift: kontrollerat 2026-08-20 svarar publikationens eget omslag 200 med 45 kB, medan utgåvornas omslag ger 404.
+
+Orsaken är att utgåveomslag bara hämtas EN gång, när utgåvan upptäcks vid poll. Samtliga 17660 kända utgåvor upptäcktes innan den funktionen fanns, och de upptäcks aldrig igen - alltså får de aldrig någon cache. Funktionen fungerar bara för utgåvor som tillkommer framöver.
+
+Acceptanskriterier:
+- Utgåvor som saknar cachat omslag kan fylla på det i efterhand, inte bara vid upptäckt.
+- Påfyllningen sker i bakgrunden och aldrig synkront under rendering - 17660 utgåvor får inte betyda 17660 hämtningar vid en sidladdning.
+- Volymen är medveten: hämta rimligen bara för utgåvor som faktiskt visas eller är nedladdade, eller med tak per körning. Motivera valet.
+- Saknas omslag fortfarande döljs bilden som i dag (onerror), ingen trasig ikon.
+
+Verifiering: riktade tester för påfyllningen, plus kontroll i webbläsaren att kolumnen faktiskt visar omslag på en publikationssida, vid 390px och 1280px.
+
+- ID: `01M0FGJZJ7WY7E90GZ17DQ5551`
 - Type: bug
 - Actor: ai:claude-opus-5
 
