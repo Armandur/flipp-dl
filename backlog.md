@@ -44,6 +44,52 @@ Verifiering: tester i tests/test_storage.py och tests/test_downloader.py för kr
 
 ---
 
+## [P2][doing] [flipp] Utgåvor faller ur Flipps listning - visa och bevara dem
+
+## Context
+Utgåvor slutar listas av Flipp över tid, inte bara publikationer. Mätt 2026-08-20:
+
+- databasen minns 17673 utgåvor
+- Flipp listar just nu 15757
+- skillnad: 1916 utgåvor i 21 av 94 publikationer
+
+Värst drabbade: Her og Nå (478 av 955 borta ur listningen), Hjemmet DK (369), Hjemmet NO (318), Norsk Ukeblad (211), Hendes Verden (198).
+
+De är sannolikt fortfarande hämtbara. Samma mekanism som för olistade publikationer (TASK-1426): get_page_groups_from_eid slår upp en utgåva utan att fråga vad kontot erbjuds, så länge utgåvans kod finns kvar. Kontrollerat för en olistad publikation, Stitch nr 3 2026, som gav 44 sidor.
+
+Det gör databasens minne värdefullt: koderna för de 1916 utgåvorna finns bara hos oss. Rensas de går de inte att få tillbaka.
+
+## Acceptance criteria
+- [ ] En utgåva som inte längre listas markeras, på samma sätt som publikationer i TASK-1426, med tidpunkt för när den senast sågs.
+- [ ] Markeringen syns på publikationens detaljsida och går att filtrera på.
+- [ ] Ordvalet säger att den inte längre listas, inte att den är otillgänglig - den går att hämta.
+- [ ] sync_publications fortsätter att aldrig radera utgåvor.
+- [ ] Ett tomt eller partiellt svar markerar aldrig allt på en gång.
+- [ ] Verifiera FÖRST att en olistad utgåva faktiskt går att ladda ner, och skriv in resultatet i tasken. Om den inte går att hämta ändras hela premissen.
+
+## Att tänka igenom
+- 1916 markeringar är mycket. Ska de visas per utgåva, eller sammanfattas per publikation?
+- Antalet lär växa. Är det värt att kunna hämta hem allt olistat innan det försvinner? En sådan knapp vore stor - notera det, bygg inte utan beslut.
+
+## Verification
+- Tester: utgåva försvinner ur svaret och markeras, dyker upp igen och avmarkeras, tomt svar markerar inget, ingen radering.
+- Kontroll mot driftinstansen: de 1916 markeras och antalet stämmer med mätningen ovan.
+
+## Premissen är verifierad (2026-08-20)
+En olistad UTGÅVA testades skarpt, inte bara en olistad publikation:
+Her og Nå, utgåva 5ea9f7f8-fb04-4e81-a03b-e14d5addd48c ("2026-32 - bilag", 2026-06-22), som finns i databasen men inte i Flipps aktuella lista.
+
+  get_page_groups_from_eid -> HTTP 200, 64 sidor
+  första sid-PDF:en        -> HTTP 200, 631660 byte
+
+Utgåvan går alltså att ladda ner i sin helhet. Premissen håller.
+
+- ID: `01M0GEE2VHXYS9GZWYDSYMC7JJ`
+- Type: improvement
+- Actor: ai:claude-opus-5
+
+---
+
 ## [P2][doing] [flipp] Låt användaren särskilja publikationer som delar katalognamn
 
 Två publikationer kan heta exakt samma sak och får då samma katalog på disk. Det finns i drift i dag: "Hjemmet" är två skilda publikationer, en norsk och en dansk. Filerna hamnar i samma mapp och ägarskapet blir tvetydigt - importen kan inte avgöra vilken publikation en fil hör till, och sedan TASK-1404 vägrar den därför backfilla dem, vilket är rätt men inte en lösning.
@@ -260,6 +306,72 @@ Rätt fix är troligen en riktig claim-fråga mot DB (SELECT ... WHERE status=qu
 
 - ID: `01M0BBXMEPZZWZVNYZR3SF7RWF`
 - Type: bug
+- Actor: ai:claude-opus-5
+
+---
+
+## [P3][todo] [flipp] Importera utgåvor från en lista med kända koder
+
+## Context
+Vi hittar utgåvor som Flipps lista inte känner till - tre av Bilar ligger redan i docs/olistade-utgavor.json, verifierade och hämtbara. Fler lär tillkomma (TASK-1436). I dag finns ingen väg att få in dem i flipp-dl: publikationer och utgåvor skapas bara av sync_publications utifrån API-svaret.
+
+## Acceptance criteria
+- [ ] En lista med publikationskod och utgåvokod kan läsas in, och de utgåvor som inte redan finns läggs till i databasen.
+- [ ] Formatet är det som redan används i docs/olistade-utgavor.json.
+- [ ] Utgåvans metadata hämtas där det går. Reader-API:t ger sidantal men inte namn eller datum - avgör vad som ska stå i issue_name och issue_date när Flipp inte längre listar utgåvan, och gör det tydligt att uppgiften är okänd snarare än påhittad.
+- [ ] Publikationen måste finnas sedan tidigare. Är publikationskoden okänd ska det rapporteras, inte skapas en publikation utan namn.
+- [ ] En importerad utgåva laddas ner som vilken annan som helst, och markeras som olistad enligt TASK-1429.
+- [ ] Nästa poll får inte ta bort eller skriva över de importerade utgåvorna.
+- [ ] Körs som ett eget uttryckligt steg, i stil med --import-existing och --migrate-filenames i cli.py.
+
+## Att tänka igenom
+Det här är en väg in i databasen som kringgår API-synken. Var noga med att en trasig eller påhittad kod inte skapar skräprader som sedan ser ut som riktiga utgåvor - verifiera mot reader-API:t innan något skrivs, och rapportera det som inte gick att verifiera.
+
+## Verification
+- Tester: import av känd kod, okänd publikationskod, redan befintlig utgåva, och att en poll efteråt lämnar raderna ifred.
+- Skarpt: importera de tre Bilar-utgåvorna i docs/olistade-utgavor.json mot en kopia av driftdatabasen och ladda ner en av dem.
+
+- ID: `01M0GFA3B11H5AZMQH8B8229A1`
+- Type: feature
+- Actor: ai:claude-opus-5
+
+---
+
+## [P3][todo] [flipp] Leta olistade utgåvor och publikationer utanför Flipps API
+
+## Context
+Flipps eget API kan inte lista något som inte redan erbjuds kontot - det är utrett och besvarat i backlog-docen "Går olistat material att upptäcka?". Men utanför API:t finns vägar, och en av dem är redan bevisad.
+
+Wayback Machines CDX-API över reader.flipp.se gav 2000 arkiverade adresser, varav 35 innehöll både pubid och eid. Tre av utgåvekoderna är okända för Flipps aktuella lista, och alla tre går att hämta: 36, 44 och 36 sidor. De ligger i docs/olistade-utgavor.json och i backlog-docen "Olistade utgåvor hittade utanför Flipps API".
+
+Metoden fungerar alltså. Frågan är hur långt den bär.
+
+## Spår att utforska
+
+1. **Wayback Machine, på djupet.** Den första sökningen var enkel: ett mönster, gränsen 2000 rader. Prova fler mönster (edid, andra reader-vägar, tidningar.flipp.se), ta bort gränsen, och gå igenom hela CDX-indexet. Kolla även arkiverade svar - inte bara adresser - eftersom ett arkiverat API-svar kan innehålla en hel publikationslista med koder.
+
+2. **Sökmotorers index.** Reader-länkar som delats publikt kan ligga indexerade. Samma princip som Wayback, annan källa.
+
+3. **PageSuite-plattformen.** Flipp är byggt på PageSuite: reader-vägen använder deras edid-begrepp och sid-PDF:erna ligger på pages.pagesuite.com. Utredningen tittade bara i Flipps app-bundlar, aldrig på plattformens egna publika endpoints. Undersök vad PageSuite exponerar.
+
+4. **Andra marknader.** appId är se.egmontmagasiner.flipp. Egmont driver Flipp i flera länder, och listan innehåller redan norska och danska titlar. Ett annat appId mot samma API kan ge ett annat utbud - kontrollera vad appen skickar och vilka värden som finns.
+
+5. **Spara varje polls råsvar framåt.** Hjälper inte bakåt, men 1916 utgåvor har redan fallit ur listningen. Ett eget arkiv av råsvaren gör att inget mer går förlorat. Detta är det enda spåret som är ett bygge snarare än en utredning - bryt ut det om det ska göras.
+
+## Struket spår
+Kontotyp undersöktes och är en återvändsgränd. Rasmus har haft Premium och såg samma utgåvor som med Solo, vilket stämmer med datan: visibleIssuesSolo, visibleIssuesSubscriber och visibleIssuesPremium är identiska för 90 av 91 publikationer.
+
+## Regler
+- Gissa aldrig fram koder. De är UUID - ogörligt, och det vore att hamra Egmonts tjänst i onödan.
+- Håll anropen få och riktade mot Flipp. Arkiv och sökmotorer tål mer, men var måttfull även där.
+- Detta är material Rasmus har konto och tillgång till, inte kringgående av betalvägg.
+
+## Leverans
+- Varje ny träff läggs i docs/olistade-utgavor.json i samma format som de tre befintliga, med sidantal verifierat mot reader-API:t.
+- En backlog-doc som säger hur långt varje spår bar, inklusive de som inte gav något.
+
+- ID: `01M0GF959KY2NTSGX7XE7XW764`
+- Type: spike
 - Actor: ai:claude-opus-5
 
 ---

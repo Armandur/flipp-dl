@@ -1,0 +1,28 @@
+{
+  "found_unlisted_issues": [
+    {
+      "publication_code": "41f076e1-0126-4a6e-a263-bb8082213465",
+      "publication_name": "Bilar",
+      "issue_code": "09d26f67-5f8f-4584-80cb-5ac8ff0ba954",
+      "pages": 36,
+      "source": "web.archive.org CDX, reader.flipp.se",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "41f076e1-0126-4a6e-a263-bb8082213465",
+      "publication_name": "Bilar",
+      "issue_code": "231383d8-2c26-475d-b399-7378c72124e5",
+      "pages": 44,
+      "source": "web.archive.org CDX, reader.flipp.se",
+      "verified": "2026-08-20"
+    },
+    {
+      "publication_code": "41f076e1-0126-4a6e-a263-bb8082213465",
+      "publication_name": "Bilar",
+      "issue_code": "4668dd31-884d-4fbb-8f38-7c0e59b915c6",
+      "pages": 36,
+      "source": "web.archive.org CDX, reader.flipp.se",
+      "verified": "2026-08-20"
+    }
+  ]
+}
