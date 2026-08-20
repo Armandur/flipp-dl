@@ -873,7 +873,23 @@ Bygg vidare på befintliga byggstenar i stället för att uppfinna nya: `list_is
 
 ---
 
-## [P4][todo] [flipp] Anslutningsfel mot Komga visas som rå Python-stacktext
+## [P4][done] [flipp] Uppdatera test_komga_test_connection_shows_error_on_failure efter TASK-1388
+
+Avknoppad från TASK-1388. tests/test_web_routes.py:1641 asserterar att den råa tekniska texten ('connection refused' i str(KomgaError)) syns i svaret från POST /settings/komga/test. TASK-1388 gjorde det medvetet till ett kort, icke-tekniskt meddelande i stället (kategoriserat via KomgaError.reason, se flipp_dl/komga.py och flipp_dl/web/routes.py::_KOMGA_TEST_CONNECTION_MESSAGES). Assertionen är nu obsolet och testet failar.
+
+Acceptanskriterier:
+- Uppdatera testet så det konstruerar KomgaError med en explicit reason (t.ex. reason="other" ger 'something went wrong. Check the address and try again.') och assertar det korta meddelandet i stället för råtexten.
+- .venv/bin/python -m pytest -q tests/test_web_routes.py -k test_komga_test_connection_shows_error_on_failure går grönt.
+
+Filer som väntas ändras: tests/test_web_routes.py.
+
+- ID: `01M0FYPA6K55CDDAHBWC3MNHV4`
+- Type: chore
+- Actor: ai:claude-sonnet-5
+
+---
+
+## [P4][done] [flipp] Anslutningsfel mot Komga visas som rå Python-stacktext
 
 Felrutan är stilad sedan TASK-1387, men innehållet är obegripligt för den som bara vill koppla upp sig. Ett anslutningsfel visas i dag som:
 
