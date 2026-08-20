@@ -1230,6 +1230,105 @@ def test_settings_post_empty_token_leaves_saved_token_unchanged(client: TestClie
     assert resolve_current_token(client.app.state.session_factory) == "original-token"
 
 
+def test_settings_get_shows_default_queue_warn_threshold_gb(client: TestClient):
+    resp = client.get("/settings")
+    assert resp.status_code == 200
+    assert 'name="queue_warn_threshold_gb"' in resp.text
+    assert 'value="5"' in resp.text
+
+
+def test_settings_post_saves_queue_warn_threshold_gb(client: TestClient):
+    csrf = _csrf_for(client)
+    resp = client.post(
+        "/settings",
+        data={
+            "_csrf_token": csrf,
+            "poll_interval": "360",
+            "workers": "4",
+            "queue_warn_threshold_gb": "2",
+        },
+    )
+    assert resp.status_code == 200
+    assert 'value="2"' in resp.text
+
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        assert repo.queue_warn_threshold_bytes() == 2 * 1024**3
+
+    # Survives a reload, not just the immediate response.
+    resp = client.get("/settings")
+    assert 'value="2"' in resp.text
+
+
+def test_settings_post_blank_queue_warn_threshold_resets_to_default(
+    client: TestClient,
+):
+    csrf = _csrf_for(client)
+    client.post(
+        "/settings",
+        data={
+            "_csrf_token": csrf,
+            "poll_interval": "360",
+            "workers": "4",
+            "queue_warn_threshold_gb": "2",
+        },
+    )
+
+    csrf = _csrf_for(client)
+    resp = client.post(
+        "/settings",
+        data={
+            "_csrf_token": csrf,
+            "poll_interval": "360",
+            "workers": "4",
+            "queue_warn_threshold_gb": "",
+        },
+    )
+    assert resp.status_code == 200
+
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        assert repo.queue_warn_threshold_bytes() == 5 * 1024**3
+
+
+def test_settings_post_rejects_non_numeric_queue_warn_threshold(client: TestClient):
+    csrf = _csrf_for(client)
+    resp = client.post(
+        "/settings",
+        data={
+            "_csrf_token": csrf,
+            "poll_interval": "360",
+            "workers": "4",
+            "queue_warn_threshold_gb": "abc",
+        },
+    )
+    assert resp.status_code == 400
+
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        assert repo.queue_warn_threshold_bytes() == 5 * 1024**3
+
+
+def test_settings_post_rejects_zero_or_negative_queue_warn_threshold(
+    client: TestClient,
+):
+    csrf = _csrf_for(client)
+    resp = client.post(
+        "/settings",
+        data={
+            "_csrf_token": csrf,
+            "poll_interval": "360",
+            "workers": "4",
+            "queue_warn_threshold_gb": "0",
+        },
+    )
+    assert resp.status_code == 400
+
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        assert repo.queue_warn_threshold_bytes() == 5 * 1024**3
+
+
 def test_settings_post_requires_csrf(client: TestClient):
     resp = client.post(
         "/settings",

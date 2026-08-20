@@ -957,6 +957,12 @@ def register(app: FastAPI) -> None:
             ),
         }
 
+    def _format_gb(threshold_bytes: int) -> str:
+        """Render *threshold_bytes* as a trimmed GB string for the form field."""
+        gb = threshold_bytes / (1024**3)
+        formatted = f"{gb:.2f}".rstrip("0").rstrip(".")
+        return formatted or "0"
+
     @app.get("/settings", response_class=HTMLResponse)
     async def settings_get(request: Request):
         repo = _repo(request)
@@ -964,6 +970,9 @@ def register(app: FastAPI) -> None:
             settings = {
                 "poll_interval": repo.get_setting("poll_interval", "360"),
                 "workers": repo.get_setting("workers", "4"),
+                "queue_warn_threshold_gb": _format_gb(
+                    repo.queue_warn_threshold_bytes()
+                ),
                 **_token_settings(repo),
                 **_komga_view_settings(repo),
                 **_notify_view_settings(repo),
@@ -980,6 +989,7 @@ def register(app: FastAPI) -> None:
         request: Request,
         poll_interval: int = Form(360),
         workers: int = Form(4),
+        queue_warn_threshold_gb: str = Form(""),
         flipp_token: str = Form(""),
         komga_enabled: str | None = Form(None),
         komga_url: str = Form(""),
@@ -997,10 +1007,39 @@ def register(app: FastAPI) -> None:
         if not await check_csrf_form(request):
             return HTMLResponse("CSRF validation failed", status_code=400)
         token_value = flipp_token.strip()
+
+        # A blank field resets the threshold to the FLIPP_QUEUE_WARN_THRESHOLD_BYTES
+        # env var / 5 GiB default (same "blank = clear the override" rule as the
+        # per-publication poll interval). Anything else must parse as a positive
+        # number - an invalid value must not silently save a broken threshold.
+        queue_warn_threshold_raw = queue_warn_threshold_gb.strip()
+        queue_warn_threshold_bytes_value: int | None = None
+        if queue_warn_threshold_raw:
+            try:
+                gb_value = float(queue_warn_threshold_raw)
+            except ValueError:
+                return HTMLResponse(
+                    "Backfill confirm threshold must be a number", status_code=400
+                )
+            if gb_value <= 0:
+                return HTMLResponse(
+                    "Backfill confirm threshold must be greater than zero",
+                    status_code=400,
+                )
+            queue_warn_threshold_bytes_value = round(gb_value * 1024**3)
+
         with get_session(request.app.state.session_factory) as session:
             repo = DownloadRepository(session)
             repo.set_setting("poll_interval", str(poll_interval))
             repo.set_setting("workers", str(workers))
+            repo.set_setting(
+                "queue_warn_threshold_bytes",
+                (
+                    str(queue_warn_threshold_bytes_value)
+                    if queue_warn_threshold_bytes_value is not None
+                    else ""
+                ),
+            )
             # Empty input leaves a previously saved token untouched - the
             # form field is never pre-filled with the real value, so a
             # blank submit must not be read as "clear the token".
@@ -1030,6 +1069,9 @@ def register(app: FastAPI) -> None:
             if notify_webhook_url.strip():
                 repo.set_setting("notify_webhook_url", notify_webhook_url.strip())
 
+            queue_warn_threshold_gb_display = _format_gb(
+                repo.queue_warn_threshold_bytes()
+            )
             token_settings = _token_settings(repo)
             komga_settings = _komga_view_settings(repo)
             notify_settings = _notify_view_settings(repo)
@@ -1042,6 +1084,7 @@ def register(app: FastAPI) -> None:
                 "settings": {
                     "poll_interval": str(poll_interval),
                     "workers": str(workers),
+                    "queue_warn_threshold_gb": queue_warn_threshold_gb_display,
                     **token_settings,
                     **komga_settings,
                     **notify_settings,

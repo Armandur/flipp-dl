@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-08-20 12:58+0200\n"
+"POT-Creation-Date: 2026-08-20 13:28+0200\n"
 "PO-Revision-Date: 2026-08-19 18:14+0200\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: sv\n"
@@ -32,7 +32,7 @@ msgstr "Publikationer"
 
 #: flipp_dl/web/templates/base.html:231 flipp_dl/web/templates/library.html:2
 #: flipp_dl/web/templates/library.html:5
-#: flipp_dl/web/templates/settings.html:140
+#: flipp_dl/web/templates/settings.html:153
 msgid "Library"
 msgstr "Bibliotek"
 
@@ -330,7 +330,7 @@ msgid "Could not connect to Komga:"
 msgstr "Kunde inte ansluta till Komga:"
 
 #: flipp_dl/web/templates/komga_library_select.html:5
-#: flipp_dl/web/templates/settings.html:145
+#: flipp_dl/web/templates/settings.html:158
 msgid "Saved library"
 msgstr "Sparat bibliotek"
 
@@ -441,9 +441,9 @@ msgid ""
 "%(threshold)s warning threshold. This can take a long time and use a lot "
 "of disk space. Continue?"
 msgstr ""
-"Detta köar %(count)s saknade %(label)s (~%(size)s) - över "
-"varningsgränsen på %(threshold)s. Det kan ta lång tid och använda mycket "
-"diskutrymme. Fortsätt?"
+"Detta köar %(count)s saknade %(label)s (~%(size)s) - över varningsgränsen"
+" på %(threshold)s. Det kan ta lång tid och använda mycket diskutrymme. "
+"Fortsätt?"
 
 #: flipp_dl/web/templates/publication_detail.html:72
 #, python-format
@@ -591,11 +591,25 @@ msgstr "Poll-intervall (minuter)"
 msgid "Download workers"
 msgstr "Nedladdningsarbetare"
 
-#: flipp_dl/web/templates/settings.html:64
+#: flipp_dl/web/templates/settings.html:65
+msgid "Backfill confirm threshold (GB)"
+msgstr "Tröskel för bekräftelse vid bakkatalogshämtning (GB)"
+
+#: flipp_dl/web/templates/settings.html:74
+msgid ""
+"Queuing a backfill above this size asks for extra confirmation. Leave "
+"blank to clear this override and fall back to the environment variable, "
+"or the 5 GB default."
+msgstr ""
+"Köar du en bakkatalogshämtning över den här storleken krävs extra "
+"bekräftelse. Lämna tomt för att ta bort värdet härifrån och återgå till "
+"miljövariabeln, eller standardvärdet 5 GB."
+
+#: flipp_dl/web/templates/settings.html:77
 msgid "Komga"
 msgstr "Komga"
 
-#: flipp_dl/web/templates/settings.html:66
+#: flipp_dl/web/templates/settings.html:79
 msgid ""
 "Triggers a Komga library scan right after a download finishes, so Komga "
 "picks up the new file immediately instead of waiting for its next "
@@ -607,59 +621,59 @@ msgstr ""
 "nästa schemalagda sökning. Inga anrop görs och inget köas medan "
 "integrationen är avstängd."
 
-#: flipp_dl/web/templates/settings.html:77
+#: flipp_dl/web/templates/settings.html:90
 msgid "Enable Komga integration"
 msgstr "Aktivera Komga-integration"
 
-#: flipp_dl/web/templates/settings.html:82
+#: flipp_dl/web/templates/settings.html:95
 msgid "Komga URL"
 msgstr "Komga-URL"
 
-#: flipp_dl/web/templates/settings.html:93
+#: flipp_dl/web/templates/settings.html:106
 msgid "Komga username"
 msgstr "Komga-användarnamn"
 
-#: flipp_dl/web/templates/settings.html:104
+#: flipp_dl/web/templates/settings.html:117
 msgid "Komga password"
 msgstr "Komga-lösenord"
 
-#: flipp_dl/web/templates/settings.html:113
+#: flipp_dl/web/templates/settings.html:126
 msgid "No password saved"
 msgstr "Inget lösenord sparat"
 
-#: flipp_dl/web/templates/settings.html:117
+#: flipp_dl/web/templates/settings.html:130
 msgid "Leave blank to keep the saved password."
 msgstr "Lämna tomt för att behålla det sparade lösenordet."
 
-#: flipp_dl/web/templates/settings.html:122
+#: flipp_dl/web/templates/settings.html:135
 msgid "Komga API key"
 msgstr "Komga API-nyckel"
 
-#: flipp_dl/web/templates/settings.html:131
+#: flipp_dl/web/templates/settings.html:144
 msgid "No API key saved"
 msgstr "Ingen API-nyckel sparad"
 
-#: flipp_dl/web/templates/settings.html:135
+#: flipp_dl/web/templates/settings.html:148
 msgid "Leave blank to keep the saved API key."
 msgstr "Lämna tomt för att behålla den sparade API-nyckeln."
 
-#: flipp_dl/web/templates/settings.html:148
+#: flipp_dl/web/templates/settings.html:161
 msgid "No library selected - test connection to pick one"
 msgstr "Inget bibliotek valt - testa anslutningen för att välja ett"
 
-#: flipp_dl/web/templates/settings.html:162
+#: flipp_dl/web/templates/settings.html:175
 msgid "Test connection"
 msgstr "Testa anslutning"
 
-#: flipp_dl/web/templates/settings.html:164
+#: flipp_dl/web/templates/settings.html:177
 msgid "Testing…"
 msgstr "Testar…"
 
-#: flipp_dl/web/templates/settings.html:168
+#: flipp_dl/web/templates/settings.html:181
 msgid "Notifications"
 msgstr "Notiser"
 
-#: flipp_dl/web/templates/settings.html:170
+#: flipp_dl/web/templates/settings.html:183
 msgid ""
 "Get a push notification when a new issue finishes downloading, or when a "
 "download fails. Two channels are supported and can be enabled "
@@ -669,43 +683,43 @@ msgstr ""
 "nedladdning misslyckas. Två kanaler stöds och kan aktiveras oberoende av "
 "varandra - använd en, båda eller ingen."
 
-#: flipp_dl/web/templates/settings.html:181
+#: flipp_dl/web/templates/settings.html:194
 msgid "Enable ntfy notifications"
 msgstr "Aktivera ntfy-notiser"
 
-#: flipp_dl/web/templates/settings.html:186
+#: flipp_dl/web/templates/settings.html:199
 msgid "ntfy server URL"
 msgstr "ntfy-server-URL"
 
-#: flipp_dl/web/templates/settings.html:197
+#: flipp_dl/web/templates/settings.html:210
 msgid "ntfy topic"
 msgstr "ntfy-ämne"
 
-#: flipp_dl/web/templates/settings.html:208
+#: flipp_dl/web/templates/settings.html:221
 msgid "ntfy access token"
 msgstr "ntfy-åtkomsttoken"
 
-#: flipp_dl/web/templates/settings.html:217
+#: flipp_dl/web/templates/settings.html:230
 msgid "No token saved (only needed for a protected topic)"
 msgstr "Ingen token sparad (behövs bara för ett skyddat ämne)"
 
-#: flipp_dl/web/templates/settings.html:221
+#: flipp_dl/web/templates/settings.html:234
 msgid "Leave blank to keep the saved token."
 msgstr "Lämna tomt för att behålla den sparade token."
 
-#: flipp_dl/web/templates/settings.html:233
+#: flipp_dl/web/templates/settings.html:246
 msgid "Enable webhook notifications"
 msgstr "Aktivera webhook-notiser"
 
-#: flipp_dl/web/templates/settings.html:238
+#: flipp_dl/web/templates/settings.html:251
 msgid "Webhook URL"
 msgstr "Webhook-URL"
 
-#: flipp_dl/web/templates/settings.html:247
+#: flipp_dl/web/templates/settings.html:260
 msgid "No webhook URL saved"
 msgstr "Ingen webhook-URL sparad"
 
-#: flipp_dl/web/templates/settings.html:252
+#: flipp_dl/web/templates/settings.html:265
 msgid ""
 "A URL is saved and in use. Leave blank to keep it unchanged. Every new "
 "issue (or failure) is POSTed here as"
@@ -713,24 +727,24 @@ msgstr ""
 "En URL är sparad och används. Lämna tomt för att behålla den. Varje ny "
 "utgåva (eller misslyckande) POSTas hit som"
 
-#: flipp_dl/web/templates/settings.html:257
+#: flipp_dl/web/templates/settings.html:270
 msgid "POSTs"
 msgstr "POSTar"
 
-#: flipp_dl/web/templates/settings.html:257
+#: flipp_dl/web/templates/settings.html:270
 msgid "to this URL for every new issue (or failure)."
 msgstr "till den här URL:en för varje ny utgåva (eller misslyckande)."
 
-#: flipp_dl/web/templates/settings.html:262
+#: flipp_dl/web/templates/settings.html:275
 msgid "Save Settings"
 msgstr "Spara inställningar"
 
-#: flipp_dl/web/templates/settings.html:266
-#: flipp_dl/web/templates/settings.html:281
+#: flipp_dl/web/templates/settings.html:279
+#: flipp_dl/web/templates/settings.html:294
 msgid "Import existing files"
 msgstr "Importera befintliga filer"
 
-#: flipp_dl/web/templates/settings.html:268
+#: flipp_dl/web/templates/settings.html:281
 msgid ""
 "Scan the output folder and reconcile it with the database: a file that "
 "already sits on disk marks its issue downloaded without fetching it "
@@ -744,19 +758,19 @@ msgstr ""
 " fil försvunnit, eller två utgåvor som delar en fil - rapporteras nedan i"
 " stället för att fixas tyst."
 
-#: flipp_dl/web/templates/settings.html:283
+#: flipp_dl/web/templates/settings.html:296
 msgid "Scanning…"
 msgstr "Skannar…"
 
-#: flipp_dl/web/templates/settings.html:288
+#: flipp_dl/web/templates/settings.html:301
 msgid "Debug"
 msgstr "Felsökning"
 
-#: flipp_dl/web/templates/settings.html:290
+#: flipp_dl/web/templates/settings.html:303
 msgid "Run a manual poll against the Flipp API and inspect the raw"
 msgstr "Kör en manuell pollning mot Flipp-API:et och inspektera det råa"
 
-#: flipp_dl/web/templates/settings.html:291
+#: flipp_dl/web/templates/settings.html:304
 msgid ""
 "response. Useful for verifying your token and spotting new fields. "
 "Sensitive fields"
@@ -764,15 +778,15 @@ msgstr ""
 "svaret. Bra för att verifiera din token och upptäcka nya fält. Känsliga "
 "fält"
 
-#: flipp_dl/web/templates/settings.html:292
+#: flipp_dl/web/templates/settings.html:305
 msgid "are redacted before the response reaches your browser."
 msgstr "redigeras bort innan svaret når din webbläsare."
 
-#: flipp_dl/web/templates/settings.html:304
+#: flipp_dl/web/templates/settings.html:317
 msgid "Run manual poll"
 msgstr "Kör manuell pollning"
 
-#: flipp_dl/web/templates/settings.html:306
+#: flipp_dl/web/templates/settings.html:319
 msgid "Polling Flipp API…"
 msgstr "Pollar Flipp-API…"
 

@@ -1062,10 +1062,9 @@ class DownloadRepository:
         """The size, in bytes, above which a backfill confirm must warn.
 
         Overridable per instance: the ``queue_warn_threshold_bytes``
-        setting wins if set (there is no settings-page field for it yet -
-        set it directly in the ``settings`` table), then the
-        ``FLIPP_QUEUE_WARN_THRESHOLD_BYTES`` env var, else the 5 GiB
-        default (TASK-1361).
+        setting wins if set (edited as gigabytes on the settings page),
+        then the ``FLIPP_QUEUE_WARN_THRESHOLD_BYTES`` env var, else the
+        5 GiB default (TASK-1361).
         """
         from_setting = _parse_positive_int(
             self.get_setting(_QUEUE_WARN_THRESHOLD_SETTING, "")
