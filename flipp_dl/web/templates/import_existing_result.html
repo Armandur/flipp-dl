@@ -8,6 +8,8 @@
   </ul>
   {% endif %}
 
+  <p>{{ _("Recorded a file size for") }} <strong>{{ report.sized | length }}</strong> {{ _("issue(s) that were downloaded before sizes were tracked.") }}</p>
+
   <p>{{ _("File(s) with no matching issue (orphans):") }} <strong>{{ report.orphan_files | length }}</strong></p>
   {% if report.orphan_files %}
   <ul>

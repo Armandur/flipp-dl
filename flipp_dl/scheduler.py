@@ -68,12 +68,13 @@ _COVER_SIZE_VARIANT = "__b300m."
 # alone, so this fills them in gradually instead of in one burst.
 # A cover is tiny: a measured one weighs 2.3 kB, so the whole 17660-issue
 # backlog is roughly 40 MB. The limit exists to spread the requests, not
-# to save space. 94 publications poll every 6 hours (4 ticks/day), so
-# 500/tick is ~2000 requests/day - about 1.4 per minute averaged out -
-# and the backlog clears in a week or so instead of months. The
-# repository orders the candidates newest-first, so what actually shows
-# up (the top of every publication's issue list) fills in first.
-ISSUE_COVER_BACKFILL_PER_POLL = 500
+# to save space. The candidates are ordered newest-first across the whole
+# database, so a limit that is small relative to the backlog leaves most
+# publications with a couple of covers and the rest blank - which looks
+# broken rather than gradual. At 2500/tick the backlog is filled in
+# within a day or two, still under one request per second while a poll
+# runs.
+ISSUE_COVER_BACKFILL_PER_POLL = 2500
 
 logger = logging.getLogger(__name__)
 

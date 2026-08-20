@@ -1443,3 +1443,36 @@ def test_zero_poll_interval_counts_as_no_override(session):
     # Still due: 0 means "no override" on both sides.
     assert repo.publications_due_for_poll({db_pub.id}) == {db_pub.id}
     assert db_pub.next_poll_due_at is None
+
+
+def test_import_records_size_for_already_downloaded_issues(session, tmp_path):
+    """Issues downloaded before sizes were tracked must get one now.
+
+    Without this the publication list shows "unknown" forever: the import
+    skipped anything already marked done, which is exactly the set of
+    issues missing a size (TASK-1362 landed after they were fetched).
+    """
+    from flipp_dl import storage
+    from flipp_dl.models import Issue, Publication
+
+    repo = DownloadRepository(session)
+    pub = Publication(custom_code="KA", name="Kalle Anka")
+    db_pub = repo.upsert_publication(pub)
+    issue = Issue(custom_code="ka01", issue_name="Nr 1", issue_date="2024-01-01")
+    db_issue, _ = repo.upsert_issue(issue, db_pub.id)
+
+    target = storage.issue_path(tmp_path, pub, issue)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(b"%PDF-1.4\n" + b"x" * 500)
+
+    repo.mark_issue_done(db_issue.id, str(target))
+    db_issue.file_size = None  # as if downloaded before sizes existed
+    session.flush()
+
+    report = repo.import_existing_files(tmp_path)
+
+    assert db_issue.file_size == target.stat().st_size
+    assert len(report.sized) == 1
+    # Status and timestamps are untouched - this only fills in the size.
+    assert db_issue.status == "done"
+    assert report.backfilled == []

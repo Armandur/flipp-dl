@@ -173,6 +173,7 @@ class ImportReport:
     """
 
     backfilled: list[dict] = field(default_factory=list)
+    sized: list[dict] = field(default_factory=list)
     orphan_files: list[str] = field(default_factory=list)
     missing_files: list[dict] = field(default_factory=list)
     shared_files: list[dict] = field(default_factory=list)
@@ -652,6 +653,22 @@ class DownloadRepository:
                     report.orphan_files.append(str(resolved.relative_to(root)))
                     continue
                 if issue.status == IssueStatus.DONE:
+                    # Already downloaded, but issues downloaded before
+                    # file_size existed (TASK-1362) have no size recorded,
+                    # which leaves the publication list showing "unknown".
+                    # Fill it in without touching status or downloaded_at.
+                    if issue.file_size is None:
+                        try:
+                            issue.file_size = resolved.stat().st_size
+                        except OSError:
+                            pass
+                        else:
+                            report.sized.append(
+                                {
+                                    **_issue_identity(issue),
+                                    "file_size": issue.file_size,
+                                }
+                            )
                     continue
 
                 # Another issue may already have this exact path recorded
