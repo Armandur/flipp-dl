@@ -236,35 +236,28 @@ Rätt fix är troligen en riktig claim-fråga mot DB (SELECT ... WHERE status=qu
 
 ---
 
-## [P3][todo] [flipp] Publikationens katalog ska ägas av publikationen, med plats för bilagor
+## [P3][todo] [flipp] En publikations katalog får inte kunna kopplas till en annan publikation
 
 ## Context
 Varje publikation äger sin katalog under utdatakatalogen, men ingenting upprätthåller det. En fil som hamnar i fel publikations katalog - genom en namnkrock, en handflyttad fil eller en framtida sökvägsändring - kan tolkas som tillhörande fel publikation.
 
-Samtidigt ska underkataloger vara tillåtna och användbara: bilagor till en publikation, exempelvis affischer eller extramaterial, hör hemma under publikationens katalog utan att vara utgåvor.
-
-De två kraven drar åt olika håll, och det är därför de hör ihop i en task: strukturen måste vara sträng nog att ingen publikation kan äta en annans filer, men öppen nog att rymma material som inte är en utgåva.
+Flipp-dl har inga bilagor: allt under en publikations katalog är utgåvor av just den publikationen. Det gör kravet enkelt och strikt.
 
 ## Var det slår igenom
-- Diskimporten matchar filer mot utgåvor. Den måste veta att en fil under fel publikation inte är en träff, och att en fil i en underkatalog inte är en orphan att larma om.
-- Library-vyn listar allt under utdatakatalogen och behöver visa bilagor begripligt.
+- Diskimporten matchar filer mot utgåvor och måste veta att en fil under fel publikation aldrig är en träff.
 - Nedladdningen skriver till publikationens katalog och får aldrig hamna utanför den.
 - En framtida sökvägsändring som flyttar filer måste bevara strukturen.
 
 ## Acceptance criteria
 - [ ] En fil under publikation A kan aldrig kopplas till en utgåva i publikation B, vare sig vid import eller nedladdning.
-- [ ] Underkataloger under en publikation är tillåtna och rapporteras inte som avvikelser av importen.
-- [ ] Det går att se i gränssnittet vad som är utgåvor och vad som är övrigt material.
 - [ ] Nedladdning skriver alltid inom rätt publikations katalog, kontrollerat och inte bara antaget.
-
-## Öppen fråga
-Ska bilagor registreras i databasen, kopplade till publikation eller utgåva, eller bara existera som filer som Library visar? Det avgör hur mycket maskineri som behövs. Ta ställning innan implementation.
+- [ ] Import rapporterar en fil som ligger under fel publikation som en avvikelse, inte som en träff.
 
 ## Verification
-- Tester: fil i fel publikations katalog, fil i underkatalog, nedladdning som försöker skriva utanför sin katalog.
-- Browser: Library och publikationssidan med både utgåvor och en bilaga.
+- Tester: fil i fel publikations katalog vid import, nedladdning som försöker skriva utanför sin katalog.
+- Kontroll mot driftinstansen med import-knappen efteråt: inga nya avvikelser som inte fanns förut.
 
-Motsvarande task finns i prenly-dl som TASK-1405. Här finns importen redan byggd (import_existing_files med rapport i båda riktningarna), så den är utgångspunkten.
+Motsvarande fråga finns i prenly-dl (TASK-1405), men där kompliceras den av att bilagor är egna publikationer som ska hamna i undermappar. Här finns inget sådant fall.
 
 - ID: `01M0G4D6VSYMRJDX6AZNTMBB9N`
 - Type: improvement
