@@ -23,6 +23,7 @@ from flipp_dl.db.session import get_session, make_session_factory
 from flipp_dl.komga import KomgaError
 from flipp_dl.models import Category, Issue, Publication
 from flipp_dl.scheduler import (
+    _cache_covers,
     _claim_next_download_job,
     _is_permanent_download_error,
     build_notify_channels,
@@ -579,6 +580,103 @@ def test_komga_failure_marks_job_error_but_issue_stays_done(
         assert len(komga_jobs) == 1
         assert komga_jobs[0].status == JobStatus.ERROR
         assert komga_jobs[0].error_message == "Komga is down"
+
+
+# ---------------------------------------------------------------------------
+# Issue cover backfill (TASK-1374)
+# ---------------------------------------------------------------------------
+
+
+class _FakeCoverFetchResponse:
+    def __init__(self, content: bytes = b"\xff\xd8fake-jpeg"):
+        self.content = content
+        self.headers = {"Content-Type": "image/jpeg"}
+        self.status_code = 200
+
+    def raise_for_status(self):
+        pass
+
+
+class _FakeCoverFetchSession:
+    """Stand-in for requests.Session - always "succeeds" with a fake image."""
+
+    def __init__(self):
+        self.requested_urls: list[str] = []
+
+    def get(self, url, timeout=None):
+        self.requested_urls.append(url)
+        return _FakeCoverFetchResponse()
+
+
+def _seed_issues_without_cover(repo: DownloadRepository, count: int) -> list[int]:
+    pub = Publication(custom_code="KA", name="Kalle Anka & Co")
+    db_pub = repo.upsert_publication(pub)
+    repo.session.commit()
+    ids = []
+    for i in range(count):
+        issue = Issue(
+            custom_code=f"KA-{i:02d}", issue_name=f"Nr {i}", issue_date="2024-01-01"
+        )
+        db_issue, _created = repo.upsert_issue(issue, db_pub.id)
+        ids.append(db_issue.id)
+    repo.session.commit()
+    return ids
+
+
+def test_cache_covers_backfills_issues_missing_from_before_the_cache_existed(
+    repo, session_factory, monkeypatch, tmp_path
+):
+    """Issues that predate the cover cache (TASK-1345) get filled in too,
+    not just newly-discovered ones (TASK-1374)."""
+    monkeypatch.setattr("flipp_dl.scheduler.default_cover_cache_root", lambda: tmp_path)
+    fake_session = _FakeCoverFetchSession()
+    monkeypatch.setattr("flipp_dl.scheduler.build_session", lambda: fake_session)
+
+    issue_ids = _seed_issues_without_cover(repo, 3)
+
+    cached = _cache_covers(repo, new_issues=[])
+
+    assert cached == 3
+    for issue_id in issue_ids:
+        assert repo.get_issue(issue_id).cover_cache_path is not None
+
+
+def test_cache_covers_backfill_is_capped_per_poll_tick(
+    repo, session_factory, monkeypatch, tmp_path
+):
+    """17660+ back-catalogue issues must not turn into one giant burst of
+    external requests on a single poll tick (TASK-1374)."""
+    monkeypatch.setattr("flipp_dl.scheduler.default_cover_cache_root", lambda: tmp_path)
+    monkeypatch.setattr("flipp_dl.scheduler.ISSUE_COVER_BACKFILL_PER_POLL", 2)
+    fake_session = _FakeCoverFetchSession()
+    monkeypatch.setattr("flipp_dl.scheduler.build_session", lambda: fake_session)
+
+    _seed_issues_without_cover(repo, 5)
+
+    cached = _cache_covers(repo, new_issues=[])
+
+    assert cached == 2
+    assert len(fake_session.requested_urls) == 2
+    still_missing = repo.issues_needing_cover_backfill(limit=10)
+    assert len(still_missing) == 3
+
+
+def test_cache_covers_backfill_skips_issues_already_cached(
+    repo, session_factory, monkeypatch, tmp_path
+):
+    monkeypatch.setattr("flipp_dl.scheduler.default_cover_cache_root", lambda: tmp_path)
+    fake_session = _FakeCoverFetchSession()
+    monkeypatch.setattr("flipp_dl.scheduler.build_session", lambda: fake_session)
+
+    issue_ids = _seed_issues_without_cover(repo, 2)
+    repo.set_issue_cover_cache(issue_ids[0], "issue-KA-00.jpg")
+    repo.session.commit()
+
+    cached = _cache_covers(repo, new_issues=[])
+
+    assert cached == 1
+    assert len(fake_session.requested_urls) == 1
+    assert "eid=KA-01" in fake_session.requested_urls[0]
 
 
 # ---------------------------------------------------------------------------

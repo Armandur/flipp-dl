@@ -62,6 +62,19 @@ from .notify import NotificationChannel, NtfyChannel, WebhookChannel, send_all
 # no need to fetch two sizes per publication.
 _COVER_SIZE_VARIANT = "__b300m."
 
+# How many back-catalogue issue covers to backfill per poll tick
+# (TASK-1374). The ~17660 issues that existed before the cover cache
+# (TASK-1345) never got a cover and never will via the discovery path
+# alone, so this fills them in gradually instead of in one burst.
+# A cover is tiny: a measured one weighs 2.3 kB, so the whole 17660-issue
+# backlog is roughly 40 MB. The limit exists to spread the requests, not
+# to save space. 94 publications poll every 6 hours (4 ticks/day), so
+# 500/tick is ~2000 requests/day - about 1.4 per minute averaged out -
+# and the backlog clears in a week or so instead of months. The
+# repository orders the candidates newest-first, so what actually shows
+# up (the top of every publication's issue list) fills in first.
+ISSUE_COVER_BACKFILL_PER_POLL = 500
+
 logger = logging.getLogger(__name__)
 
 
@@ -234,16 +247,36 @@ def _send_download_notifications(
         send_all(channels, f"Flipp-DL: {title}", _format_issue_list(failures))
 
 
+def _fetch_issue_cover(
+    repo: DownloadRepository, http: requests.Session, cache_root: Path, issue: DbIssue
+) -> bool:
+    url = (
+        "https://edition.pagesuite-professional.co.uk/get_image.aspx"
+        f"?w=100&eid={issue.custom_code}"
+    )
+    filename = fetch_and_cache_cover(
+        url, cache_root, f"issue-{issue.custom_code}", http_session=http
+    )
+    if filename:
+        repo.set_issue_cover_cache(issue.id, filename)
+        return True
+    return False
+
+
 def _cache_covers(repo: DownloadRepository, new_issues: list[DbIssue]) -> int:
-    """Fetch and store local copies of new/changed covers (TASK-1345).
+    """Fetch and store local copies of new/changed covers (TASK-1345/1374).
 
     Runs once per poll tick, never during page rendering. Publication
     covers only refetch when ``cover_url`` actually changed since the
-    last cache (:meth:`DownloadRepository.publications_needing_cover_refresh`),
-    and issue covers are fetched exactly once, at discovery time - so the
-    cache grows with what a poll actually finds, not with the full
-    17660-issue back catalogue already sitting in the DB. Returns the
-    number of covers newly cached, for logging.
+    last cache (:meth:`DownloadRepository.publications_needing_cover_refresh`).
+
+    Issue covers are fetched for every newly-discovered issue *and*, up
+    to :data:`ISSUE_COVER_BACKFILL_PER_POLL` per tick, for issues that
+    predate the cover cache and never got one (TASK-1374's
+    :meth:`DownloadRepository.issues_needing_cover_backfill`). The cap
+    keeps the backlog from turning into a burst of thousands of
+    requests on one poll tick - see the constant's docstring for the
+    numbers. Returns the number of covers newly cached, for logging.
     """
     cache_root = default_cover_cache_root()
     http = build_session()
@@ -259,15 +292,11 @@ def _cache_covers(repo: DownloadRepository, new_issues: list[DbIssue]) -> int:
             cached += 1
 
     for issue in new_issues:
-        url = (
-            "https://edition.pagesuite-professional.co.uk/get_image.aspx"
-            f"?w=100&eid={issue.custom_code}"
-        )
-        filename = fetch_and_cache_cover(
-            url, cache_root, f"issue-{issue.custom_code}", http_session=http
-        )
-        if filename:
-            repo.set_issue_cover_cache(issue.id, filename)
+        if _fetch_issue_cover(repo, http, cache_root, issue):
+            cached += 1
+
+    for issue in repo.issues_needing_cover_backfill(ISSUE_COVER_BACKFILL_PER_POLL):
+        if _fetch_issue_cover(repo, http, cache_root, issue):
             cached += 1
 
     return cached

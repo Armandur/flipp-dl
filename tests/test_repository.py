@@ -1340,6 +1340,49 @@ def test_set_issue_cover_cache_stores_the_filename(repo):
     assert repo.get_issue(db_issue.id).cover_cache_path == "issue-KA-01.jpg"
 
 
+def test_issues_needing_cover_backfill_finds_uncached_issues(repo):
+    pub = _publication()
+    db_pub = repo.upsert_publication(pub)
+    repo.session.commit()
+    db_issue_1, _ = repo.upsert_issue(pub.issues[0], db_pub.id)
+    db_issue_2, _ = repo.upsert_issue(pub.issues[1], db_pub.id)
+    repo.session.commit()
+
+    missing = repo.issues_needing_cover_backfill(limit=10)
+
+    assert {i.id for i in missing} == {db_issue_1.id, db_issue_2.id}
+
+
+def test_issues_needing_cover_backfill_skips_already_cached(repo):
+    pub = _publication()
+    db_pub = repo.upsert_publication(pub)
+    repo.session.commit()
+    db_issue_1, _ = repo.upsert_issue(pub.issues[0], db_pub.id)
+    db_issue_2, _ = repo.upsert_issue(pub.issues[1], db_pub.id)
+    repo.session.commit()
+    repo.set_issue_cover_cache(db_issue_1.id, "issue-KA-01.jpg")
+    repo.session.commit()
+
+    missing = repo.issues_needing_cover_backfill(limit=10)
+
+    assert [i.id for i in missing] == [db_issue_2.id]
+
+
+def test_issues_needing_cover_backfill_respects_limit_and_order(repo):
+    """Newest issue (highest id) comes first - it's the one most likely
+    to actually be on screen right now (TASK-1374)."""
+    pub = _publication()
+    db_pub = repo.upsert_publication(pub)
+    repo.session.commit()
+    db_issue_1, _ = repo.upsert_issue(pub.issues[0], db_pub.id)
+    db_issue_2, _ = repo.upsert_issue(pub.issues[1], db_pub.id)
+    repo.session.commit()
+
+    missing = repo.issues_needing_cover_backfill(limit=1)
+
+    assert [i.id for i in missing] == [db_issue_2.id]
+
+
 def test_zero_poll_interval_counts_as_no_override(session):
     """A stored 0 must not make a publication permanently due-but-unmarked.
 

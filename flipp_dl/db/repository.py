@@ -468,6 +468,33 @@ class DownloadRepository:
         if db_issue is not None:
             db_issue.cover_cache_path = cache_filename
 
+    def issues_needing_cover_backfill(self, limit: int) -> list[DbIssue]:
+        """Issues discovered before the cover cache existed (TASK-1374).
+
+        Issue covers are normally fetched once, at discovery
+        (:meth:`sync_publications`/``scheduler._cache_covers``). Every
+        issue discovered before that fetch existed (TASK-1345) never got
+        one and never will via that path alone, so this backfills them
+        gradually.
+
+        Ordered newest-first (highest id, which tracks discovery order)
+        so the issues most likely to actually be on screen right now -
+        the top of the newest-first issue list every publication page
+        shows - get a cover before older, rarely-viewed back catalogue.
+        *limit* bounds how many rows come back; the caller is expected
+        to call this once per poll tick with a small cap so the ~17660
+        backlog fills in gradually rather than in one burst of external
+        requests.
+        """
+        return list(
+            self.session.scalars(
+                select(DbIssue)
+                .where(DbIssue.cover_cache_path.is_(None))
+                .order_by(DbIssue.id.desc())
+                .limit(limit)
+            )
+        )
+
     def set_komga_book_id(self, issue_id: int, book_id: int) -> bool:
         """Cache the Komga book an issue maps to (TASK-1328).
 
