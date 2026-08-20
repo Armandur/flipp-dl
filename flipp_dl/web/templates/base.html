@@ -249,6 +249,15 @@
     .field input[type="search"]:focus,
     .field select:focus { border-color: #7c3aed; }
     .field select { cursor: pointer; }
+    /* Same look for a field sitting inline in a form rather than in a
+       .field block - it keeps its own width instead of filling the row. */
+    input.inline-input {
+      background: #181825; border: 1px solid #45475a; border-radius: 6px;
+      color: #cdd6f4; padding: 8px 10px; font-size: 14px;
+      font-family: inherit; outline: none; transition: border-color .15s;
+    }
+    input.inline-input:focus { border-color: #7c3aed; }
+    input.inline-input::placeholder { color: #6c7086; }
     /* A button after an input in the same field would otherwise sit
        flush against it. */
     .field input + .btn,

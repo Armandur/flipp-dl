@@ -103,6 +103,7 @@
         {{ _("Own poll interval (minutes)") }}
       </label>
       <input
+        class="inline-input"
         id="poll_interval_minutes"
         name="poll_interval_minutes"
         type="number"
@@ -110,7 +111,7 @@
         step="1"
         placeholder="{{ _('Global default') }}"
         value="{{ publication.poll_interval_minutes or '' }}"
-        style="width:120px;"
+        style="width:140px;"
       >
       <button class="btn btn-watch" type="submit">{{ _("Save") }}</button>
     </form>

@@ -1476,3 +1476,36 @@ def test_import_records_size_for_already_downloaded_issues(session, tmp_path):
     # Status and timestamps are untouched - this only fills in the size.
     assert db_issue.status == "done"
     assert report.backfilled == []
+
+
+def test_cover_backfill_prioritises_downloaded_issues(session):
+    """A freshly downloaded issue must not queue behind the back catalogue.
+
+    Ordering purely by discovery id put a just-downloaded old issue at
+    the end of a 17660-row queue, which showed as blank covers in the
+    dashboard's recent downloads.
+    """
+    from datetime import datetime
+
+    from flipp_dl.models import Issue, Publication
+
+    repo = DownloadRepository(session)
+    db_pub = repo.upsert_publication(Publication(custom_code="KA", name="Kalle"))
+
+    # Discovered first (lowest id) but downloaded just now.
+    old_but_downloaded, _ = repo.upsert_issue(
+        Issue(custom_code="old", issue_name="Nr 1", issue_date="2020-01-01"), db_pub.id
+    )
+    # Discovered later, never downloaded.
+    for i in range(3):
+        repo.upsert_issue(
+            Issue(custom_code=f"new{i}", issue_name=f"Nr {i}", issue_date="2026-01-01"),
+            db_pub.id,
+        )
+    repo.mark_issue_done(old_but_downloaded.id, "/output/KA/old.pdf")
+    old_but_downloaded.downloaded_at = datetime(2026, 8, 20, 12, 0)
+    old_but_downloaded.cover_cache_path = None
+    session.flush()
+
+    first = repo.issues_needing_cover_backfill(4)[0]
+    assert first.id == old_but_downloaded.id

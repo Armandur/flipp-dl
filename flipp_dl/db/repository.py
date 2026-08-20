@@ -514,20 +514,26 @@ class DownloadRepository:
         one and never will via that path alone, so this backfills them
         gradually.
 
-        Ordered newest-first (highest id, which tracks discovery order)
-        so the issues most likely to actually be on screen right now -
-        the top of the newest-first issue list every publication page
-        shows - get a cover before older, rarely-viewed back catalogue.
-        *limit* bounds how many rows come back; the caller is expected
-        to call this once per poll tick with a small cap so the ~17660
-        backlog fills in gradually rather than in one burst of external
-        requests.
+        Downloaded issues come first, most recently downloaded before
+        the rest: those are the ones on the dashboard's recent
+        downloads, in the library, and in any reader picking the feed
+        up. Ordering purely by discovery id left a freshly downloaded
+        back-catalogue issue at the very end of a 17660-row queue, which
+        is exactly the gap that showed as blank covers on the dashboard.
+        Everything else follows newest-discovered-first. *limit* bounds
+        how many rows come back; the caller calls this once per poll
+        tick so the backlog fills in gradually rather than in one burst
+        of external requests.
         """
         return list(
             self.session.scalars(
                 select(DbIssue)
                 .where(DbIssue.cover_cache_path.is_(None))
-                .order_by(DbIssue.id.desc())
+                .order_by(
+                    (DbIssue.status != IssueStatus.DONE),
+                    DbIssue.downloaded_at.desc().nullslast(),
+                    DbIssue.id.desc(),
+                )
                 .limit(limit)
             )
         )
