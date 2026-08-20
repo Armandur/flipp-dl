@@ -1,5 +1,27 @@
 # Backlog Export
 
+## [P1][doing] [flipp] Pollen håller skrivlåset medan omslag hämtas över nätet
+
+Observerat i drift 2026-08-20: knappen Import existing files svarar 500 efter exakt 34,5 sekunder, upprepningsbart. Det är SQLite-anslutningens 30-sekunders lock-timeout plus arbetet - alltså database is locked, inte ett fel i importen.
+
+Orsaken är att hela poll_publications körs i EN get_session-transaktion, och _cache_covers ligger inuti den. Den gör upp till ISSUE_COVER_BACKFILL_PER_POLL externa bildhämtningar (nu 2500) medan transaktionen redan skrivit via create_job och sync_publications. Skrivlåset hålls därmed under hela hämtningen, som tar många minuter, och varje annan skrivare - import, manuell nedladdning, cancel, watch - blockeras tills den ger upp.
+
+Problemet fanns latent med 500 omslag och blev fem gånger värre när taket höjdes. Samma familj som TASK-1340, där progress-skrivningar under nedladdning låste databasen.
+
+Acceptanskriterier:
+- Omslagshämtningen håller inte skrivlåset medan den väntar på nätverket. Hämta utanför transaktionen, eller committa löpande i små steg.
+- Ett samtidighetstest visar att en annan session kan skriva medan omslag hämtas. Testet ska falla mot nuvarande kod.
+- Pollens övriga arbete - jobbrad, synk, köläggning - fungerar som förut.
+- Importknappen svarar med sin rapport i drift efteråt.
+
+Filer som väntas ändras: flipp_dl/scheduler.py, flipp_dl/db/repository.py, tests/test_scheduler.py.
+
+- ID: `01M0G0KFA693DC1DAGTDYMGKJB`
+- Type: bug
+- Actor: ai:claude-opus-5
+
+---
+
 ## [P1][done] [flipp] Två utgåvor kan dela filnamn, den ena går förlorad
 
 Hittat i drift: 91:an visar 107 nedladdade utgåvor men mappen innehåller 106 filer. Två utgåvor pekar på exakt samma fil, /output/91an/91an - 2022-02-25 - Nr 6 2022.pdf:
@@ -210,6 +232,40 @@ Rätt fix är troligen en riktig claim-fråga mot DB (SELECT ... WHERE status=qu
 
 - ID: `01M0BBXMEPZZWZVNYZR3SF7RWF`
 - Type: bug
+- Actor: ai:claude-opus-5
+
+---
+
+## [P3][done] [flipp] Öppna omslag i en lightbox
+
+Omslagen i publikationslistan och på detaljsidan ska gå att klicka för att se i större format utan att lämna sidan. En enkel lightbox: klick öppnar, klick utanför eller Escape stänger.
+
+Omslagen cachas via fetch_and_cache_cover i den storlek Flipp levererar (300m-varianten). Avgör om den räcker för en lightbox eller om en större variant ska hämtas.
+
+Motsvarande todo lagd i prenly-dl.
+
+- ID: `01M0G16JNX87KK6XFMKZF7R01P`
+- Type: improvement
+- Actor: human:rasmus
+
+---
+
+## [P3][todo] [flipp] Kodsnutt för konsolen som hämtar ut Flipp-token
+
+Token går numera att spara i gränssnittet (TASK-1342), men att få tag på den kräver fortfarande att man öppnar utvecklarverktygen, hittar rätt anrop och kopierar ur en payload - som README beskriver i fyra steg.
+
+Lägg en färdig kodsnutt att klistra in i webbläsarkonsolen på tidningar.flipp.se, som plockar fram token och skriver ut den kopieringsklar. Visa den på inställningssidan intill token-fältet, med en kopiera-knapp.
+
+Detta är den enkla varianten av TASK-1342:s andra halva - userscriptet som postar token automatiskt är fortfarande en senare fråga. En snutt att klistra in kräver ingen installation och löser samma problem för den som byter token en gång i halvåret.
+
+Att ta reda på under arbetet: var token faktiskt bor i webbläsaren på tidningar.flipp.se - localStorage, cookie eller bara i anropens payload. Det avgör om snutten kan läsa den direkt eller måste haka i ett anrop.
+
+Filer som väntas ändras: flipp_dl/web/templates/settings.html, eventuellt flipp_dl/web/routes.py, locale-filerna.
+
+Verifiering: snutten ska testas i en riktig webbläsare mot tidningar.flipp.se av Rasmus - den går inte att verifiera automatiskt utan ett inloggat konto.
+
+- ID: `01M0G0EJP9BBV3HF83Y45D1NC8`
+- Type: feature
 - Actor: ai:claude-opus-5
 
 ---
