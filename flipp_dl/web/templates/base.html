@@ -228,6 +228,7 @@
     <a class="brand" href="/">Flipp-DL</a>
     <a href="/" {% if request.url.path == "/" %}class="active"{% endif %}>{{ _("Dashboard") }}</a>
     <a href="/publications" {% if request.url.path.startswith("/publications") %}class="active"{% endif %}>{{ _("Publications") }}</a>
+    <a href="/search" {% if request.url.path.startswith("/search") %}class="active"{% endif %}>{{ _("Search") }}</a>
     <a href="/library" {% if request.url.path.startswith("/library") %}class="active"{% endif %}>{{ _("Library") }}</a>
     <a href="/jobs" {% if request.url.path.startswith("/jobs") %}class="active"{% endif %}>{{ _("Jobs") }}</a>
     <a href="/settings" {% if request.url.path.startswith("/settings") %}class="active"{% endif %}>{{ _("Settings") }}</a>

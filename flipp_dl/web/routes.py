@@ -303,6 +303,53 @@ def register(app: FastAPI) -> None:
         finally:
             repo.session.close()
 
+    @app.get("/search", response_class=HTMLResponse)
+    async def search_issues(request: Request):
+        """Search issues across every publication (TASK-1364).
+
+        Unlike /publications/{code} (search within one publication) and
+        /library (search filenames on disk), this searches the issues
+        table itself, across all 94+ publications - the thing missing
+        when you remember a title's year but not which publication it
+        belongs to. The DB query is bounded (see
+        ``DownloadRepository.search_issues``); nothing here loads the
+        full issues table into Python or ships it to the browser to
+        filter client-side.
+        """
+        q = (request.query_params.get("q") or "").strip()
+        status = (request.query_params.get("status") or "").strip()
+        downloaded = (request.query_params.get("downloaded") or "").strip()
+        valid_statuses = {s.value for s in IssueStatus}
+        if status not in valid_statuses:
+            status = ""
+        if downloaded not in ("yes", "no"):
+            downloaded = ""
+        searched = bool(q or status or downloaded)
+
+        repo = _repo(request)
+        try:
+            results: list = []
+            has_more = False
+            if searched:
+                results, has_more = repo.search_issues(
+                    query=q, status=status or None, downloaded=downloaded or None
+                )
+            return _templates(request).TemplateResponse(
+                request,
+                "search.html",
+                {
+                    "q": q,
+                    "status": status,
+                    "downloaded": downloaded,
+                    "results": results,
+                    "has_more": has_more,
+                    "searched": searched,
+                    "result_limit": DownloadRepository.SEARCH_ISSUE_LIMIT,
+                },
+            )
+        finally:
+            repo.session.close()
+
     @app.post("/publications/{code}/watch", response_class=HTMLResponse)
     async def watch_publication(request: Request, code: str):
         """Start watching - bevaka framåt only (TASK-1361).

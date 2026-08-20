@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-08-20 13:55+0200\n"
+"POT-Creation-Date: 2026-08-20 16:31+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -29,32 +29,37 @@ msgstr ""
 msgid "Publications"
 msgstr ""
 
-#: flipp_dl/web/templates/base.html:231 flipp_dl/web/templates/library.html:2
+#: flipp_dl/web/templates/base.html:231 flipp_dl/web/templates/search.html:2
+#: flipp_dl/web/templates/search.html:5 flipp_dl/web/templates/search.html:31
+msgid "Search"
+msgstr ""
+
+#: flipp_dl/web/templates/base.html:232 flipp_dl/web/templates/library.html:2
 #: flipp_dl/web/templates/library.html:5
 #: flipp_dl/web/templates/settings.html:153
 msgid "Library"
 msgstr ""
 
-#: flipp_dl/web/templates/base.html:232 flipp_dl/web/templates/jobs.html:2
+#: flipp_dl/web/templates/base.html:233 flipp_dl/web/templates/jobs.html:2
 #: flipp_dl/web/templates/jobs.html:5
 msgid "Jobs"
 msgstr ""
 
-#: flipp_dl/web/templates/base.html:233 flipp_dl/web/templates/settings.html:2
+#: flipp_dl/web/templates/base.html:234 flipp_dl/web/templates/settings.html:2
 #: flipp_dl/web/templates/settings.html:5
 msgid "Settings"
 msgstr ""
 
-#: flipp_dl/web/templates/base.html:240
+#: flipp_dl/web/templates/base.html:241
 msgid "Sign out"
 msgstr ""
 
-#: flipp_dl/web/templates/base.html:254
+#: flipp_dl/web/templates/base.html:255
 #: flipp_dl/web/templates/issue_row.html:74
 msgid "Cancel"
 msgstr ""
 
-#: flipp_dl/web/templates/base.html:255
+#: flipp_dl/web/templates/base.html:256
 msgid "Confirm"
 msgstr ""
 
@@ -64,10 +69,12 @@ msgstr ""
 
 #: flipp_dl/web/templates/dashboard.html:17
 #: flipp_dl/web/templates/publication_detail.html:155
+#: flipp_dl/web/templates/search.html:43
 msgid "Issue"
 msgstr ""
 
 #: flipp_dl/web/templates/dashboard.html:18
+#: flipp_dl/web/templates/search.html:45
 msgid "Publication"
 msgstr ""
 
@@ -99,6 +106,7 @@ msgstr ""
 #: flipp_dl/web/templates/job_detail.html:19
 #: flipp_dl/web/templates/jobs.html:28
 #: flipp_dl/web/templates/publication_detail.html:157
+#: flipp_dl/web/templates/search.html:46
 msgid "Status"
 msgstr ""
 
@@ -119,6 +127,7 @@ msgstr ""
 #: flipp_dl/web/templates/job_detail.html:82
 #: flipp_dl/web/templates/jobs.html:32
 #: flipp_dl/web/templates/publication_detail.html:139
+#: flipp_dl/web/templates/search.html:24 flipp_dl/web/templates/search.html:68
 msgid "Error"
 msgstr ""
 
@@ -197,26 +206,31 @@ msgstr ""
 #: flipp_dl/web/templates/issue_row.html:25
 #: flipp_dl/web/templates/publication_detail.html:138
 #: flipp_dl/web/templates/publications.html:35
+#: flipp_dl/web/templates/search.html:23 flipp_dl/web/templates/search.html:60
 #: flipp_dl/web/templates/stats_cards.html:15
 msgid "Downloaded"
 msgstr ""
 
 #: flipp_dl/web/templates/issue_row.html:28
 #: flipp_dl/web/templates/publication_detail.html:137
+#: flipp_dl/web/templates/search.html:21
 msgid "Downloading"
 msgstr ""
 
 #: flipp_dl/web/templates/issue_row.html:30
+#: flipp_dl/web/templates/search.html:62
 msgid "Downloading…"
 msgstr ""
 
 #: flipp_dl/web/templates/issue_row.html:33
 #: flipp_dl/web/templates/publication_detail.html:136
+#: flipp_dl/web/templates/search.html:20 flipp_dl/web/templates/search.html:64
 msgid "Queued"
 msgstr ""
 
 #: flipp_dl/web/templates/issue_row.html:37
 #: flipp_dl/web/templates/publication_detail.html:135
+#: flipp_dl/web/templates/search.html:19 flipp_dl/web/templates/search.html:70
 msgid "Not downloaded"
 msgstr ""
 
@@ -488,6 +502,7 @@ msgid "Search issues…"
 msgstr ""
 
 #: flipp_dl/web/templates/publication_detail.html:134
+#: flipp_dl/web/templates/search.html:18
 msgid "All statuses"
 msgstr ""
 
@@ -496,10 +511,12 @@ msgid "Read/unread"
 msgstr ""
 
 #: flipp_dl/web/templates/publication_detail.html:156
+#: flipp_dl/web/templates/search.html:44
 msgid "Date"
 msgstr ""
 
 #: flipp_dl/web/templates/publication_detail.html:160
+#: flipp_dl/web/templates/search.html:47
 msgid "Action"
 msgstr ""
 
@@ -557,6 +574,47 @@ msgstr ""
 
 #: flipp_dl/web/templates/publications.html:52
 msgid "No publications found. Run a poll to discover publications from Flipp."
+msgstr ""
+
+#: flipp_dl/web/templates/search.html:13
+msgid "Search by issue, date or publication…"
+msgstr ""
+
+#: flipp_dl/web/templates/search.html:22 flipp_dl/web/templates/search.html:66
+msgid "Retry pending"
+msgstr ""
+
+#: flipp_dl/web/templates/search.html:27
+msgid "Downloaded or not"
+msgstr ""
+
+#: flipp_dl/web/templates/search.html:28
+msgid "Downloaded only"
+msgstr ""
+
+#: flipp_dl/web/templates/search.html:29
+msgid "Not downloaded only"
+msgstr ""
+
+#: flipp_dl/web/templates/search.html:37
+msgid "Enter a search term or pick a filter to search across every issue."
+msgstr ""
+
+#: flipp_dl/web/templates/search.html:80
+msgid "Open PDF"
+msgstr ""
+
+#: flipp_dl/web/templates/search.html:85
+msgid "View publication"
+msgstr ""
+
+#: flipp_dl/web/templates/search.html:94
+#, python-format
+msgid "Showing the first %(limit)s matches - narrow your search to see fewer."
+msgstr ""
+
+#: flipp_dl/web/templates/search.html:99
+msgid "No issues match your search."
 msgstr ""
 
 #: flipp_dl/web/templates/settings.html:8

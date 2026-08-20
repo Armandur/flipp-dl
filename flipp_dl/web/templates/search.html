@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Search") }} – Flipp-DL{% endblock %}
+
+{% block content %}
+<h1>{{ _("Search") }}</h1>
+
+<form class="filter-bar" method="get" action="/search">
+  <input
+    id="search-q"
+    name="q"
+    type="search"
+    value="{{ q }}"
+    placeholder="{{ _('Search by issue, date or publication…') }}"
+    autocomplete="off"
+    spellcheck="false"
+  >
+  <select id="search-status" name="status">
+    <option value="">{{ _("All statuses") }}</option>
+    <option value="new" {% if status == "new" %}selected{% endif %}>{{ _("Not downloaded") }}</option>
+    <option value="queued" {% if status == "queued" %}selected{% endif %}>{{ _("Queued") }}</option>
+    <option value="downloading" {% if status == "downloading" %}selected{% endif %}>{{ _("Downloading") }}</option>
+    <option value="retry_pending" {% if status == "retry_pending" %}selected{% endif %}>{{ _("Retry pending") }}</option>
+    <option value="done" {% if status == "done" %}selected{% endif %}>{{ _("Downloaded") }}</option>
+    <option value="error" {% if status == "error" %}selected{% endif %}>{{ _("Error") }}</option>
+  </select>
+  <select id="search-downloaded" name="downloaded">
+    <option value="">{{ _("Downloaded or not") }}</option>
+    <option value="yes" {% if downloaded == "yes" %}selected{% endif %}>{{ _("Downloaded only") }}</option>
+    <option value="no" {% if downloaded == "no" %}selected{% endif %}>{{ _("Not downloaded only") }}</option>
+  </select>
+  <button class="btn btn-primary" type="submit">{{ _("Search") }}</button>
+</form>
+
+<div class="card">
+  {% if not searched %}
+  <div class="empty">
+    {{ _("Enter a search term or pick a filter to search across every issue.") }}
+  </div>
+  {% elif results %}
+  <table>
+    <thead>
+      <tr>
+        <th>{{ _("Issue") }}</th>
+        <th>{{ _("Date") }}</th>
+        <th>{{ _("Publication") }}</th>
+        <th>{{ _("Status") }}</th>
+        <th>{{ _("Action") }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for issue in results %}
+      <tr>
+        <td><strong>{{ issue.issue_name or "—" }}</strong></td>
+        <td class="dim">{{ issue.issue_date or "—" }}</td>
+        <td>
+          <a href="/publications/{{ issue.publication.custom_code }}">{{ issue.publication.name }}</a>
+        </td>
+        <td>
+          {% if issue.status == "done" %}
+            <span class="badge badge-done">{{ _("Downloaded") }}</span>
+          {% elif issue.status == "downloading" %}
+            <span class="badge badge-running">{{ _("Downloading…") }}</span>
+          {% elif issue.status == "queued" %}
+            <span class="badge badge-queued">{{ _("Queued") }}</span>
+          {% elif issue.status == "retry_pending" %}
+            <span class="badge badge-queued">{{ _("Retry pending") }}</span>
+          {% elif issue.status == "error" %}
+            <span class="badge badge-error" title="{{ issue.error_message or '' }}">{{ _("Error") }}</span>
+          {% else %}
+            <span class="badge badge-queued">{{ _("Not downloaded") }}</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if issue.status == "done" %}
+          <a
+            class="btn btn-primary-soft"
+            href="/publications/{{ issue.publication.custom_code }}/issues/{{ issue.custom_code }}/file"
+            target="_blank"
+            rel="noopener"
+          >{{ _("Open PDF") }}</a>
+          {% else %}
+          <a
+            class="btn btn-primary-soft"
+            href="/publications/{{ issue.publication.custom_code }}#issue-row-{{ issue.custom_code }}"
+          >{{ _("View publication") }}</a>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% if has_more %}
+  <div class="note">
+    {{ _("Showing the first %(limit)s matches - narrow your search to see fewer.") % {"limit": result_limit} }}
+  </div>
+  {% endif %}
+  {% else %}
+  <div class="empty">
+    {{ _("No issues match your search.") }}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

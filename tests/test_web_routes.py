@@ -1780,3 +1780,220 @@ def test_web_entrypoint_registers_every_scheduled_job():
     web_jobs = job_ids(Path("flipp_dl/web/main.py"))
     assert cli_jobs, "no jobs found in scheduler.py - has add_job been renamed?"
     assert cli_jobs <= web_jobs, f"only scheduled in the CLI: {cli_jobs - web_jobs}"
+
+
+# ---------------------------------------------------------------------------
+# Cross-publication search (TASK-1364)
+# ---------------------------------------------------------------------------
+
+
+def test_search_shows_prompt_without_any_query(client: TestClient):
+    """No q/status/downloaded at all - the page must not run a search."""
+    resp = client.get("/search")
+    assert resp.status_code == 200
+    assert "Kalle Anka" not in resp.text
+
+
+def test_search_finds_issue_by_name_across_publications(client: TestClient):
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        other = repo.upsert_publication(
+            Publication(custom_code="DD", name="Dagens Dax")
+        )
+        repo.upsert_issue(
+            Issue(
+                custom_code="dd01",
+                issue_name="Special jubileum",
+                issue_date="2025-06-01",
+            ),
+            other.id,
+        )
+
+    resp = client.get("/search", params={"q": "jubileum"})
+    assert resp.status_code == 200
+    assert "Special jubileum" in resp.text
+    assert "Dagens Dax" in resp.text
+    # The seeded KA issue does not match "jubileum" - must not show up.
+    assert "Nr 1" not in resp.text
+
+
+def test_search_matches_publication_name_not_just_issue_name(client: TestClient):
+    """A query naming the publication finds its issues too."""
+    resp = client.get("/search", params={"q": "Kalle Anka"})
+    assert resp.status_code == 200
+    assert "Nr 1" in resp.text
+
+
+def test_search_filters_by_status(client: TestClient):
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        pub = repo.get_publication("KA")
+        errored, _ = repo.upsert_issue(
+            Issue(custom_code="ka-err", issue_name="Trasig", issue_date="2025-01-01"),
+            pub.id,
+        )
+        errored.status = "error"
+
+    resp = client.get("/search", params={"q": "Kalle", "status": "error"})
+    assert resp.status_code == 200
+    assert "Trasig" in resp.text
+    assert "Nr 1" not in resp.text  # ka01 is "done", filtered out
+
+
+def test_search_filters_by_retry_pending_status(client: TestClient):
+    """TASK-1363 added retry_pending - the search status filter must offer it."""
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        pub = repo.get_publication("KA")
+        retry_issue, _ = repo.upsert_issue(
+            Issue(custom_code="ka-retry", issue_name="Väntar", issue_date="2025-02-01"),
+            pub.id,
+        )
+        retry_issue.status = "retry_pending"
+
+    resp = client.get("/search")
+    assert 'value="retry_pending"' in resp.text
+
+    resp = client.get("/search", params={"status": "retry_pending"})
+    assert resp.status_code == 200
+    assert "Väntar" in resp.text
+    assert "Nr 1" not in resp.text
+
+
+def test_search_filters_by_downloaded_only(client: TestClient):
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        pub = repo.get_publication("KA")
+        repo.upsert_issue(
+            Issue(custom_code="ka-new", issue_name="Ny", issue_date="2025-03-01"),
+            pub.id,
+        )
+
+    resp = client.get("/search", params={"q": "Kalle", "downloaded": "yes"})
+    assert resp.status_code == 200
+    assert "Nr 1" in resp.text  # ka01 is done
+    assert "Ny" not in resp.text  # ka-new is "new"
+
+
+def test_search_filters_by_not_downloaded_only(client: TestClient):
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        pub = repo.get_publication("KA")
+        repo.upsert_issue(
+            Issue(custom_code="ka-new", issue_name="Ny", issue_date="2025-03-01"),
+            pub.id,
+        )
+
+    resp = client.get("/search", params={"q": "Kalle", "downloaded": "no"})
+    assert resp.status_code == 200
+    assert "Ny" in resp.text
+    assert "Nr 1" not in resp.text
+
+
+def test_search_links_downloaded_issue_directly_to_its_pdf(client: TestClient):
+    resp = client.get("/search", params={"q": "Kalle"})
+    assert resp.status_code == 200
+    assert "/publications/KA/issues/ka01/file" in resp.text
+
+
+def test_search_links_undownloaded_issue_to_publication_detail(client: TestClient):
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        pub = repo.get_publication("KA")
+        repo.upsert_issue(
+            Issue(custom_code="ka-new", issue_name="Färsk", issue_date="2025-04-01"),
+            pub.id,
+        )
+
+    resp = client.get("/search", params={"q": "Färsk"})
+    assert resp.status_code == 200
+    assert "/publications/KA#issue-row-ka-new" in resp.text
+    assert "/publications/KA/issues/ka-new/file" not in resp.text
+
+
+def test_search_query_count_does_not_grow_with_number_of_issues(client: TestClient):
+    """TASK-1364: search must be one bounded DB query, not "load all, filter
+    in Python" - the same trap TASK-1338 fixed for the publication list.
+
+    Seeds a small batch of matching issues, records the SELECT count and
+    checks each SELECT touching ``issues`` carries a LIMIT; then seeds a
+    much larger batch and asserts the SELECT count for the exact same
+    request is unchanged.
+    """
+    from sqlalchemy import event
+
+    engine = client.app.state.session_factory.kw["bind"]
+
+    def _select_count_for_search() -> list[str]:
+        statements: list[str] = []
+
+        def _capture(conn, cursor, statement, parameters, context, executemany):
+            statements.append(statement)
+
+        event.listen(engine, "before_cursor_execute", _capture)
+        try:
+            resp = client.get("/search", params={"q": "Ymer"})
+        finally:
+            event.remove(engine, "before_cursor_execute", _capture)
+        assert resp.status_code == 200
+        return [s for s in statements if s.strip().upper().startswith("SELECT")]
+
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        pub = repo.upsert_publication(Publication(custom_code="YM", name="Ymer"))
+        for i in range(5):
+            repo.upsert_issue(
+                Issue(
+                    custom_code=f"ym{i}", issue_name=f"Nr {i}", issue_date="2024-01-01"
+                ),
+                pub.id,
+            )
+
+    small_selects = _select_count_for_search()
+    issues_selects = [s for s in small_selects if "FROM issues" in s]
+    assert issues_selects, "expected the search query to hit the issues table"
+    for stmt in issues_selects:
+        assert "LIMIT" in stmt.upper(), stmt
+
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        pub = repo.get_publication("YM")
+        for i in range(5, 305):
+            repo.upsert_issue(
+                Issue(
+                    custom_code=f"ym{i}", issue_name=f"Nr {i}", issue_date="2024-01-01"
+                ),
+                pub.id,
+            )
+
+    large_selects = _select_count_for_search()
+    assert len(large_selects) == len(small_selects)
+
+
+def test_search_result_capped_and_flags_more_available(client: TestClient, monkeypatch):
+    """With more matches than the cap, the page says so instead of dumping them all."""
+    monkeypatch.setattr(DownloadRepository, "SEARCH_ISSUE_LIMIT", 3)
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        pub = repo.upsert_publication(Publication(custom_code="CAP", name="Cap Test"))
+        for i in range(6):
+            repo.upsert_issue(
+                Issue(
+                    custom_code=f"cap{i}", issue_name=f"Nr {i}", issue_date="2024-01-01"
+                ),
+                pub.id,
+            )
+
+    resp = client.get("/search", params={"q": "Cap Test"})
+    assert resp.status_code == 200
+    # Only the row-count matters here, not which three of the six matched.
+    assert resp.text.count("/publications/CAP#issue-row-cap") == 3
+    assert (
+        "Showing the first 3 matches" in resp.text or "Visar de första 3" in resp.text
+    )
+
+
+def test_search_nav_link_present_and_active(client: TestClient):
+    resp = client.get("/search")
+    assert resp.status_code == 200
+    assert 'href="/search"' in resp.text

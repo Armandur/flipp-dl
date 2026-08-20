@@ -694,6 +694,67 @@ class DownloadRepository:
             q = q.where(DbIssue.status == status)
         return list(self.session.scalars(q))
 
+    # Cap for the cross-publication search (TASK-1364). The production
+    # instance has 17660+ issues - loading them all and filtering in
+    # Python (or handing them to the browser to filter in JavaScript,
+    # like the smaller /publications and /publications/<code> filters
+    # do) is exactly the trap TASK-1338 removed from the publication
+    # list. One bounded, indexed query instead.
+    SEARCH_ISSUE_LIMIT = 200
+
+    def search_issues(
+        self,
+        query: str | None = None,
+        status: str | None = None,
+        downloaded: str | None = None,
+        limit: int | None = None,
+    ) -> tuple[list[DbIssue], bool]:
+        """Search issues by name/date/publication across all publications.
+
+        ``query`` matches (case-insensitively) against the issue name,
+        the issue date string, and the owning publication's name.
+        ``status`` restricts to one :class:`IssueStatus` value.
+        ``downloaded`` is ``"yes"`` (only ``done``), ``"no"`` (anything
+        but ``done``), or ``None``/anything else for no restriction.
+
+        Fetches ``limit + 1`` rows and trims the extra one so the caller
+        can tell "there may be more, narrow your search" apart from "this
+        is everything" without a separate ``COUNT(*)`` query. Returns
+        ``(issues, has_more)``.
+        """
+        if limit is None:
+            # Resolved via the class, not a bound default argument, so
+            # tests (and any future caller) can override
+            # ``DownloadRepository.SEARCH_ISSUE_LIMIT`` and have it take
+            # effect - a mutable default bound at function-definition time
+            # wouldn't pick that up.
+            limit = type(self).SEARCH_ISSUE_LIMIT
+        q = (
+            select(DbIssue)
+            .join(DbPublication, DbIssue.publication_id == DbPublication.id)
+            .options(selectinload(DbIssue.publication))
+        )
+        text = (query or "").strip()
+        if text:
+            like = f"%{text}%"
+            q = q.where(
+                or_(
+                    DbIssue.issue_name.ilike(like),
+                    DbIssue.issue_date.ilike(like),
+                    DbPublication.name.ilike(like),
+                )
+            )
+        if status:
+            q = q.where(DbIssue.status == status)
+        if downloaded == "yes":
+            q = q.where(DbIssue.status == IssueStatus.DONE)
+        elif downloaded == "no":
+            q = q.where(DbIssue.status != IssueStatus.DONE)
+        q = q.order_by(DbIssue.issue_date.desc(), DbIssue.id.desc()).limit(limit + 1)
+        rows = list(self.session.scalars(q))
+        has_more = len(rows) > limit
+        return rows[:limit], has_more
+
     def count_issues_by_status(self) -> dict[str, int]:
         """Return ``{status: count}`` over the issues table.
 
