@@ -236,6 +236,61 @@ def test_publication_detail_hides_read_badge_without_book_mapping(client: TestCl
     assert 'data-read-status=""' in resp.text
 
 
+# ---------------------------------------------------------------------------
+# Queue-missing size estimate in the confirm dialog (TASK-1362)
+# ---------------------------------------------------------------------------
+
+
+def test_queue_missing_confirm_shows_count_and_size(client: TestClient):
+    """ka01 is downloaded with a known size - it's the basis for the estimate."""
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        pub = repo.get_publication("KA")
+        issue = repo.get_issue_by_code("ka01", pub.id)
+        issue.file_size = 50 * 1024 * 1024  # 50 MB
+        for i in range(3):
+            repo.upsert_issue(
+                Issue(
+                    custom_code=f"miss{i}",
+                    issue_name=f"Nr {i}",
+                    issue_date="2023-01-01",
+                ),
+                pub.id,
+            )
+
+    resp = client.get("/publications/KA")
+    assert resp.status_code == 200
+    assert 'hx-confirm="Queue 3 missing issues (~150.0 MB)?"' in resp.text
+
+
+def test_queue_missing_confirm_shows_count_only_without_size_data(client: TestClient):
+    """No publication anywhere has a known file_size - no fabricated number."""
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        pub = repo.get_publication("KA")
+        # The seeded ka01 issue is "done" but has no file_size recorded
+        # (pre-TASK-1362 data) - and it's the only "done" issue in the DB.
+        repo.upsert_issue(
+            Issue(custom_code="miss0", issue_name="Nr 0", issue_date="2023-01-01"),
+            pub.id,
+        )
+
+    resp = client.get("/publications/KA")
+    assert resp.status_code == 200
+    assert 'hx-confirm="Queue 1 missing issue?"' in resp.text
+
+
+def test_queue_missing_confirm_says_nothing_to_queue_when_all_downloaded(
+    client: TestClient,
+):
+    resp = client.get("/publications/KA")
+    assert resp.status_code == 200
+    assert (
+        'hx-confirm="Nothing to queue - every issue is already downloaded."'
+        in resp.text
+    )
+
+
 def test_issue_row_never_hotlinks_pagesuite(client: TestClient):
     resp = client.get("/publications/KA/issues/ka01/row")
     assert resp.status_code == 200

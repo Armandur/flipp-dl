@@ -45,6 +45,22 @@
     {% endif %}
     {# Catch up without touching the watch flag - unwatch/watch would
        leave a window where a poll could miss new issues. #}
+    {% set missing_count = queue_estimate.issue_count %}
+    {% set missing_label = _("issue") if missing_count == 1 else _("issues") %}
+    {% if missing_count == 0 %}
+      {% set queue_confirm_text = _("Nothing to queue - every issue is already downloaded.") %}
+    {% elif queue_estimate.estimated_bytes is not none %}
+      {% set queue_confirm_text = _("Queue %(count)s missing %(label)s (~%(size)s)?") % {
+        "count": missing_count,
+        "label": missing_label,
+        "size": queue_estimate.estimated_bytes | human_size,
+      } %}
+    {% else %}
+      {% set queue_confirm_text = _("Queue %(count)s missing %(label)s?") % {
+        "count": missing_count,
+        "label": missing_label,
+      } %}
+    {% endif %}
     <div class="detail-actions">
       <button
         class="btn btn-watch"
@@ -52,7 +68,7 @@
         hx-target="#queue-missing-result"
         hx-swap="innerHTML"
         hx-vals='{"_csrf_token": "{{ csrf_token }}"}'
-        hx-confirm="{{ _("Queue every issue that isn't downloaded yet?") }}"
+        hx-confirm="{{ queue_confirm_text }}"
       >{{ _("Queue missing issues") }}</button>
       <span id="queue-missing-result" class="dim"></span>
     </div>

@@ -182,6 +182,43 @@ def test_skipping_an_existing_file_still_marks_the_issue_done(wired):
         assert repo.get_issue(issue_id).status == "done"
 
 
+def test_download_issue_records_file_size(wired):
+    """The size-estimate feature (TASK-1362) reads this column - never disk."""
+    factory, out = wired
+
+    with get_session(factory) as session:
+        repo = DownloadRepository(session)
+        target = IssueDownloader(
+            FakeClient(pages=2), out, workers=1, repository=repo
+        ).download_issue(PUB, ISSUE, skip_existing=False)
+        issue_id = repo.get_issue_by_code("ka01", repo.get_publication("KA").id).id
+        assert repo.get_issue(issue_id).file_size == target.stat().st_size
+
+
+def test_skipping_an_existing_file_still_records_its_size(wired):
+    """Skip-existing marks the row done straight from what's already on disk."""
+    factory, out = wired
+
+    with get_session(factory) as session:
+        repo = DownloadRepository(session)
+        target = IssueDownloader(
+            FakeClient(pages=2), out, workers=1, repository=repo
+        ).download_issue(PUB, ISSUE, skip_existing=False)
+        issue_id = repo.get_issue_by_code("ka01", repo.get_publication("KA").id).id
+        repo.mark_issue_queued(issue_id)
+        repo.get_issue(issue_id).file_size = None
+
+    with get_session(factory) as session:
+        repo = DownloadRepository(session)
+        IssueDownloader(
+            FakeClient(pages=2), out, workers=1, repository=repo
+        ).download_issue(PUB, ISSUE, skip_existing=True)
+
+    with get_session(factory) as session:
+        repo = DownloadRepository(session)
+        assert repo.get_issue(issue_id).file_size == target.stat().st_size
+
+
 def test_release_duplicate_file_claims_keeps_the_first_download(wired):
     """Recovery leaves the real owner alone and frees the other."""
     factory, _out = wired

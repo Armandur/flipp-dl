@@ -180,6 +180,14 @@ class DbIssue(Base):
     discovered_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
     downloaded_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     file_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # Size in bytes of the merged PDF at ``file_path``, captured once when
+    # the issue is marked done (download or disk-import backfill). Stored
+    # rather than stat()'d on demand - the size-estimate feature
+    # (TASK-1362) reads this column for hundreds of "done" issues on every
+    # bulk-queue confirm; re-statting that many files from disk on every
+    # page render would be the expensive path this avoids. ``None`` for
+    # issues downloaded before this column existed.
+    file_size: Mapped[int | None] = mapped_column(Integer, nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Live progress for the active download – updated after each page is
     # fetched so the web UI can poll and render "3 / 12 pages". Both

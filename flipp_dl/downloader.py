@@ -118,7 +118,13 @@ class IssueDownloader:
             # status untouched, which used to leave rows stuck in queued.
             logger.info("Skipping existing file: %s", target)
             if db_issue_id is not None and self.repository is not None:
-                self.repository.mark_issue_done(db_issue_id, str(target))
+                try:
+                    size = target.stat().st_size
+                except OSError:
+                    size = None
+                self.repository.mark_issue_done(
+                    db_issue_id, str(target), file_size=size
+                )
                 self.repository.session.commit()
             return target
 
@@ -175,7 +181,11 @@ class IssueDownloader:
             raise
 
         if db_issue_id is not None and self.repository is not None:
-            self.repository.mark_issue_done(db_issue_id, str(target))
+            try:
+                size = target.stat().st_size
+            except OSError:
+                size = None
+            self.repository.mark_issue_done(db_issue_id, str(target), file_size=size)
             self.repository.session.commit()
 
         logger.info("Wrote %s", target)

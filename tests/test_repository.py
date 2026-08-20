@@ -671,6 +671,124 @@ def test_queue_missing_issues_is_idempotent(session):
 
 
 # ---------------------------------------------------------------------------
+# estimate_missing_download_size (TASK-1362)
+# ---------------------------------------------------------------------------
+
+
+def _pub_with_sized_issues(repo, specs: list[tuple[str, int | None]], code: str = "KA"):
+    """Create a publication whose issues have the given (status, file_size).
+
+    ``file_size`` may be ``None`` even for a ``done`` issue - old rows
+    downloaded before this column existed.
+    """
+    db_pub = repo.upsert_publication(Publication(custom_code=code, name="Kalle Anka"))
+    repo.session.flush()
+    for i, (status, size) in enumerate(specs):
+        issue = Issue(
+            custom_code=f"{code}{i}", issue_name=f"Nr {i}", issue_date="2024-01-01"
+        )
+        db_issue, _ = repo.upsert_issue(issue, db_pub.id)
+        db_issue.status = status
+        db_issue.file_size = size
+    repo.session.flush()
+    return db_pub
+
+
+def test_estimate_uses_publications_own_average(repo):
+    pub = _pub_with_sized_issues(
+        repo,
+        [
+            (IssueStatus.DONE, 100),
+            (IssueStatus.DONE, 200),
+            (IssueStatus.NEW, None),
+            (IssueStatus.NEW, None),
+        ],
+    )
+
+    estimate = repo.estimate_missing_download_size(pub.id)
+
+    assert estimate.issue_count == 2
+    assert estimate.basis == "publication"
+    # Average of 100/200 is 150 bytes/issue, times 2 missing issues.
+    assert estimate.estimated_bytes == 300
+
+
+def test_estimate_falls_back_to_global_median_without_own_data(repo):
+    other = _pub_with_sized_issues(
+        repo, [(IssueStatus.DONE, 100), (IssueStatus.DONE, 300)], code="OT"
+    )
+    pub = _pub_with_sized_issues(
+        repo, [(IssueStatus.NEW, None), (IssueStatus.NEW, None)], code="KA"
+    )
+    repo.session.commit()
+
+    estimate = repo.estimate_missing_download_size(pub.id)
+
+    assert other.id != pub.id
+    assert estimate.issue_count == 2
+    assert estimate.basis == "global"
+    # Median of [100, 300] is 200 bytes/issue, times 2 missing issues.
+    assert estimate.estimated_bytes == 400
+
+
+def test_estimate_returns_none_bytes_when_no_size_data_exists_anywhere(repo):
+    pub = _pub_with_sized_issues(
+        repo, [(IssueStatus.NEW, None), (IssueStatus.ERROR, None)]
+    )
+
+    estimate = repo.estimate_missing_download_size(pub.id)
+
+    assert estimate.issue_count == 2
+    assert estimate.basis == "none"
+    assert estimate.estimated_bytes is None
+
+
+def test_estimate_zero_missing_issues_reports_zero_count(repo):
+    pub = _pub_with_sized_issues(repo, [(IssueStatus.DONE, 100)])
+
+    estimate = repo.estimate_missing_download_size(pub.id)
+
+    assert estimate.issue_count == 0
+
+
+def test_estimate_can_exclude_failed_issues(repo):
+    pub = _pub_with_sized_issues(
+        repo,
+        [(IssueStatus.DONE, 100), (IssueStatus.NEW, None), (IssueStatus.ERROR, None)],
+    )
+
+    estimate = repo.estimate_missing_download_size(pub.id, include_failed=False)
+
+    assert estimate.issue_count == 1
+
+
+def test_mark_issue_done_stores_file_size(repo):
+    pub = _publication()
+    db_pub = repo.upsert_publication(pub)
+    repo.session.flush()
+    db_issue, _ = repo.upsert_issue(pub.issues[0], db_pub.id)
+    repo.session.flush()
+
+    repo.mark_issue_done(db_issue.id, "/tmp/out.pdf", file_size=12345)
+    repo.session.commit()
+
+    assert repo.get_issue(db_issue.id).file_size == 12345
+
+
+def test_mark_issue_done_without_size_leaves_it_unset(repo):
+    pub = _publication()
+    db_pub = repo.upsert_publication(pub)
+    repo.session.flush()
+    db_issue, _ = repo.upsert_issue(pub.issues[0], db_pub.id)
+    repo.session.flush()
+
+    repo.mark_issue_done(db_issue.id, "/tmp/out.pdf")
+    repo.session.commit()
+
+    assert repo.get_issue(db_issue.id).file_size is None
+
+
+# ---------------------------------------------------------------------------
 # import_existing_files (TASK-1283)
 # ---------------------------------------------------------------------------
 
@@ -697,6 +815,7 @@ def test_import_existing_backfills_a_queued_issue_found_on_disk(repo, tmp_path):
     assert refreshed.status == IssueStatus.DONE
     assert refreshed.file_path == str(target.resolve())
     assert refreshed.downloaded_at is not None
+    assert refreshed.file_size == target.stat().st_size
     assert report.orphan_files == []
     assert report.missing_files == []
     assert report.shared_files == []

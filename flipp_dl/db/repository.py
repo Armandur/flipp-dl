@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import statistics
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -147,6 +148,22 @@ class ImportReport:
     @property
     def has_findings(self) -> bool:
         return bool(self.orphan_files or self.missing_files or self.shared_files)
+
+
+@dataclass
+class QueueSizeEstimate:
+    """Estimated download size for a publication's not-yet-downloaded issues.
+
+    Produced by :meth:`DownloadRepository.estimate_missing_download_size`
+    (TASK-1362), which does no rendering and no filesystem access - only
+    ``issues.file_size`` values already captured on previous downloads -
+    so the same call answers both the bulk-queue confirm dialog and the
+    backfill size-threshold warning (TASK-1361).
+    """
+
+    issue_count: int
+    estimated_bytes: int | None
+    basis: str  # "publication" | "global" | "none"
 
 
 class DownloadRepository:
@@ -567,7 +584,11 @@ class DownloadRepository:
                     )
                     continue
 
-                self.mark_issue_done(issue.id, str(resolved))
+                try:
+                    size = resolved.stat().st_size
+                except OSError:
+                    size = None
+                self.mark_issue_done(issue.id, str(resolved), file_size=size)
                 report.backfilled.append(
                     {**_issue_identity(issue), "file_path": str(resolved)}
                 )
@@ -689,11 +710,15 @@ class DownloadRepository:
             issue.progress_current = current
             issue.progress_total = total
 
-    def mark_issue_done(self, issue_id: int, file_path: str) -> None:
+    def mark_issue_done(
+        self, issue_id: int, file_path: str, file_size: int | None = None
+    ) -> None:
         issue = self.session.get(DbIssue, issue_id)
         if issue:
             issue.status = IssueStatus.DONE
             issue.file_path = file_path
+            if file_size is not None:
+                issue.file_size = file_size
             issue.downloaded_at = _now()
             issue.error_message = None
             issue.progress_current = 0
@@ -985,6 +1010,76 @@ class DownloadRepository:
             self.create_job("download", {"issue_id": issue.id})
             queued += 1
         return queued
+
+    def estimate_missing_download_size(
+        self, publication_id: int, *, include_failed: bool = True
+    ) -> QueueSizeEstimate:
+        """Estimate what queuing *publication_id*'s missing issues would cost.
+
+        Read-only and side-effect free - safe to call on every page render,
+        unlike a filesystem walk. Sizes come from ``issues.file_size``,
+        populated when an issue is marked done (download or disk-import
+        backfill); nothing is stat()'d here.
+
+        The per-issue size is the average of this publication's own
+        downloaded issues where available (publications vary wildly in
+        page count, so a pocket-sized magazine and a thin weekly need
+        their own basis). When this publication has no downloaded issues
+        with a known size, the median size across *all* downloaded issues
+        is used instead. When neither exists, ``estimated_bytes`` is
+        ``None`` - the caller must show the issue count without a
+        fabricated size, never a guessed number.
+        """
+        wanted = [IssueStatus.NEW]
+        if include_failed:
+            wanted.append(IssueStatus.ERROR)
+
+        issue_count = int(
+            self.session.scalar(
+                select(func.count(DbIssue.id)).where(
+                    DbIssue.publication_id == publication_id,
+                    DbIssue.status.in_(wanted),
+                )
+            )
+            or 0
+        )
+
+        per_issue_bytes: float | None = None
+        basis = "none"
+
+        pub_avg = self.session.scalar(
+            select(func.avg(DbIssue.file_size)).where(
+                DbIssue.publication_id == publication_id,
+                DbIssue.status == IssueStatus.DONE,
+                DbIssue.file_size.is_not(None),
+            )
+        )
+        if pub_avg is not None:
+            per_issue_bytes = float(pub_avg)
+            basis = "publication"
+        else:
+            sizes = list(
+                self.session.scalars(
+                    select(DbIssue.file_size).where(
+                        DbIssue.status == IssueStatus.DONE,
+                        DbIssue.file_size.is_not(None),
+                    )
+                )
+            )
+            if sizes:
+                per_issue_bytes = float(statistics.median(sizes))
+                basis = "global"
+
+        estimated_bytes = (
+            round(per_issue_bytes * issue_count)
+            if per_issue_bytes is not None
+            else None
+        )
+        return QueueSizeEstimate(
+            issue_count=issue_count,
+            estimated_bytes=estimated_bytes,
+            basis=basis,
+        )
 
     def cancel_issue(self, issue_id: int) -> int:
         """Stop an in-flight issue: reset it and finish its jobs.

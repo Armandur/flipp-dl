@@ -470,6 +470,7 @@ def register(app: FastAPI) -> None:
             # lexicographic sort matches chronological order.
             issues = sorted(pub.issues, key=lambda i: i.issue_date or "", reverse=True)
             _annotate_file_exists(issues, request.app.state.output_root)
+            queue_estimate = repo.estimate_missing_download_size(pub.id)
             return _templates(request).TemplateResponse(
                 request,
                 "publication_detail.html",
@@ -478,6 +479,7 @@ def register(app: FastAPI) -> None:
                     "issues": issues,
                     "komga": _komga_status(repo, pub),
                     "csrf_token": generate_csrf_token(request),
+                    "queue_estimate": queue_estimate,
                 },
             )
         finally:
