@@ -2288,3 +2288,17 @@ def test_dashboard_shows_issue_covers_in_recent_downloads(client: TestClient):
     assert "/publications/KA/issues/ka01/cover" in resp.text
     # And it opens the lightbox like covers elsewhere.
     assert "/publications/KA/issues/ka01/cover/large" in resp.text
+
+
+def test_settings_shows_the_token_console_snippet(client: TestClient):
+    """The snippet must read the cookie Flipp actually uses.
+
+    Flipp's own web app stores the token as a cookie named flipp_token
+    (verified against its main bundle), so the snippet reads that -
+    not localStorage.
+    """
+    resp = client.get("/settings")
+    assert resp.status_code == 200
+    assert "flipp_token=" in resp.text
+    assert "document.cookie" in resp.text
+    assert "tidningar.flipp.se" in resp.text

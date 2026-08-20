@@ -39,8 +39,16 @@ tag i din egen:
 1. Logga in på <https://tidningar.flipp.se/> i en webbläsare.
 2. Öppna utvecklarverktygen (F12) och gå till fliken **Network**.
 3. Ladda om sidan och leta efter anropet `refreshsignintoken`.
-4. Kopiera värdet på fältet `token` från request-payloaden (eller från
-   motsvarande cookie / localStorage-nyckel).
+4. Kopiera värdet på fältet `token` från request-payloaden.
+
+Enklare: tokenen ligger i en cookie som heter `flipp_token`. Klistra in
+det här i konsolen (F12) på inloggad sida, så skrivs den ut direkt:
+
+```js
+decodeURIComponent(document.cookie).split(";").map(c => c.trim()).find(c => c.startsWith("flipp_token="))?.slice(12)
+```
+
+Samma kodsnutt finns att kopiera på Inställningar i webbgränssnittet.
 
 Spara token antingen som miljövariabel:
 

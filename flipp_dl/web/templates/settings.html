@@ -34,6 +34,19 @@
       {% else %}
       <div class="note">{{ _("No token configured. Paste one above and save.") }}</div>
       {% endif %}
+
+      {# Flipp stores the token in a cookie named flipp_token - the site's
+         own code reads it exactly this way. The snippet saves a trip
+         through the network tab. #}
+      <details class="token-help">
+        <summary>{{ _("How do I find my token?") }}</summary>
+        <p class="note">
+          {{ _("Log in at") }} <a class="job-link" href="https://tidningar.flipp.se/" target="_blank" rel="noopener">tidningar.flipp.se</a>{{ _(", open the browser console with F12 and paste this:") }}
+        </p>
+        <pre class="mono token-snippet" id="token-snippet">decodeURIComponent(document.cookie).split(";").map(c => c.trim()).find(c => c.startsWith("flipp_token="))?.slice(12)</pre>
+        <button type="button" class="btn btn-primary-soft" id="token-snippet-copy">{{ _("Copy snippet") }}</button>
+        <span id="token-snippet-status" class="dim"></span>
+      </details>
     </div>
 
     <div class="field">
@@ -330,4 +343,38 @@
   </div>
 </section>
 </div>
+
+<script>
+  (function () {
+    const btn = document.getElementById("token-snippet-copy");
+    const pre = document.getElementById("token-snippet");
+    const status = document.getElementById("token-snippet-status");
+    if (!btn || !pre) return;
+    btn.addEventListener("click", () => {
+      const say = (msg) => {
+        status.textContent = msg;
+        setTimeout(() => { status.textContent = ""; }, 3000);
+      };
+      // navigator.clipboard only exists in a secure context, and this
+      // is typically served over plain http on a home network - so
+      // select the text instead and let the user press Ctrl+C.
+      const selectSnippet = () => {
+        const range = document.createRange();
+        range.selectNodeContents(pre);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+      };
+      if (!navigator.clipboard) {
+        selectSnippet();
+        say("{{ _('Selected - press Ctrl+C to copy') }}");
+        return;
+      }
+      navigator.clipboard.writeText(pre.textContent.trim()).then(
+        () => say("{{ _('Copied') }}"),
+        () => { selectSnippet(); say("{{ _('Selected - press Ctrl+C to copy') }}"); }
+      );
+    });
+  })();
+</script>
 {% endblock %}
