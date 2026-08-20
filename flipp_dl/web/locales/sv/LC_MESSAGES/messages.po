@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-08-20 13:28+0200\n"
+"POT-Creation-Date: 2026-08-20 13:55+0200\n"
 "PO-Revision-Date: 2026-08-19 18:14+0200\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: sv\n"
@@ -104,20 +104,20 @@ msgid "Status"
 msgstr "Status"
 
 #: flipp_dl/web/templates/dashboard.html:68
-#: flipp_dl/web/templates/job_detail.html:48
+#: flipp_dl/web/templates/job_detail.html:60
 #: flipp_dl/web/templates/jobs.html:29
 msgid "Created"
 msgstr "Skapad"
 
 #: flipp_dl/web/templates/dashboard.html:69
-#: flipp_dl/web/templates/job_detail.html:59
+#: flipp_dl/web/templates/job_detail.html:71
 #: flipp_dl/web/templates/jobs.html:31
 msgid "Finished"
 msgstr "Klar"
 
 #: flipp_dl/web/templates/dashboard.html:70
 #: flipp_dl/web/templates/issue_row.html:35
-#: flipp_dl/web/templates/job_detail.html:70
+#: flipp_dl/web/templates/job_detail.html:82
 #: flipp_dl/web/templates/jobs.html:32
 #: flipp_dl/web/templates/publication_detail.html:139
 msgid "Error"
@@ -303,25 +303,45 @@ msgstr "Mål"
 msgid "Issue status:"
 msgstr "Utgåvans status:"
 
-#: flipp_dl/web/templates/job_detail.html:52
+#: flipp_dl/web/templates/job_detail.html:44
+#: flipp_dl/web/templates/jobs.html:67
+msgid "Waiting for retry"
+msgstr "Väntar på omförsök"
+
+#: flipp_dl/web/templates/job_detail.html:46
+#: flipp_dl/web/templates/jobs.html:69
+msgid "next attempt"
+msgstr "nästa försök"
+
+#: flipp_dl/web/templates/job_detail.html:51
+#: flipp_dl/web/templates/jobs.html:73
+msgid "Gave up after"
+msgstr "Gav upp efter"
+
+#: flipp_dl/web/templates/job_detail.html:51
+#: flipp_dl/web/templates/jobs.html:73
+msgid "automatic retries"
+msgstr "automatiska omförsök"
+
+#: flipp_dl/web/templates/job_detail.html:64
 #: flipp_dl/web/templates/jobs.html:30
 msgid "Started"
 msgstr "Startad"
 
-#: flipp_dl/web/templates/job_detail.html:66
+#: flipp_dl/web/templates/job_detail.html:78
 msgid "Payload"
 msgstr "Nyttolast"
 
-#: flipp_dl/web/templates/jobs.html:93
+#: flipp_dl/web/templates/jobs.html:104
 #: flipp_dl/web/templates/publication_row.html:57
 msgid "No"
 msgstr "Nej"
 
-#: flipp_dl/web/templates/jobs.html:93
+#: flipp_dl/web/templates/jobs.html:104
 msgid "jobs."
 msgstr "jobb."
 
-#: flipp_dl/web/templates/jobs.html:93
+#: flipp_dl/web/templates/jobs.html:104
 msgid "No jobs yet."
 msgstr "Inga jobb än."
 

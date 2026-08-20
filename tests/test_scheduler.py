@@ -12,6 +12,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
+import requests
 from pypdf import PdfWriter
 from sqlalchemy.orm import Session
 
@@ -23,6 +24,7 @@ from flipp_dl.komga import KomgaError
 from flipp_dl.models import Category, Issue, Publication
 from flipp_dl.scheduler import (
     _claim_next_download_job,
+    _is_permanent_download_error,
     build_notify_channels,
     recover_stuck_jobs,
     resolve_notify_settings_from_repo,
@@ -841,10 +843,18 @@ def test_komga_sync_without_issue_id_still_scans_library(
 
 
 class _FailingFlippClient(_FakeFlippClient):
-    """Same as _FakeFlippClient, but every download raises - error path."""
+    """Same as _FakeFlippClient, but every download raises - error path.
+
+    Raises a 404 (permanent, TASK-1363) rather than a generic exception
+    so this stays a same-tick failure: notification bundling is tested
+    here, not the automatic-retry path (covered separately in
+    ``test_run_download_queue_schedules_retry_for_transient_error``).
+    """
 
     def fetch_issue_pdf_urls(self, _pub_code, _issue_code):
-        raise RuntimeError("Flipp API is down")
+        response = requests.Response()
+        response.status_code = 404
+        raise requests.HTTPError("Not Found", response=response)
 
 
 class _RecordingChannel:
@@ -1061,3 +1071,135 @@ def test_run_download_queue_bundles_failures_into_their_own_notification(
     assert len(channel.sent) == 1
     title, _message = channel.sent[0]
     assert "misslyckades" in title
+
+
+# ---------------------------------------------------------------------------
+# Automatic retry (TASK-1363)
+# ---------------------------------------------------------------------------
+
+
+class _TransientFailingFlippClient(_FakeFlippClient):
+    """Every download raises a network-style error - retryable."""
+
+    def fetch_issue_pdf_urls(self, _pub_code, _issue_code):
+        raise requests.ConnectionError("Connection refused")
+
+
+def test_is_permanent_download_error_classifies_by_status_code():
+    def _http_error(status):
+        response = requests.Response()
+        response.status_code = status
+        return requests.HTTPError(f"{status}", response=response)
+
+    assert _is_permanent_download_error(_http_error(404)) is True
+    assert _is_permanent_download_error(_http_error(403)) is True
+    assert _is_permanent_download_error(_http_error(500)) is False
+    assert _is_permanent_download_error(_http_error(503)) is False
+    assert _is_permanent_download_error(requests.ConnectionError("boom")) is False
+    assert _is_permanent_download_error(requests.Timeout("boom")) is False
+    assert _is_permanent_download_error(RuntimeError("database is locked")) is False
+
+    # FlippError re-raises the HTTPError via `from exc` - the status
+    # code must still be reachable through __cause__.
+    from flipp_dl.api import FlippError
+
+    try:
+        try:
+            raise _http_error(404)
+        except requests.HTTPError as inner:
+            raise FlippError("wrapped") from inner
+    except FlippError as wrapped:
+        assert _is_permanent_download_error(wrapped) is True
+
+
+def test_run_download_queue_schedules_retry_for_transient_error(
+    repo, session_factory, tmp_path
+):
+    issue_id, job_id = _queue_download_job(repo)
+
+    processed = run_download_queue(
+        _TransientFailingFlippClient(),
+        session_factory,
+        tmp_path / "out",
+        workers=1,
+        max_jobs=1,
+    )
+    assert processed == 1
+
+    with get_session(session_factory) as session:
+        r = DownloadRepository(session)
+        assert r.get_job(job_id).status == JobStatus.ERROR
+        issue = r.get_issue(issue_id)
+        assert issue.status == IssueStatus.RETRY_PENDING
+        assert issue.retry_count == 1
+        assert issue.next_retry_at is not None
+
+    # No new download job exists yet - the retry is not eligible until
+    # its own backoff window elapses.
+    assert _claim_next_download_job(session_factory) is None
+
+
+def test_run_download_queue_gives_up_after_max_auto_retries(
+    repo, session_factory, tmp_path
+):
+    """A transient-looking failure still stops retrying eventually and
+    lands on ERROR exactly like a permanent one - it just took the long
+    way round via three growing-delay attempts first."""
+    from flipp_dl.db.repository import MAX_AUTO_RETRIES
+
+    issue_id, job_id = _queue_download_job(repo)
+
+    # MAX_AUTO_RETRIES failures use up the automatic-retry budget; the
+    # extra +1 is the one that finally gives up.
+    for _ in range(MAX_AUTO_RETRIES + 1):
+        with get_session(session_factory) as session:
+            r = DownloadRepository(session)
+            issue = r.get_issue(issue_id)
+            # Force the backoff window into the past so the next tick
+            # picks it straight back up instead of waiting minutes.
+            if issue.next_retry_at is not None:
+                issue.next_retry_at = datetime.utcnow() - timedelta(minutes=1)
+
+        processed = run_download_queue(
+            _TransientFailingFlippClient(),
+            session_factory,
+            tmp_path / "out",
+            workers=1,
+            max_jobs=1,
+        )
+        assert processed == 1
+
+    with get_session(session_factory) as session:
+        r = DownloadRepository(session)
+        issue = r.get_issue(issue_id)
+        assert issue.status == IssueStatus.ERROR
+        assert issue.retry_count == MAX_AUTO_RETRIES
+
+    # Still no queued job left behind, and the exhausted issue does not
+    # auto-requeue itself again.
+    assert _claim_next_download_job(session_factory) is None
+    with get_session(session_factory) as session:
+        assert DownloadRepository(session).requeue_due_retries() == 0
+
+
+def test_run_download_queue_does_not_retry_permanent_error(
+    repo, session_factory, tmp_path
+):
+    issue_id, job_id = _queue_download_job(repo)
+
+    processed = run_download_queue(
+        _FailingFlippClient(),
+        session_factory,
+        tmp_path / "out",
+        workers=1,
+        max_jobs=1,
+    )
+    assert processed == 1
+
+    with get_session(session_factory) as session:
+        r = DownloadRepository(session)
+        assert r.get_job(job_id).status == JobStatus.ERROR
+        issue = r.get_issue(issue_id)
+        assert issue.status == IssueStatus.ERROR
+        assert issue.retry_count == 0
+        assert issue.next_retry_at is None

@@ -1,5 +1,7 @@
 """Tests for DownloadRepository using an in-memory SQLite database."""
 
+from datetime import datetime, timedelta, timezone
+
 import pytest
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy import select
@@ -8,6 +10,8 @@ from sqlalchemy.orm import Session
 from flipp_dl import storage
 from flipp_dl.db.models import DbIssue, IssueStatus, JobStatus
 from flipp_dl.db.repository import (
+    MAX_AUTO_RETRIES,
+    RETRY_DELAYS_MINUTES,
     DownloadRepository,
     default_cover_cache_root,
     fetch_and_cache_cover,
@@ -417,6 +421,140 @@ def test_update_issue_progress(repo):
     db = repo.get_issue(db_issue.id)
     assert db.progress_current == 0
     assert db.progress_total == 0
+
+
+# ---------------------------------------------------------------------------
+# Automatic retry (TASK-1363)
+# ---------------------------------------------------------------------------
+
+
+def _seed_issue_for_retry(repo, custom_code: str = "KA-01") -> int:
+    db_pub = repo.upsert_publication(_publication())
+    repo.session.commit()
+    issue = Issue(custom_code=custom_code, issue_name="Nr 1", issue_date="2024-01-01")
+    db_issue, _ = repo.upsert_issue(issue, db_pub.id)
+    repo.session.commit()
+    return db_issue.id
+
+
+def test_schedule_issue_retry_grows_delay_each_attempt(repo):
+    issue_id = _seed_issue_for_retry(repo)
+    repo.mark_issue_error(issue_id, "database is locked")
+    repo.session.commit()
+
+    seen_delays = []
+    for expected_attempt, expected_delay in enumerate(RETRY_DELAYS_MINUTES, start=1):
+        before = datetime.now(timezone.utc).replace(tzinfo=None)
+        scheduled = repo.schedule_issue_retry(issue_id, "database is locked")
+        repo.session.commit()
+        assert scheduled is True
+
+        issue = repo.get_issue(issue_id)
+        assert issue.status == IssueStatus.RETRY_PENDING
+        assert issue.retry_count == expected_attempt
+        assert issue.next_retry_at is not None
+        actual_delay = (issue.next_retry_at - before).total_seconds() / 60
+        # Loose bound - just confirms the right bucket, not exact timing.
+        assert abs(actual_delay - expected_delay) < 1
+        seen_delays.append(expected_delay)
+
+    # Delays strictly grow - the whole point of backoff.
+    assert seen_delays == sorted(seen_delays)
+
+    # One more failure past MAX_AUTO_RETRIES: no further retry, issue
+    # would be left as whatever mark_issue_error set it to (ERROR).
+    repo.mark_issue_error(issue_id, "database is locked")
+    repo.session.commit()
+    scheduled = repo.schedule_issue_retry(issue_id, "database is locked")
+    repo.session.commit()
+    assert scheduled is False
+    assert repo.get_issue(issue_id).status == IssueStatus.ERROR
+    assert repo.get_issue(issue_id).retry_count == MAX_AUTO_RETRIES
+
+
+def test_mark_issue_done_resets_retry_bookkeeping(repo):
+    issue_id = _seed_issue_for_retry(repo)
+    repo.mark_issue_error(issue_id, "boom")
+    repo.schedule_issue_retry(issue_id, "boom")
+    repo.session.commit()
+    assert repo.get_issue(issue_id).retry_count == 1
+
+    repo.mark_issue_done(issue_id, "/output/KA/Nr1.pdf")
+    repo.session.commit()
+    issue = repo.get_issue(issue_id)
+    assert issue.retry_count == 0
+    assert issue.next_retry_at is None
+
+
+def test_mark_issue_queued_resets_retry_bookkeeping(repo):
+    """A deliberate re-queue (manual click, backfill) is a fresh start.
+
+    Only the automatic backoff requeue (``requeue_due_retries``) must
+    keep counting against the same budget - see that method's docstring.
+    """
+    issue_id = _seed_issue_for_retry(repo)
+    repo.mark_issue_error(issue_id, "boom")
+    repo.schedule_issue_retry(issue_id, "boom")
+    repo.session.commit()
+    assert repo.get_issue(issue_id).retry_count == 1
+
+    repo.mark_issue_queued(issue_id)
+    repo.session.commit()
+    issue = repo.get_issue(issue_id)
+    assert issue.status == IssueStatus.QUEUED
+    assert issue.retry_count == 0
+    assert issue.next_retry_at is None
+
+
+def test_requeue_due_retries_only_picks_up_elapsed_ones(repo):
+    due_id = _seed_issue_for_retry(repo)
+    repo.mark_issue_error(due_id, "boom")
+    repo.schedule_issue_retry(due_id, "boom")
+    repo.session.commit()
+    # Force it into the past so it's due right now.
+    issue = repo.get_issue(due_id)
+    issue.next_retry_at = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(
+        minutes=1
+    )
+    repo.session.commit()
+
+    not_due_id = _seed_issue_for_retry(repo, custom_code="KA-02")
+    repo.mark_issue_error(not_due_id, "boom")
+    repo.schedule_issue_retry(not_due_id, "boom")
+    repo.session.commit()  # next_retry_at is minutes in the future - not due
+
+    requeued = repo.requeue_due_retries()
+    repo.session.commit()
+    assert requeued == 1
+
+    due = repo.get_issue(due_id)
+    assert due.status == IssueStatus.QUEUED
+    assert due.next_retry_at is None
+    assert due.retry_count == 1  # preserved, not reset
+
+    not_due = repo.get_issue(not_due_id)
+    assert not_due.status == IssueStatus.RETRY_PENDING
+
+    jobs = list(repo.session.execute(select(DbIssue)))  # sanity: still one issue row
+    assert len(jobs) == 2
+
+
+def test_reset_orphaned_issues_leaves_retry_pending_alone(repo):
+    """A RETRY_PENDING issue has no job behind it by design - it must
+    survive the startup sweep that resets orphaned QUEUED/DOWNLOADING
+    rows, or an issue waiting for its backoff window would be silently
+    bounced back to NEW every restart (TASK-1363)."""
+    issue_id = _seed_issue_for_retry(repo)
+    repo.mark_issue_error(issue_id, "boom")
+    repo.schedule_issue_retry(issue_id, "boom")
+    repo.session.commit()
+    assert repo.get_issue(issue_id).status == IssueStatus.RETRY_PENDING
+
+    reset = repo.reset_orphaned_issues()
+    repo.session.commit()
+
+    assert reset == 0
+    assert repo.get_issue(issue_id).status == IssueStatus.RETRY_PENDING
 
 
 def test_mark_issue_error(repo):

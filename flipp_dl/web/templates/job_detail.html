@@ -39,6 +39,18 @@
             {% endif %}
             <span class="dim">({{ issue.issue_date }})</span>
             <div class="dim">{{ _("Issue status:") }} {{ issue.status }}</div>
+            {% if issue.status == "retry_pending" %}
+              <div class="dim">
+                {{ _("Waiting for retry") }} #{{ issue.retry_count }}
+                {% if issue.next_retry_at %}
+                  &middot; {{ _("next attempt") }} {{ issue.next_retry_at | localtime("%Y-%m-%d %H:%M:%S") }}
+                {% endif %}
+              </div>
+            {% elif issue.status == "error" and issue.retry_count > 0 %}
+              <div class="dim">
+                {{ _("Gave up after") }} {{ issue.retry_count }} {{ _("automatic retries") }}
+              </div>
+            {% endif %}
           {% else %}
             <span class="dim">—</span>
           {% endif %}

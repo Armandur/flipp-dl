@@ -36,6 +36,15 @@ class IssueStatus(str, Enum):
     DOWNLOADING = "downloading"
     DONE = "done"
     ERROR = "error"
+    # Failed with a transient-looking error and still has automatic
+    # retries left (TASK-1363). Deliberately distinct from QUEUED: a
+    # RETRY_PENDING issue is not eligible for
+    # ``get_oldest_queued_job``/reset_orphaned_issues (no job exists for
+    # it yet, and it must not look like a stuck queued row on startup),
+    # and the "Retry"/"Download" buttons must be able to tell "waiting
+    # for its own backoff window" apart from "actually in the queue
+    # right now". See DownloadRepository.schedule_issue_retry.
+    RETRY_PENDING = "retry_pending"
 
 
 class JobStatus(str, Enum):
@@ -198,6 +207,16 @@ class DbIssue(Base):
     # issues downloaded before this column existed.
     file_size: Mapped[int | None] = mapped_column(Integer, nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Number of automatic retries already used after a transient download
+    # failure (TASK-1363). Reset to 0 whenever the issue is (re-)queued
+    # through the normal path (manual click, bulk backfill) - only the
+    # automatic backoff requeue leaves it alone, since that is exactly
+    # the counter it exists to enforce a ceiling on.
+    retry_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    # When a RETRY_PENDING issue becomes eligible to be requeued again.
+    # None once the issue is queued/downloading/done, or once it has
+    # given up for good (status stays ERROR and this is left as-is).
+    next_retry_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     # Live progress for the active download – updated after each page is
     # fetched so the web UI can poll and render "3 / 12 pages". Both
     # columns are 0 when no download is in flight.

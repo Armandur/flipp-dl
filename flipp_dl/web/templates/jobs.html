@@ -61,6 +61,17 @@
         <td>
           {# status values: queued | running | done | error #}
           <span class="badge badge-{{ job.status }}">{{ job.status }}</span>
+          {% set issue = targets.get(job.id) %}
+          {% if issue and issue.status == "retry_pending" %}
+            <div class="dim">
+              {{ _("Waiting for retry") }} #{{ issue.retry_count }}
+              {% if issue.next_retry_at %}
+                &middot; {{ _("next attempt") }} {{ issue.next_retry_at | localtime("%Y-%m-%d %H:%M") }}
+              {% endif %}
+            </div>
+          {% elif issue and issue.status == "error" and issue.retry_count > 0 %}
+            <div class="dim">{{ _("Gave up after") }} {{ issue.retry_count }} {{ _("automatic retries") }}</div>
+          {% endif %}
         </td>
         <td class="dim">{{ job.created_at | localtime("%Y-%m-%d %H:%M") }}</td>
         <td class="dim">

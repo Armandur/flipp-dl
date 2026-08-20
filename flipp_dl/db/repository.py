@@ -130,6 +130,16 @@ _DEFAULT_QUEUE_WARN_THRESHOLD_BYTES = 5 * 1024**3
 _QUEUE_WARN_THRESHOLD_SETTING = "queue_warn_threshold_bytes"
 _QUEUE_WARN_THRESHOLD_ENV = "FLIPP_QUEUE_WARN_THRESHOLD_BYTES"
 
+# Automatic retry backoff for failed download jobs (TASK-1363). One entry
+# per attempt, in minutes; the length of the tuple is the retry ceiling.
+# Growing (5, 15, 45 min) so a real network blip clears on the first or
+# second attempt while a longer-lived outage doesn't hammer Flipp every
+# few minutes. Three attempts, not more: past that a failure has stopped
+# looking transient and should sit as an explicit ``error`` again rather
+# than keep retrying silently forever.
+RETRY_DELAYS_MINUTES: tuple[int, ...] = (5, 15, 45)
+MAX_AUTO_RETRIES = len(RETRY_DELAYS_MINUTES)
+
 
 def _parse_positive_int(raw: str) -> int | None:
     raw = raw.strip()
@@ -718,9 +728,22 @@ class DownloadRepository:
         return {issue.id: issue for issue in rows}
 
     def mark_issue_queued(self, issue_id: int) -> None:
+        """Queue *issue_id* for download and reset its retry bookkeeping.
+
+        Every caller of this method (the manual "Retry"/"Download"
+        button, ``queue_missing_issues``) represents a deliberate,
+        explicit decision to try again - so it gets a fresh
+        :data:`MAX_AUTO_RETRIES` budget rather than inheriting whatever
+        was left over from a previous automatic retry cycle. The
+        automatic backoff requeue (:meth:`requeue_due_retries`)
+        deliberately does *not* go through this method, since it must
+        keep counting against the same budget.
+        """
         issue = self.session.get(DbIssue, issue_id)
         if issue:
             issue.status = IssueStatus.QUEUED
+            issue.retry_count = 0
+            issue.next_retry_at = None
 
     def mark_issue_downloading(self, issue_id: int) -> None:
         issue = self.session.get(DbIssue, issue_id)
@@ -754,6 +777,8 @@ class DownloadRepository:
             issue.error_message = None
             issue.progress_current = 0
             issue.progress_total = 0
+            issue.retry_count = 0
+            issue.next_retry_at = None
 
     def mark_issue_error(self, issue_id: int, error: str) -> None:
         issue = self.session.get(DbIssue, issue_id)
@@ -762,6 +787,59 @@ class DownloadRepository:
             issue.error_message = error
             issue.progress_current = 0
             issue.progress_total = 0
+
+    def schedule_issue_retry(self, issue_id: int, error: str) -> bool:
+        """Move *issue_id* to RETRY_PENDING if it still has attempts left.
+
+        Called right after :meth:`mark_issue_error` for a download that
+        failed with an error that looks transient (TASK-1363) - network
+        blips, a locked database, a 5xx from Flipp. Once
+        :data:`MAX_AUTO_RETRIES` automatic attempts have already been
+        used, this does nothing and the issue is left exactly as
+        ``mark_issue_error`` set it: ``ERROR``, requiring the same
+        deliberate click as any other failure. Returns whether a retry
+        was actually scheduled.
+        """
+        issue = self.session.get(DbIssue, issue_id)
+        if issue is None:
+            return False
+        if issue.retry_count >= MAX_AUTO_RETRIES:
+            return False
+        issue.retry_count += 1
+        delay_minutes = RETRY_DELAYS_MINUTES[issue.retry_count - 1]
+        issue.status = IssueStatus.RETRY_PENDING
+        issue.next_retry_at = _now() + timedelta(minutes=delay_minutes)
+        issue.error_message = error
+        return True
+
+    def requeue_due_retries(self) -> int:
+        """Re-queue every RETRY_PENDING issue whose backoff has elapsed.
+
+        This is the *only* path that revives an issue scheduled by
+        :meth:`schedule_issue_retry` - poll's own catch-up pass excludes
+        failed issues on purpose (``include_failed=False``), so an
+        automatic retry must not reuse that door. Deliberately does not
+        touch ``retry_count``: the point of the counter is to remember
+        how many attempts this issue has already burned through, not to
+        hand it a fresh budget just for being requeued.
+
+        Returns the number of issues requeued.
+        """
+        now = _now()
+        due = self.session.scalars(
+            select(DbIssue).where(
+                DbIssue.status == IssueStatus.RETRY_PENDING,
+                DbIssue.next_retry_at.is_not(None),
+                DbIssue.next_retry_at <= now,
+            )
+        )
+        requeued = 0
+        for issue in due:
+            issue.status = IssueStatus.QUEUED
+            issue.next_retry_at = None
+            self.create_job("download", {"issue_id": issue.id})
+            requeued += 1
+        return requeued
 
     def reset_issue(self, issue_id: int) -> None:
         """Clear download metadata so the issue is treated as not downloaded.
@@ -775,6 +853,8 @@ class DownloadRepository:
             issue.file_path = None
             issue.downloaded_at = None
             issue.error_message = None
+            issue.retry_count = 0
+            issue.next_retry_at = None
 
     # ------------------------------------------------------------------
     # Sync helper – call after a fresh API fetch

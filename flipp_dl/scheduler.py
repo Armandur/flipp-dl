@@ -27,6 +27,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+import requests
 from apscheduler.schedulers.blocking import BlockingScheduler
 
 from . import storage
@@ -453,6 +454,37 @@ def _claim_next_download_job(
         return job_id, domain_pub, domain_issue, db_issue.id
 
 
+def _is_permanent_download_error(exc: BaseException) -> bool:
+    """Return True when *exc* means retrying the same download won't help.
+
+    TASK-1363: only an HTTP 4xx response is treated as permanent - an
+    expired/invalid token, an issue Flipp no longer serves, and the like
+    all come back as ``requests.HTTPError`` with a client-error status
+    code, and sending the exact same request again fails the exact same
+    way. Everything else - a network blip (``requests.ConnectionError``,
+    ``requests.Timeout``), a 5xx from Flipp, a locked SQLite database, a
+    transient PDF-merge hiccup - is treated as worth retrying; that is
+    also the safe default for exception types this function has never
+    seen before.
+
+    :class:`~flipp_dl.api.FlippError` re-raises the underlying
+    ``requests.HTTPError`` via ``raise ... from exc``
+    (see :meth:`FlippClient._refresh_sign_in_token` and
+    ``fetch_issue_pdf_urls``), so the status code survives one level of
+    wrapping; walk ``__cause__`` to reach it. Page downloads
+    (``FlippClient.download_pdf``) raise the bare ``requests.HTTPError``
+    directly, so the first check already covers those.
+    """
+    seen: BaseException | None = exc
+    for _ in range(3):
+        if isinstance(seen, requests.HTTPError) and seen.response is not None:
+            return 400 <= seen.response.status_code < 500
+        seen = seen.__cause__
+        if seen is None:
+            return False
+    return False
+
+
 def run_download_queue(
     client: FlippClient,
     session_factory,
@@ -476,6 +508,17 @@ def run_download_queue(
     notify_successes: list[str] = []
     notify_failures: list[str] = []
     processed = 0
+
+    # Promote any RETRY_PENDING issue whose backoff window has elapsed
+    # back to QUEUED before draining (TASK-1363). Cheap - runs on every
+    # tick alongside the drain loop below, same cadence poll's own
+    # catch-up pass uses for newly discovered issues.
+    with get_session(session_factory) as session:
+        requeued = DownloadRepository(session).requeue_due_retries()
+    if requeued:
+        logger.info(
+            "Download queue: requeued %d issue(s) for automatic retry", requeued
+        )
     while max_jobs is None or processed < max_jobs:
         claimed = _claim_next_download_job(session_factory)
         if claimed is None:
@@ -493,10 +536,40 @@ def run_download_queue(
             try:
                 downloader.download_issue(domain_pub, domain_issue, skip_existing=True)
             except Exception as exc:  # noqa: BLE001
+                # Promote the issue to RETRY_PENDING instead of leaving
+                # it ERROR when the failure looks transient and it
+                # hasn't used up its automatic attempts yet (TASK-1363)
+                # - a permanent-looking error (an HTTP 4xx: expired
+                # token, an issue Flipp no longer serves) is left as
+                # ERROR, since retrying an unchanged request against it
+                # would just fail again the same way.
+                retried = False
+                if not _is_permanent_download_error(exc):
+                    with get_session(session_factory) as s2:
+                        retried = DownloadRepository(s2).schedule_issue_retry(
+                            issue_id, error=str(exc)
+                        )
+                if not retried:
+                    # Either permanent, or automatic retries are
+                    # exhausted. downloader.download_issue only reaches
+                    # its own mark_issue_error() for failures during page
+                    # fetch/merge - a failure fetching the page list
+                    # (fetch_issue_pdf_urls, e.g. an expired token or a
+                    # network blip) raises before that point, so the
+                    # issue can still be sitting at its pre-download
+                    # status here. Make ERROR the guaranteed end state
+                    # regardless of where the failure happened.
+                    with get_session(session_factory) as s2:
+                        DownloadRepository(s2).mark_issue_error(issue_id, str(exc))
                 with get_session(session_factory) as s2:
                     DownloadRepository(s2).finish_job(job_id, error=str(exc))
-                logger.error("Download job %d failed: %s", job_id, exc)
-                notify_failures.append(issue_label)
+                if retried:
+                    logger.warning(
+                        "Download job %d failed, retry scheduled: %s", job_id, exc
+                    )
+                else:
+                    logger.error("Download job %d failed: %s", job_id, exc)
+                    notify_failures.append(issue_label)
                 processed += 1
                 continue
 
