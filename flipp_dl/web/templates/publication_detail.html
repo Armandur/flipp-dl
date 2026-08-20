@@ -148,6 +148,7 @@
 
 <div class="card">
   {% if issues %}
+  <div class="table-scroll">
   <table>
     <thead>
       <tr>
@@ -166,6 +167,7 @@
       {% endfor %}
     </tbody>
   </table>
+  </div>
   <div id="issue-empty" class="empty" style="display:none;">
     {{ _("No issues match the current filters.") }}
   </div>

@@ -104,6 +104,20 @@
     td.mono { font-family: "SFMono-Regular", Consolas, monospace; font-size: 12px; color: #a6adc8; }
     td.dim  { color: #6c7086; font-size: 12px; }
     td.cover-cell { padding: 6px 8px 6px 14px; width: 56px; }
+    /* Actions column: as many as four buttons can land here at once
+       (Preview + up to three status buttons). Wrap them deliberately in
+       a tight, even grid instead of letting inline whitespace decide -
+       that's what put Delete alone on its own row before. No min-width:
+       at a narrow viewport the buttons should keep wrapping onto more
+       lines rather than force the column wider than it has room for. */
+    td.actions-cell { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+    /* The issues table has more columns than a narrow viewport can show
+       side by side (cover, name, date, status, read, file path,
+       actions). Scope the scroll to the table itself rather than the
+       shared .card - other cards (login, description, stats) never
+       need it and shouldn't start clipping differently. */
+    .table-scroll { overflow-x: auto; }
+    .table-scroll table { min-width: 640px; }
     .pub-cover { width: 44px; height: 60px; object-fit: cover; border-radius: 3px;
                  background: #181825; display: block;
                  box-shadow: 0 1px 3px rgba(0,0,0,.4); }
@@ -180,11 +194,16 @@
            font-weight: 600; cursor: pointer; border: none; line-height: 1.4;
            transition: opacity .15s; }
     .btn:hover { opacity: .82; }
+    /* Colour carries meaning, not just history: blue is a forward-moving
+       action (fetch/retry something), amber is a pause/reset that is
+       reversible, red is reserved for the one button that deletes a file
+       from disk. Never reuse red for anything that isn't destructive. */
     .btn-watch   { background: #1e4a7d; color: #89b4fa; }
     .btn-unwatch { background: #4a1e1e; color: #f38ba8; }
+    .btn-caution { background: #4a3a1e; color: #fab387; }
+    .btn-danger  { background: #4a1e1e; color: #f38ba8; border: 1px solid #6e2b2b; }
     .btn-primary { background: #7c3aed; color: #fff; padding: 8px 20px; font-size: 13px; }
-    .btn-primary-soft { background: #3a2a5a; color: #cba6f7; text-decoration: none;
-                         margin-right: 6px; }
+    .btn-primary-soft { background: #3a2a5a; color: #cba6f7; text-decoration: none; }
 
     /* forms */
     .form-card { background: #1e1e2e; border: 1px solid #313244; border-radius: 10px;

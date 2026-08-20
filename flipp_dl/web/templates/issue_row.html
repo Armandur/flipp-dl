@@ -33,6 +33,8 @@
       <span class="badge badge-queued">{{ _("Queued") }}</span>
     {% elif issue.status == "error" %}
       <span class="badge badge-error" title="{{ issue.error_message or '' }}">{{ _("Error") }}</span>
+    {% elif issue.status == "retry_pending" %}
+      <span class="badge badge-queued">{{ _("Retry pending") }}</span>
     {% else %}
       <span class="badge badge-queued">{{ _("Not downloaded") }}</span>
     {% endif %}
@@ -53,7 +55,7 @@
       —
     {% endif %}
   </td>
-  <td>
+  <td class="actions-cell">
     <a
       class="btn btn-primary-soft"
       href="/publications/{{ publication.custom_code }}/issues/{{ issue.custom_code }}/preview"
@@ -63,14 +65,28 @@
     >{{ _("Preview") }}</a>
     {% if issue.status in ("queued", "downloading") %}
       {# Always leave a way out - status and the jobs table can drift
-         apart, and a stuck row was previously impossible to release. #}
+         apart, and a stuck row was previously impossible to release.
+         Cancel resets state rather than destroying anything, so it
+         gets the cautionary amber, not the red reserved for Delete. #}
       <button
-        class="btn btn-unwatch"
+        class="btn btn-caution"
         hx-post="/publications/{{ publication.custom_code }}/issues/{{ issue.custom_code }}/cancel"
         hx-target="closest tr"
         hx-swap="outerHTML"
         hx-vals='{"_csrf_token": "{{ csrf_token }}"}'
         hx-confirm="{{ _('Cancel this download? The issue goes back to not downloaded.') }}"
+      >{{ _("Cancel") }}</button>
+    {% elif issue.status == "retry_pending" %}
+      {# An automatic retry is already scheduled - the only manual action
+         worth offering here is bailing out of it, not a second way to
+         start the same download that's already pending. #}
+      <button
+        class="btn btn-caution"
+        hx-post="/publications/{{ publication.custom_code }}/issues/{{ issue.custom_code }}/cancel"
+        hx-target="closest tr"
+        hx-swap="outerHTML"
+        hx-vals='{"_csrf_token": "{{ csrf_token }}"}'
+        hx-confirm="{{ _('Cancel the pending automatic retry? The issue goes back to not downloaded.') }}"
       >{{ _("Cancel") }}</button>
     {% elif issue.status == "done" %}
       {% if issue.file_exists %}
@@ -90,8 +106,11 @@
         hx-confirm="{{ _('Re-download this issue?') }}"
       >{{ _("Re-download") }}</button>
       {% if issue.file_exists %}
+      {# The only button on this row that removes a file from disk - it
+         gets its own reserved colour (red, bordered) so it never reads
+         as just another blue/amber action button. #}
       <button
-        class="btn btn-unwatch"
+        class="btn btn-danger"
         hx-post="/publications/{{ publication.custom_code }}/issues/{{ issue.custom_code }}/delete"
         hx-target="closest tr"
         hx-swap="outerHTML"
@@ -101,7 +120,7 @@
       {% endif %}
     {% elif issue.status == "error" %}
       <button
-        class="btn btn-unwatch"
+        class="btn btn-watch"
         hx-post="/publications/{{ publication.custom_code }}/issues/{{ issue.custom_code }}/download"
         hx-target="closest tr"
         hx-swap="outerHTML"

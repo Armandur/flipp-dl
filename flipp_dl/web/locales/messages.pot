@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-08-20 16:31+0200\n"
+"POT-Creation-Date: 2026-08-20 16:59+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,49 +17,50 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.18.0\n"
 
-#: flipp_dl/web/templates/base.html:229 flipp_dl/web/templates/dashboard.html:2
+#: flipp_dl/web/templates/base.html:240 flipp_dl/web/templates/dashboard.html:2
 #: flipp_dl/web/templates/dashboard.html:5
 msgid "Dashboard"
 msgstr ""
 
-#: flipp_dl/web/templates/base.html:230
+#: flipp_dl/web/templates/base.html:241
 #: flipp_dl/web/templates/publications.html:2
 #: flipp_dl/web/templates/publications.html:5
 #: flipp_dl/web/templates/stats_cards.html:3
 msgid "Publications"
 msgstr ""
 
-#: flipp_dl/web/templates/base.html:231 flipp_dl/web/templates/search.html:2
+#: flipp_dl/web/templates/base.html:242 flipp_dl/web/templates/search.html:2
 #: flipp_dl/web/templates/search.html:5 flipp_dl/web/templates/search.html:31
 msgid "Search"
 msgstr ""
 
-#: flipp_dl/web/templates/base.html:232 flipp_dl/web/templates/library.html:2
+#: flipp_dl/web/templates/base.html:243 flipp_dl/web/templates/library.html:2
 #: flipp_dl/web/templates/library.html:5
 #: flipp_dl/web/templates/settings.html:153
 msgid "Library"
 msgstr ""
 
-#: flipp_dl/web/templates/base.html:233 flipp_dl/web/templates/jobs.html:2
+#: flipp_dl/web/templates/base.html:244 flipp_dl/web/templates/jobs.html:2
 #: flipp_dl/web/templates/jobs.html:5
 msgid "Jobs"
 msgstr ""
 
-#: flipp_dl/web/templates/base.html:234 flipp_dl/web/templates/settings.html:2
+#: flipp_dl/web/templates/base.html:245 flipp_dl/web/templates/settings.html:2
 #: flipp_dl/web/templates/settings.html:5
 msgid "Settings"
 msgstr ""
 
-#: flipp_dl/web/templates/base.html:241
+#: flipp_dl/web/templates/base.html:252
 msgid "Sign out"
 msgstr ""
 
-#: flipp_dl/web/templates/base.html:255
-#: flipp_dl/web/templates/issue_row.html:74
+#: flipp_dl/web/templates/base.html:266
+#: flipp_dl/web/templates/issue_row.html:78
+#: flipp_dl/web/templates/issue_row.html:90
 msgid "Cancel"
 msgstr ""
 
-#: flipp_dl/web/templates/base.html:256
+#: flipp_dl/web/templates/base.html:267
 msgid "Confirm"
 msgstr ""
 
@@ -229,61 +230,70 @@ msgid "Queued"
 msgstr ""
 
 #: flipp_dl/web/templates/issue_row.html:37
+#: flipp_dl/web/templates/search.html:22 flipp_dl/web/templates/search.html:66
+msgid "Retry pending"
+msgstr ""
+
+#: flipp_dl/web/templates/issue_row.html:39
 #: flipp_dl/web/templates/publication_detail.html:135
 #: flipp_dl/web/templates/search.html:19 flipp_dl/web/templates/search.html:70
 msgid "Not downloaded"
 msgstr ""
 
-#: flipp_dl/web/templates/issue_row.html:43
+#: flipp_dl/web/templates/issue_row.html:45
 #: flipp_dl/web/templates/publication_detail.html:143
 #: flipp_dl/web/templates/publication_detail.html:158
 msgid "Read"
 msgstr ""
 
-#: flipp_dl/web/templates/issue_row.html:45
+#: flipp_dl/web/templates/issue_row.html:47
 #: flipp_dl/web/templates/publication_detail.html:144
 msgid "Unread"
 msgstr ""
 
-#: flipp_dl/web/templates/issue_row.html:62
+#: flipp_dl/web/templates/issue_row.html:64
 msgid "View the first pages without marking this issue as downloaded"
 msgstr ""
 
-#: flipp_dl/web/templates/issue_row.html:63
+#: flipp_dl/web/templates/issue_row.html:65
 msgid "Preview"
 msgstr ""
 
-#: flipp_dl/web/templates/issue_row.html:73
+#: flipp_dl/web/templates/issue_row.html:77
 msgid "Cancel this download? The issue goes back to not downloaded."
 msgstr ""
 
-#: flipp_dl/web/templates/issue_row.html:82
+#: flipp_dl/web/templates/issue_row.html:89
+msgid "Cancel the pending automatic retry? The issue goes back to not downloaded."
+msgstr ""
+
+#: flipp_dl/web/templates/issue_row.html:98
 msgid "Open"
 msgstr ""
 
-#: flipp_dl/web/templates/issue_row.html:90
+#: flipp_dl/web/templates/issue_row.html:106
 msgid "Re-download this issue?"
 msgstr ""
 
-#: flipp_dl/web/templates/issue_row.html:91
+#: flipp_dl/web/templates/issue_row.html:107
 msgid "Re-download"
 msgstr ""
 
-#: flipp_dl/web/templates/issue_row.html:99
+#: flipp_dl/web/templates/issue_row.html:118
 msgid ""
 "Delete the downloaded PDF from disk? The issue will be marked as not "
 "downloaded."
 msgstr ""
 
-#: flipp_dl/web/templates/issue_row.html:100
+#: flipp_dl/web/templates/issue_row.html:119
 msgid "Delete"
 msgstr ""
 
-#: flipp_dl/web/templates/issue_row.html:109
+#: flipp_dl/web/templates/issue_row.html:128
 msgid "Retry"
 msgstr ""
 
-#: flipp_dl/web/templates/issue_row.html:117
+#: flipp_dl/web/templates/issue_row.html:136
 msgid "Download"
 msgstr ""
 
@@ -578,10 +588,6 @@ msgstr ""
 
 #: flipp_dl/web/templates/search.html:13
 msgid "Search by issue, date or publication…"
-msgstr ""
-
-#: flipp_dl/web/templates/search.html:22 flipp_dl/web/templates/search.html:66
-msgid "Retry pending"
 msgstr ""
 
 #: flipp_dl/web/templates/search.html:27
