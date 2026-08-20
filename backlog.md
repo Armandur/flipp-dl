@@ -22,7 +22,7 @@ Verifiering: tester i tests/test_storage.py och tests/test_downloader.py för kr
 
 ---
 
-## [P2][doing] [flipp] Kör om felade nedladdningar automatiskt med backoff
+## [P2][done] [flipp] Kör om felade nedladdningar automatiskt med backoff
 
 En utgåva som felar stannar som error för alltid. Poll-påfyllningen hoppar medvetet över felade (annars skulle en permanent trasig utgåva köas om var sjätte timme), så enda vägen tillbaka är ett manuellt klick på Retry eller Watch. Övergående fel - nätverksglapp, en låst databas, Flipp som svarar konstigt - läker därmed inte av sig själva.
 
@@ -214,6 +214,25 @@ Rätt fix är troligen en riktig claim-fråga mot DB (SELECT ... WHERE status=qu
 
 ---
 
+## [P3][todo] [flipp] Utgåvestatus sätts inte när sid-URL:erna misslyckas i downloadern
+
+Hittat under arbetet med TASK-1363. I download_issue ligger anropet till client.fetch_issue_pdf_urls UTANFÖR downloaderns egen try/except, som bara omsluter sidhämtning och PDF-sammanslagning. Fallerar hämtningen av sidlistan - ogiltig token, borttagen utgåva, nätverksfel - körs alltså aldrig mark_issue_error, och utgåvan blir kvar i det läge den hade.
+
+Schemaläggaren kompenserar sedan TASK-1363: dess except-block garanterar att utgåvan hamnar som error oavsett var i download_issue felet uppstod. Men den som anropar IssueDownloader direkt, till exempel CLI:t, får fortfarande det ofullständiga beteendet, och kompensationen döljer att downloadern själv inte håller sitt löfte om att spegla status.
+
+Acceptanskriterier:
+- Ett fel vid hämtning av sidlistan markerar utgåvan som error på samma sätt som ett fel senare i nedladdningen.
+- Schemaläggarens kompensation kan vara kvar som skyddsnät men ska inte längre vara det enda som får statusen rätt.
+- Test som anropar download_issue direkt, med en klient som failar på fetch_issue_pdf_urls, och kontrollerar utgåvans status.
+
+Filer som väntas ändras: flipp_dl/downloader.py, tests/test_downloader.py.
+
+- ID: `01M0FR8MW0AMKYB1Q3EWNT1EEJ`
+- Type: bug
+- Actor: ai:claude-opus-5
+
+---
+
 ## [P3][todo] [flipp] Se över hur knapparna i Action-kolumnen ser ut och radbryter
 
 Action-kolumnen i utgåvelistan har vuxit under arbetet: Preview, Open, Re-download, Delete, Retry, Download och Cancel, där flera kan visas samtidigt beroende på status. De ärver olika knappklasser (btn-watch, btn-unwatch, btn-primary-soft) som valts en i taget, och radbrytningen är inte genomtänkt - på en skärmdump vid 1280px hamnar Delete på egen rad under Open och Re-download.
@@ -223,6 +242,9 @@ Se över helheten: vilka knappar som ska synas samtidigt, vilken som är den pri
 Filer som väntas ändras: flipp_dl/web/templates/issue_row.html, flipp_dl/web/templates/base.html (knappklasserna), eventuellt flipp_dl/web/templates/publication_detail.html.
 
 Verifiering: skärmdumpar vid 390px och 1280px för varje status en rad kan ha (inte nedladdad, köad, laddar ner, nedladdad, fel), på både engelska och svenska eftersom knapptexterna är översatta och byter längd.
+
+## Tillkommer efter TASK-1363
+Utgåvor som väntar på ett automatiskt omförsök har sedan TASK-1363 en egen status (retry_pending). Utgåvelistan känner inte till den och visar dem som "Not downloaded" med en Download-knapp, vilket är missvisande - jobbsidan visar korrekt "Waiting for retry". Ta med den statusen när kolumnen ses över: den behöver en egen märkning och rimligen inte samma primärknapp.
 
 - ID: `01M0FGJZJDZD60HGGDDXW1NHE7`
 - Type: improvement
