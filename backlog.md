@@ -44,6 +44,34 @@ Verifiering: tester i tests/test_storage.py och tests/test_downloader.py för kr
 
 ---
 
+## [P2][todo] [flipp] Låt användaren särskilja publikationer som delar katalognamn
+
+Två publikationer kan heta exakt samma sak och får då samma katalog på disk. Det finns i drift i dag: "Hjemmet" är två skilda publikationer, en norsk och en dansk. Filerna hamnar i samma mapp och ägarskapet blir tvetydigt - importen kan inte avgöra vilken publikation en fil hör till, och sedan TASK-1404 vägrar den därför backfilla dem, vilket är rätt men inte en lösning.
+
+Beslutat av Rasmus 2026-08-20: särskiljningen är användarens val, inte systemets gissning. När man börjar bevaka en publikation vars katalognamn krockar med en annan ska man få frågan och ange ett eget namn - exempelvis "Hjemmet (DK)" och "Hjemmet (NO)".
+
+## Acceptance criteria
+- [ ] En publikation kan ha ett eget katalognamn som användaren sätter, skilt från namnet Flipp levererar.
+- [ ] När bevakning slås på för en publikation vars katalognamn krockar med en annan publikations, efterfrågas ett eget namn innan något laddas ner.
+- [ ] Namnet valideras med samma regler som övriga filnamn (safe_name, OS-säkerhet enligt TASK-1400) och får inte krocka med en annan publikations katalog.
+- [ ] publication_folder använder det egna namnet när det finns, annars publikationens namn som förut.
+- [ ] Redan nedladdade filer flyttas när ett eget namn sätts, och file_path uppdateras - eller så beskrivs uttryckligen varför de lämnas kvar.
+- [ ] Importen slutar rapportera de berörda filerna som tvetydiga när namnen väl är åtskilda.
+
+## Att tänka igenom
+- Krocken kan uppstå senare: två publikationer med olika namn kan byta namn så de sammanfaller vid nästa poll. Vad händer då?
+- Ska frågan även kunna ställas i efterhand, för de som redan är bevakade? I drift gäller det Hjemmet, som redan finns.
+
+## Verification
+- Tester: krock vid bevakning, valideringen, att publication_folder följer det egna namnet, och att importen blir ren efteråt.
+- Kontroll mot driftinstansen: de två Hjemmet-publikationerna får skilda kataloger och importknappen rapporterar inga tvetydigheter.
+
+- ID: `01M0G7VDH6EVM6AHT9GB0A7YM1`
+- Type: feature
+- Actor: ai:claude-opus-5
+
+---
+
 ## [P2][done] [flipp] Kör om felade nedladdningar automatiskt med backoff
 
 En utgåva som felar stannar som error för alltid. Poll-påfyllningen hoppar medvetet över felade (annars skulle en permanent trasig utgåva köas om var sjätte timme), så enda vägen tillbaka är ett manuellt klick på Retry eller Watch. Övergående fel - nätverksglapp, en låst databas, Flipp som svarar konstigt - läker därmed inte av sig själva.
@@ -236,7 +264,7 @@ Rätt fix är troligen en riktig claim-fråga mot DB (SELECT ... WHERE status=qu
 
 ---
 
-## [P3][todo] [flipp] En publikations katalog får inte kunna kopplas till en annan publikation
+## [P3][doing] [flipp] En publikations katalog får inte kunna kopplas till en annan publikation
 
 ## Context
 Varje publikation äger sin katalog under utdatakatalogen, men ingenting upprätthåller det. En fil som hamnar i fel publikations katalog - genom en namnkrock, en handflyttad fil eller en framtida sökvägsändring - kan tolkas som tillhörande fel publikation.
@@ -265,7 +293,7 @@ Motsvarande fråga finns i prenly-dl (TASK-1405), men där kompliceras den av at
 
 ---
 
-## [P3][todo] [flipp] Gör filnamnen OS-säkra, inte bara tecken-filtrerade
+## [P3][doing] [flipp] Gör filnamnen OS-säkra, inte bara tecken-filtrerade
 
 safe_name filtrerar bort allt utom en whitelist av tecken: bokstäver, siffror, bindestreck, understreck, punkt, parenteser, mellanslag och åäö. Det räcker för att undvika snedstreck, men täcker inte allt som gör en sökväg problematisk på andra filsystem än ext4.
 
@@ -296,7 +324,7 @@ Här FINNS redan nedladdade filer i drift - 1094 stycken. Namnregeln får därf�
 
 ---
 
-## [P3][todo] [flipp] Settings: ojämna bredder och grupper som inte hänger ihop
+## [P3][doing] [flipp] Settings: ojämna bredder och grupper som inte hänger ihop
 
 Fälten under Import existing files är breda medan grupperna ovanför (Komga, Notifications) är smala, utan att skillnaden betyder något. Ta reda på varifrån bredden kommer - troligen en .form-card med max-width som bara vissa block ligger i - och gör den enhetlig.
 
