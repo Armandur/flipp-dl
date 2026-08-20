@@ -372,7 +372,7 @@ Motsvarande todo lagd i prenly-dl.
 
 ---
 
-## [P3][todo] [flipp] Kodsnutt för konsolen som hämtar ut Flipp-token
+## [P3][doing] [flipp] Kodsnutt för konsolen som hämtar ut Flipp-token
 
 Token går numera att spara i gränssnittet (TASK-1342), men att få tag på den kräver fortfarande att man öppnar utvecklarverktygen, hittar rätt anrop och kopierar ur en payload - som README beskriver i fyra steg.
 
@@ -1047,6 +1047,20 @@ Bygg vidare på befintliga byggstenar i stället för att uppfinna nya: `list_is
 
 - ID: `01M0BBY3X4VKXXTRYY9T2EGDP4`
 - Type: feature
+- Actor: ai:claude-opus-5
+
+---
+
+## [P4][todo] [flipp] Kopiera-knappen i debug-vyn gör inget över vanlig http
+
+Knappen Copy JSON använder navigator.clipboard, som bara finns i säker kontext. Instansen nås över http på hemnätet, så API:t saknas helt och knappen gör ingenting - felgrenen körs inte ens, anropet kastar direkt.
+
+Samma problem fanns i kodsnutten för token (TASK-1390) och löstes där genom att markera texten och be användaren trycka Ctrl+C när clipboard saknas. Använd samma lösning här.
+
+Verifiering: klicka knappen i webbläsaren mot instansen över http och kontrollera att något faktiskt händer.
+
+- ID: `01M0GC2BWG7A7JZC1W35NRCD50`
+- Type: bug
 - Actor: ai:claude-opus-5
 
 ---
