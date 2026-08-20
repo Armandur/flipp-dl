@@ -159,6 +159,22 @@ def test_second_issue_with_the_same_name_gets_its_own_file(wired):
         assert repo.list_issues_sharing_files() == []
 
 
+def test_download_refuses_target_outside_publication_folder(tmp_path, monkeypatch):
+    client = FakeClient(pages=1)
+    output_root = tmp_path / "out"
+    outside = tmp_path / "outside.pdf"
+    monkeypatch.setattr(
+        "flipp_dl.downloader.issue_path", lambda *_args, **_kwargs: outside
+    )
+
+    downloader = IssueDownloader(client, output_root, workers=1)
+
+    with pytest.raises(ValueError, match="escapes"):
+        downloader.download_issue(PUB, ISSUE, skip_existing=False)
+
+    assert not outside.exists()
+
+
 def test_skipping_an_existing_file_still_marks_the_issue_done(wired):
     """A re-run over an existing file must not leave the row queued."""
     factory, out = wired

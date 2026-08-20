@@ -277,18 +277,27 @@ class IssueDownloader:
         content is never stored (TASK-1349).
         """
         target = issue_path(self.output_root, publication, issue)
-        if self.repository is None or db_issue_id is None:
-            return target
-
-        owner = self.repository.get_issue_by_file_path(str(target))
+        if self.repository is not None and db_issue_id is not None:
+            owner = self.repository.get_issue_by_file_path(str(target))
+        else:
+            owner = None
         if owner is not None and owner.id != db_issue_id:
-            unique = issue_path(self.output_root, publication, issue, disambiguate=True)
+            target = issue_path(self.output_root, publication, issue, disambiguate=True)
             logger.info(
                 "Filename taken by issue %s - using %s instead",
                 owner.custom_code,
-                unique.name,
+                target.name,
             )
-            return unique
+
+        try:
+            publication_root = publication_folder(
+                self.output_root, publication
+            ).resolve()
+            target.resolve().relative_to(publication_root)
+        except (OSError, RuntimeError, ValueError) as exc:
+            raise ValueError(
+                f"Target path escapes {publication.name!r}'s own folder"
+            ) from exc
         return target
 
     def _write_progress(self, issue_id: int, done: int, total: int) -> None:

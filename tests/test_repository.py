@@ -1093,6 +1093,107 @@ def test_import_existing_backfills_a_queued_issue_found_on_disk(repo, tmp_path):
     assert report.shared_files == []
 
 
+def test_import_existing_reports_file_in_another_publications_folder(repo, tmp_path):
+    actual_pub = _publication("A", "Publication A")
+    expected_pub = _publication("B", "Publication B")
+    repo.upsert_publication(actual_pub)
+    db_expected_pub = repo.upsert_publication(expected_pub)
+    db_issue, _ = repo.upsert_issue(expected_pub.issues[0], db_expected_pub.id)
+    repo.mark_issue_queued(db_issue.id)
+    repo.session.commit()
+
+    wrong_folder = storage.publication_folder(tmp_path, actual_pub)
+    wrong_folder.mkdir(parents=True)
+    misplaced = wrong_folder / storage.issue_filename(
+        expected_pub, expected_pub.issues[0]
+    )
+    misplaced.write_bytes(b"%PDF-1.4\n%dummy\n")
+
+    report = repo.import_existing_files(tmp_path)
+    repo.session.commit()
+
+    assert report.backfilled == []
+    assert report.orphan_files == []
+    assert report.misplaced_files == [
+        {
+            "file_path": str(misplaced.relative_to(tmp_path)),
+            "matching_issues": [
+                {
+                    "issue_id": db_issue.id,
+                    "publication": expected_pub.name,
+                    "issue_name": expected_pub.issues[0].issue_name,
+                }
+            ],
+        }
+    ]
+    assert report.has_findings
+    assert repo.get_issue(db_issue.id).status == IssueStatus.QUEUED
+    assert repo.get_issue(db_issue.id).file_path is None
+
+
+def test_import_existing_backfills_a_disambiguated_filename(repo, tmp_path):
+    pub = Publication(
+        custom_code="DUP",
+        name="Duplicate",
+        issues=[
+            Issue(
+                custom_code="duplicate-01",
+                issue_name="Nr 1",
+                issue_date="2024-01-01",
+            ),
+            Issue(
+                custom_code="duplicate-02",
+                issue_name="Nr 1",
+                issue_date="2024-01-01",
+            ),
+        ],
+    )
+    db_pub = repo.upsert_publication(pub)
+    db_issue, _ = repo.upsert_issue(pub.issues[1], db_pub.id)
+    repo.mark_issue_queued(db_issue.id)
+    repo.session.commit()
+
+    target = storage.issue_path(tmp_path, pub, pub.issues[1], disambiguate=True)
+    target.parent.mkdir(parents=True)
+    target.write_bytes(b"%PDF-1.4\n%dummy\n")
+
+    report = repo.import_existing_files(tmp_path)
+    repo.session.commit()
+
+    assert [item["issue_id"] for item in report.backfilled] == [db_issue.id]
+    assert repo.get_issue(db_issue.id).file_path == str(target.resolve())
+    assert report.misplaced_files == []
+
+
+def test_import_existing_reports_ambiguous_publication_folder(repo, tmp_path):
+    first = _publication("A", "Foo/Bar")
+    second = _publication("B", "Foo-Bar")
+    repo.upsert_publication(first)
+    db_second = repo.upsert_publication(second)
+    db_issue, _ = repo.upsert_issue(second.issues[0], db_second.id)
+    repo.mark_issue_queued(db_issue.id)
+    repo.session.commit()
+
+    target = storage.issue_path(tmp_path, second, second.issues[0])
+    target.parent.mkdir(parents=True)
+    target.write_bytes(b"%PDF-1.4\n%dummy\n")
+
+    report = repo.import_existing_files(tmp_path)
+    repo.session.commit()
+
+    assert report.backfilled == []
+    assert report.orphan_files == []
+    assert len(report.misplaced_files) == 1
+    assert report.misplaced_files[0]["matching_issues"] == [
+        {
+            "issue_id": db_issue.id,
+            "publication": second.name,
+            "issue_name": second.issues[0].issue_name,
+        }
+    ]
+    assert repo.get_issue(db_issue.id).status == IssueStatus.QUEUED
+
+
 def test_import_existing_leaves_an_already_done_issue_alone(repo, tmp_path):
     pub = _publication()
     db_pub = repo.upsert_publication(pub)

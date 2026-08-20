@@ -28,6 +28,22 @@
   </ul>
   {% endif %}
 
+  <p>{{ _("File(s) sitting in the wrong publication's folder:") }} <strong>{{ report.misplaced_files | length }}</strong></p>
+  {% if report.misplaced_files %}
+  <ul>
+    {% for item in report.misplaced_files %}
+    <li>
+      {{ item.file_path }}
+      <ul>
+        {% for issue in item.matching_issues %}
+        <li>{{ issue.publication }} / {{ issue.issue_name }}</li>
+        {% endfor %}
+      </ul>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+
   <p>{{ _("File(s) shared by more than one issue:") }} <strong>{{ report.shared_files | length }}</strong></p>
   {% if report.shared_files %}
   <ul>

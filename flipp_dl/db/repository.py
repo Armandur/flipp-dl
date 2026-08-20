@@ -191,12 +191,18 @@ class ImportReport:
     backfilled: list[dict] = field(default_factory=list)
     sized: list[dict] = field(default_factory=list)
     orphan_files: list[str] = field(default_factory=list)
+    misplaced_files: list[dict] = field(default_factory=list)
     missing_files: list[dict] = field(default_factory=list)
     shared_files: list[dict] = field(default_factory=list)
 
     @property
     def has_findings(self) -> bool:
-        return bool(self.orphan_files or self.missing_files or self.shared_files)
+        return bool(
+            self.orphan_files
+            or self.misplaced_files
+            or self.missing_files
+            or self.shared_files
+        )
 
 
 @dataclass
@@ -627,6 +633,7 @@ class DownloadRepository:
 
         Everything the scan can't cleanly explain is reported rather
         than silently fixed: files with no matching issue (orphans),
+        files whose names match issues from another publication,
         ``done`` issues whose file has disappeared, issues that already
         share one file with another (see :meth:`list_issues_sharing_files`,
         TASK-1349), and a not-yet-done issue whose expected filename is
@@ -650,14 +657,22 @@ class DownloadRepository:
         # the plain name and the disambiguated form two issues get when
         # they'd otherwise collide (TASK-1349). Lowest id wins a clash
         # on the plain form so the result is deterministic.
+        publication_roots: dict[Path, set[int]] = {}
+        for publication in self.session.scalars(select(DbPublication)):
+            publication_root = storage.publication_folder(root, publication).resolve()
+            publication_roots.setdefault(publication_root, set()).add(publication.id)
+
         by_path: dict[Path, DbIssue] = {}
+        by_filename: dict[str, list[tuple[DbIssue, Path]]] = {}
         for issue in issues:
             pub = issue.publication
             if pub is None:
                 continue
+            publication_root = storage.publication_folder(root, pub).resolve()
             for disambiguate in (False, True):
                 path = storage.issue_path(root, pub, issue, disambiguate=disambiguate)
                 by_path.setdefault(path, issue)
+                by_filename.setdefault(path.name, []).append((issue, publication_root))
 
         report = ImportReport()
 
@@ -670,8 +685,41 @@ class DownloadRepository:
                     resolved.relative_to(root)
                 except (OSError, ValueError):
                     continue  # escapes output_root via a symlink - ignore
+                matching_by_name = by_filename.get(resolved.name, [])
+                containing_publication_ids = publication_roots.get(
+                    resolved.parent, set()
+                )
+                if len(containing_publication_ids) > 1 and matching_by_name:
+                    report.misplaced_files.append(
+                        {
+                            "file_path": str(resolved.relative_to(root)),
+                            "matching_issues": [
+                                _issue_identity(candidate)
+                                for candidate, _ in matching_by_name
+                            ],
+                        }
+                    )
+                    continue
+
                 issue = by_path.get(resolved)
                 if issue is None:
+                    matching_elsewhere = []
+                    for candidate, publication_root in matching_by_name:
+                        try:
+                            resolved.relative_to(publication_root)
+                        except ValueError:
+                            matching_elsewhere.append(candidate)
+                    if matching_elsewhere:
+                        report.misplaced_files.append(
+                            {
+                                "file_path": str(resolved.relative_to(root)),
+                                "matching_issues": [
+                                    _issue_identity(candidate)
+                                    for candidate in matching_elsewhere
+                                ],
+                            }
+                        )
+                        continue
                     report.orphan_files.append(str(resolved.relative_to(root)))
                     continue
                 if issue.status == IssueStatus.DONE:

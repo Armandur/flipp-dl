@@ -1802,9 +1802,12 @@ def test_import_existing_backfills_a_queued_issue_found_on_disk(
 
     with get_session(client.app.state.session_factory) as session:
         repo = DownloadRepository(session)
+        # A distinct name on purpose: two publications sharing a name
+        # share a folder, and since TASK-1404 the import refuses to
+        # guess which one a file belongs to. That case has its own test.
         pub = Publication(
             custom_code="NEW",
-            name="Kalle Anka",
+            name="Kalle Anka Extra",
             issues=[
                 Issue(custom_code="ka02", issue_name="Nr 2", issue_date="2024-02-01")
             ],
@@ -1817,6 +1820,7 @@ def test_import_existing_backfills_a_queued_issue_found_on_disk(
     from flipp_dl import storage
 
     target = storage.issue_path(output_tree, pub, pub.issues[0])
+    target.parent.mkdir(parents=True, exist_ok=True)
     target.write_bytes(b"%PDF-1.4\n%dummy\n")
 
     csrf = _csrf_for(client)
