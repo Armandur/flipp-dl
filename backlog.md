@@ -42,7 +42,7 @@ Verifiering: riktade tester i tests/test_scheduler.py som simulerar ett fel och 
 
 ---
 
-## [P2][todo] [flipp] Visa storleksuppskattning innan en bulk-köläggning
+## [P2][done] [flipp] Visa storleksuppskattning innan en bulk-köläggning
 
 Knappen "Queue missing issues" och Watch säger hur många utgåvor som köas, men inte vad det väger. Med 49 MB som snitt blir 200 utgåvor cirka 10 GB, vilket är värt att veta före klicket.
 
