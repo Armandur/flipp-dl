@@ -4,6 +4,7 @@ import pytest
 
 from flipp_dl.models import Category, Issue, Publication
 from flipp_dl.storage import (
+    destination_root,
     issue_filename,
     issue_path,
     publication_folder,
@@ -149,3 +150,27 @@ def test_long_disambiguated_filename_keeps_the_existing_suffix(tmp_path):
 
     assert len(str(path.absolute())) <= 259
     assert path.name.endswith("(ab2041c2).pdf")
+
+
+def test_destination_root_uses_primary_by_default():
+    publication = _publication()
+
+    assert destination_root(Path("/primary"), Path("/secondary"), publication) == Path(
+        "/primary"
+    )
+
+
+def test_destination_root_uses_configured_secondary():
+    publication = _publication()
+    publication.destination = "secondary"
+
+    assert destination_root(Path("/primary"), Path("/secondary"), publication) == Path(
+        "/secondary"
+    )
+
+
+def test_destination_root_falls_back_when_secondary_is_not_configured():
+    publication = _publication()
+    publication.destination = "secondary"
+
+    assert destination_root(Path("/primary"), None, publication) == Path("/primary")

@@ -233,6 +233,10 @@ class PublicationFolderMoveError(PublicationFolderError):
     """Existing downloaded files could not be moved safely."""
 
 
+class PublicationDestinationError(ValueError):
+    """A destination change is not allowed for this publication."""
+
+
 class DownloadRepository:
     def __init__(self, session: Session) -> None:
         self.session = session
@@ -505,6 +509,25 @@ class DownloadRepository:
             ) from exc
         return True
 
+    def set_publication_destination(self, custom_code: str, destination: str) -> bool:
+        """Set the output destination unless downloaded issues already exist."""
+        publication = self.get_publication(custom_code)
+        if publication is None:
+            return False
+
+        selected = destination.strip()
+        if selected not in {"", "primary", "secondary"}:
+            raise ValueError("Unknown publication destination")
+        selected_value = "secondary" if selected == "secondary" else None
+        if publication.destination == selected_value:
+            return True
+        if any(issue.status == IssueStatus.DONE for issue in publication.issues):
+            raise PublicationDestinationError(
+                "Downloaded issues prevent changing the destination."
+            )
+        publication.destination = selected_value
+        return True
+
     def mark_polled(self, custom_code: str) -> None:
         db_pub = self.get_publication(custom_code)
         if db_pub:
@@ -768,7 +791,9 @@ class DownloadRepository:
             by_path.setdefault(issue.file_path, []).append(issue)
         return [group for group in by_path.values() if len(group) > 1]
 
-    def import_existing_files(self, output_root: Path) -> ImportReport:
+    def import_existing_files(
+        self, output_root: Path, extra_roots: list[Path] | None = None
+    ) -> ImportReport:
         """Reconcile issue status with what is actually on disk.
 
         Read-only on the filesystem - only the DB is written. A file on
@@ -790,10 +815,17 @@ class DownloadRepository:
         that one blindly would recreate exactly the same bug instead of
         catching it.
         """
-        try:
-            root = Path(output_root).resolve()
-        except OSError:
-            root = Path(output_root)
+        candidates = [Path(output_root), *(extra_roots or [])]
+        roots: list[Path] = []
+        for candidate in candidates:
+            try:
+                root = candidate.resolve()
+            except OSError:
+                root = candidate
+            if root not in roots:
+                roots.append(root)
+        primary_root = roots[0]
+        secondary_root = roots[1] if len(roots) > 1 else None
 
         issues = sorted(
             self.session.scalars(
@@ -808,7 +840,12 @@ class DownloadRepository:
         # on the plain form so the result is deterministic.
         publication_roots: dict[Path, set[int]] = {}
         for publication in self.session.scalars(select(DbPublication)):
-            publication_root = storage.publication_folder(root, publication).resolve()
+            destination = storage.destination_root(
+                primary_root, secondary_root, publication
+            )
+            publication_root = storage.publication_folder(
+                destination, publication
+            ).resolve()
             publication_roots.setdefault(publication_root, set()).add(publication.id)
 
         by_path: dict[Path, DbIssue] = {}
@@ -817,15 +854,20 @@ class DownloadRepository:
             pub = issue.publication
             if pub is None:
                 continue
-            publication_root = storage.publication_folder(root, pub).resolve()
+            destination = storage.destination_root(primary_root, secondary_root, pub)
+            publication_root = storage.publication_folder(destination, pub).resolve()
             for disambiguate in (False, True):
-                path = storage.issue_path(root, pub, issue, disambiguate=disambiguate)
+                path = storage.issue_path(
+                    destination, pub, issue, disambiguate=disambiguate
+                )
                 by_path.setdefault(path, issue)
                 by_filename.setdefault(path.name, []).append((issue, publication_root))
 
         report = ImportReport()
 
-        if root.is_dir():
+        for root in roots:
+            if not root.is_dir():
+                continue
             for pdf in sorted(root.rglob("*.pdf")):
                 if not pdf.is_file():
                     continue
@@ -833,7 +875,7 @@ class DownloadRepository:
                     resolved = pdf.resolve()
                     resolved.relative_to(root)
                 except (OSError, ValueError):
-                    continue  # escapes output_root via a symlink - ignore
+                    continue  # escapes this managed root via a symlink - ignore
                 matching_by_name = by_filename.get(resolved.name, [])
                 containing_publication_ids = publication_roots.get(
                     resolved.parent, set()
@@ -920,7 +962,10 @@ class DownloadRepository:
         for issue in issues:
             if issue.status != IssueStatus.DONE or not issue.file_path:
                 continue
-            if storage.resolve_safe_path(root, issue.file_path) is None:
+            if not any(
+                storage.resolve_safe_path(root, issue.file_path) is not None
+                for root in roots
+            ):
                 report.missing_files.append(
                     {**_issue_identity(issue), "file_path": issue.file_path}
                 )

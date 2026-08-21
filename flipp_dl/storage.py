@@ -78,6 +78,22 @@ def publication_folder(output_root: Path, publication: Publication) -> Path:
     return output_root / folder
 
 
+def destination_root(
+    primary: Path, secondary: Path | None, publication: Publication
+) -> Path:
+    """Return the configured output root for *publication*.
+
+    A detached database publication carries its destination on the same
+    string subclass that already preserves ``folder_name``.
+    """
+    destination = getattr(publication, "destination", None) or getattr(
+        publication.name, "destination", None
+    )
+    if destination == "secondary" and secondary is not None:
+        return Path(secondary)
+    return Path(primary)
+
+
 def issue_filename(
     publication: Publication, issue: Issue, *, disambiguate: bool = False
 ) -> str:

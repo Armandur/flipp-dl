@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-08-21 17:51+0200\n"
+"POT-Creation-Date: 2026-08-21 19:11+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,50 +17,51 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.18.0\n"
 
-#: flipp_dl/web/templates/base.html:333 flipp_dl/web/templates/dashboard.html:2
+#: flipp_dl/web/templates/base.html:395 flipp_dl/web/templates/dashboard.html:2
 #: flipp_dl/web/templates/dashboard.html:5
 msgid "Dashboard"
 msgstr ""
 
-#: flipp_dl/web/templates/base.html:334
+#: flipp_dl/web/templates/base.html:396
 #: flipp_dl/web/templates/publications.html:2
 #: flipp_dl/web/templates/publications.html:5
 #: flipp_dl/web/templates/stats_cards.html:3
 msgid "Publications"
 msgstr ""
 
-#: flipp_dl/web/templates/base.html:335 flipp_dl/web/templates/search.html:2
+#: flipp_dl/web/templates/base.html:397 flipp_dl/web/templates/search.html:2
 #: flipp_dl/web/templates/search.html:5 flipp_dl/web/templates/search.html:31
 msgid "Search"
 msgstr ""
 
-#: flipp_dl/web/templates/base.html:336 flipp_dl/web/templates/library.html:2
+#: flipp_dl/web/templates/base.html:398 flipp_dl/web/templates/library.html:2
 #: flipp_dl/web/templates/library.html:5
-#: flipp_dl/web/templates/settings.html:167
+#: flipp_dl/web/templates/settings.html:228
 msgid "Library"
 msgstr ""
 
-#: flipp_dl/web/templates/base.html:337 flipp_dl/web/templates/jobs.html:2
+#: flipp_dl/web/templates/base.html:399 flipp_dl/web/templates/jobs.html:2
 #: flipp_dl/web/templates/jobs.html:5
 msgid "Jobs"
 msgstr ""
 
-#: flipp_dl/web/templates/base.html:338 flipp_dl/web/templates/settings.html:2
-#: flipp_dl/web/templates/settings.html:5
+#: flipp_dl/web/templates/base.html:400 flipp_dl/web/templates/settings.html:2
+#: flipp_dl/web/templates/settings.html:38
 msgid "Settings"
 msgstr ""
 
-#: flipp_dl/web/templates/base.html:345
+#: flipp_dl/web/templates/base.html:407
 msgid "Sign out"
 msgstr ""
 
-#: flipp_dl/web/templates/base.html:359
+#: flipp_dl/web/templates/base.html:421
 #: flipp_dl/web/templates/issue_row.html:88
 #: flipp_dl/web/templates/issue_row.html:100
+#: flipp_dl/web/templates/settings.html:33
 msgid "Cancel"
 msgstr ""
 
-#: flipp_dl/web/templates/base.html:360
+#: flipp_dl/web/templates/base.html:422
 msgid "Confirm"
 msgstr ""
 
@@ -94,7 +95,7 @@ msgid "Recent Downloads"
 msgstr ""
 
 #: flipp_dl/web/templates/dashboard.html:19
-#: flipp_dl/web/templates/publication_detail.html:182
+#: flipp_dl/web/templates/publication_detail.html:205
 #: flipp_dl/web/templates/search.html:43
 msgid "Issue"
 msgstr ""
@@ -110,7 +111,7 @@ msgstr ""
 
 #: flipp_dl/web/templates/dashboard.html:22
 #: flipp_dl/web/templates/library.html:41
-#: flipp_dl/web/templates/publication_detail.html:186
+#: flipp_dl/web/templates/publication_detail.html:209
 msgid "File"
 msgstr ""
 
@@ -138,7 +139,7 @@ msgstr ""
 #: flipp_dl/web/templates/dashboard.html:84
 #: flipp_dl/web/templates/job_detail.html:19
 #: flipp_dl/web/templates/jobs.html:28
-#: flipp_dl/web/templates/publication_detail.html:184
+#: flipp_dl/web/templates/publication_detail.html:207
 #: flipp_dl/web/templates/search.html:46
 msgid "Status"
 msgstr ""
@@ -159,7 +160,7 @@ msgstr ""
 #: flipp_dl/web/templates/issue_row.html:45
 #: flipp_dl/web/templates/job_detail.html:82
 #: flipp_dl/web/templates/jobs.html:32
-#: flipp_dl/web/templates/publication_detail.html:162
+#: flipp_dl/web/templates/publication_detail.html:185
 #: flipp_dl/web/templates/search.html:24 flipp_dl/web/templates/search.html:68
 msgid "Error"
 msgstr ""
@@ -205,7 +206,7 @@ msgid "Failed to parse response JSON:"
 msgstr ""
 
 #: flipp_dl/web/templates/debug_poll_result.html:137
-#: flipp_dl/web/templates/settings.html:477
+#: flipp_dl/web/templates/settings.html:679
 msgid "Copied"
 msgstr ""
 
@@ -213,39 +214,39 @@ msgstr ""
 msgid "Copy failed - select the JSON and copy manually"
 msgstr ""
 
-#: flipp_dl/web/templates/editions_status.html:15
+#: flipp_dl/web/templates/editions_status.html:19
 msgid "No edition run has been started yet."
 msgstr ""
 
-#: flipp_dl/web/templates/editions_status.html:17
+#: flipp_dl/web/templates/editions_status.html:21
 msgid "Edition discovery"
 msgstr ""
 
-#: flipp_dl/web/templates/editions_status.html:17
+#: flipp_dl/web/templates/editions_status.html:21
 msgid "Edition import"
 msgstr ""
 
-#: flipp_dl/web/templates/editions_status.html:25
+#: flipp_dl/web/templates/editions_status.html:29
 msgid "Waiting for the scheduler to pick it up - this takes up to a minute."
 msgstr ""
 
-#: flipp_dl/web/templates/editions_status.html:29
+#: flipp_dl/web/templates/editions_status.html:33
 #, python-format
 msgid "%(done)s of %(total)s done, %(found)s new so far."
 msgstr ""
 
-#: flipp_dl/web/templates/editions_status.html:33
+#: flipp_dl/web/templates/editions_status.html:37
 msgid "Starting…"
 msgstr ""
 
-#: flipp_dl/web/templates/editions_status.html:45
+#: flipp_dl/web/templates/editions_status.html:49
 #, python-format
 msgid ""
 "Found %(new)s new editions across %(checked)s publications (%(failed)s "
 "could not be fetched)."
 msgstr ""
 
-#: flipp_dl/web/templates/editions_status.html:49
+#: flipp_dl/web/templates/editions_status.html:53
 #, python-format
 msgid ""
 "Imported %(imported)s editions (%(dead)s dead codes, %(no_publication)s "
@@ -298,7 +299,7 @@ msgid "No longer listed"
 msgstr ""
 
 #: flipp_dl/web/templates/issue_row.html:35
-#: flipp_dl/web/templates/publication_detail.html:161
+#: flipp_dl/web/templates/publication_detail.html:184
 #: flipp_dl/web/templates/publications.html:39
 #: flipp_dl/web/templates/search.html:23 flipp_dl/web/templates/search.html:60
 #: flipp_dl/web/templates/stats_cards.html:15
@@ -306,7 +307,7 @@ msgid "Downloaded"
 msgstr ""
 
 #: flipp_dl/web/templates/issue_row.html:38
-#: flipp_dl/web/templates/publication_detail.html:160
+#: flipp_dl/web/templates/publication_detail.html:183
 #: flipp_dl/web/templates/search.html:21
 msgid "Downloading"
 msgstr ""
@@ -317,7 +318,7 @@ msgid "Downloading…"
 msgstr ""
 
 #: flipp_dl/web/templates/issue_row.html:43
-#: flipp_dl/web/templates/publication_detail.html:159
+#: flipp_dl/web/templates/publication_detail.html:182
 #: flipp_dl/web/templates/search.html:20 flipp_dl/web/templates/search.html:64
 msgid "Queued"
 msgstr ""
@@ -328,19 +329,19 @@ msgid "Retry pending"
 msgstr ""
 
 #: flipp_dl/web/templates/issue_row.html:49
-#: flipp_dl/web/templates/publication_detail.html:158
+#: flipp_dl/web/templates/publication_detail.html:181
 #: flipp_dl/web/templates/search.html:19 flipp_dl/web/templates/search.html:70
 msgid "Not downloaded"
 msgstr ""
 
 #: flipp_dl/web/templates/issue_row.html:55
-#: flipp_dl/web/templates/publication_detail.html:166
-#: flipp_dl/web/templates/publication_detail.html:185
+#: flipp_dl/web/templates/publication_detail.html:189
+#: flipp_dl/web/templates/publication_detail.html:208
 msgid "Read"
 msgstr ""
 
 #: flipp_dl/web/templates/issue_row.html:57
-#: flipp_dl/web/templates/publication_detail.html:167
+#: flipp_dl/web/templates/publication_detail.html:190
 msgid "Unread"
 msgstr ""
 
@@ -464,7 +465,7 @@ msgid "Could not connect to Komga:"
 msgstr ""
 
 #: flipp_dl/web/templates/komga_library_select.html:5
-#: flipp_dl/web/templates/settings.html:172
+#: flipp_dl/web/templates/settings.html:233
 msgid "Saved library"
 msgstr ""
 
@@ -604,6 +605,7 @@ msgstr ""
 
 #: flipp_dl/web/templates/publication_detail.html:119
 #: flipp_dl/web/templates/publication_detail.html:136
+#: flipp_dl/web/templates/publication_detail.html:155
 msgid "Save"
 msgstr ""
 
@@ -615,39 +617,52 @@ msgstr ""
 msgid "Leave blank to use the publication name."
 msgstr ""
 
+#: flipp_dl/web/templates/publication_detail.html:146
+msgid "Destination"
+msgstr ""
+
+#: flipp_dl/web/templates/publication_detail.html:149
+msgid "Primary output root"
+msgstr ""
+
 #: flipp_dl/web/templates/publication_detail.html:152
+#: flipp_dl/web/templates/settings.html:115
+msgid "Secondary output root"
+msgstr ""
+
+#: flipp_dl/web/templates/publication_detail.html:175
 msgid "Search issues…"
 msgstr ""
 
-#: flipp_dl/web/templates/publication_detail.html:157
+#: flipp_dl/web/templates/publication_detail.html:180
 #: flipp_dl/web/templates/search.html:18
 msgid "All statuses"
 msgstr ""
 
-#: flipp_dl/web/templates/publication_detail.html:165
+#: flipp_dl/web/templates/publication_detail.html:188
 msgid "Read/unread"
 msgstr ""
 
-#: flipp_dl/web/templates/publication_detail.html:170
+#: flipp_dl/web/templates/publication_detail.html:193
 #: flipp_dl/web/templates/publications.html:25
 msgid "No longer listed only"
 msgstr ""
 
-#: flipp_dl/web/templates/publication_detail.html:183
+#: flipp_dl/web/templates/publication_detail.html:206
 #: flipp_dl/web/templates/search.html:44
 msgid "Date"
 msgstr ""
 
-#: flipp_dl/web/templates/publication_detail.html:187
+#: flipp_dl/web/templates/publication_detail.html:210
 #: flipp_dl/web/templates/search.html:47
 msgid "Action"
 msgstr ""
 
-#: flipp_dl/web/templates/publication_detail.html:198
+#: flipp_dl/web/templates/publication_detail.html:221
 msgid "No issues match the current filters."
 msgstr ""
 
-#: flipp_dl/web/templates/publication_detail.html:202
+#: flipp_dl/web/templates/publication_detail.html:225
 msgid "No issues for this publication yet. Run a poll to refresh."
 msgstr ""
 
@@ -729,7 +744,7 @@ msgid "Next issue"
 msgstr ""
 
 #: flipp_dl/web/templates/publications.html:43
-#: flipp_dl/web/templates/settings.html:294
+#: flipp_dl/web/templates/settings.html:355
 msgid "Actions"
 msgstr ""
 
@@ -778,78 +793,137 @@ msgstr ""
 msgid "No issues match your search."
 msgstr ""
 
+#: flipp_dl/web/templates/settings.html:8
+msgid "The directory is empty"
+msgstr ""
+
 #: flipp_dl/web/templates/settings.html:9
+msgid "Writable"
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:10
+msgid "Read-only"
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:11
+msgid "The directory could not be read"
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:12
+msgid "directory"
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:13
+msgid "directories"
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:17
+msgid "Close"
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:18
+msgid "Choose directory"
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:19
+msgid ""
+"You see the application's mounted directories. The path on the host may "
+"have a different name."
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:27
+msgid "Current path"
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:31
+msgid "Directories"
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:34
+msgid "Select this directory"
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:45
 msgid "Settings saved successfully."
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:16
+#: flipp_dl/web/templates/settings.html:52
 msgid "Flipp token"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:25
+#: flipp_dl/web/templates/settings.html:61
 msgid "No token saved yet"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:29
+#: flipp_dl/web/templates/settings.html:65
 msgid "A token is saved and in use. Leave blank to keep it unchanged."
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:32
+#: flipp_dl/web/templates/settings.html:68
 msgid "No token saved here yet - the"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:32
+#: flipp_dl/web/templates/settings.html:68
 msgid "environment variable /"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:32
+#: flipp_dl/web/templates/settings.html:68
 msgid "file is used until you save one."
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:35
+#: flipp_dl/web/templates/settings.html:71
 msgid "No token configured. Paste one above and save."
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:42
+#: flipp_dl/web/templates/settings.html:78
 msgid "How do I find my token?"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:44
+#: flipp_dl/web/templates/settings.html:80
 msgid "Log in at"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:44
+#: flipp_dl/web/templates/settings.html:80
 msgid ", open the browser console with F12 and paste this:"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:47
+#: flipp_dl/web/templates/settings.html:83
 msgid "Copy snippet"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:53
+#: flipp_dl/web/templates/settings.html:89
 msgid "Poll interval (minutes)"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:66
+#: flipp_dl/web/templates/settings.html:102
 msgid "Download workers"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:79
+#: flipp_dl/web/templates/settings.html:128
+#: flipp_dl/web/templates/settings.html:129
+msgid "Browse directories"
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:136
+msgid "Leave blank to disable the secondary output root."
+msgstr ""
+
+#: flipp_dl/web/templates/settings.html:140
 msgid "Backfill confirm threshold (GB)"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:88
+#: flipp_dl/web/templates/settings.html:149
 msgid ""
 "Queuing a backfill above this size asks for extra confirmation. Leave "
 "blank to clear this override and fall back to the environment variable, "
 "or the 5 GB default."
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:91
+#: flipp_dl/web/templates/settings.html:152
 msgid "Komga"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:93
+#: flipp_dl/web/templates/settings.html:154
 msgid ""
 "Triggers a Komga library scan right after a download finishes, so Komga "
 "picks up the new file immediately instead of waiting for its next "
@@ -857,125 +931,125 @@ msgid ""
 "integration is disabled."
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:104
+#: flipp_dl/web/templates/settings.html:165
 msgid "Enable Komga integration"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:109
+#: flipp_dl/web/templates/settings.html:170
 msgid "Komga URL"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:120
+#: flipp_dl/web/templates/settings.html:181
 msgid "Komga username"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:131
+#: flipp_dl/web/templates/settings.html:192
 msgid "Komga password"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:140
+#: flipp_dl/web/templates/settings.html:201
 msgid "No password saved"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:144
+#: flipp_dl/web/templates/settings.html:205
 msgid "Leave blank to keep the saved password."
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:149
+#: flipp_dl/web/templates/settings.html:210
 msgid "Komga API key"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:158
+#: flipp_dl/web/templates/settings.html:219
 msgid "No API key saved"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:162
+#: flipp_dl/web/templates/settings.html:223
 msgid "Leave blank to keep the saved API key."
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:175
+#: flipp_dl/web/templates/settings.html:236
 msgid "No library selected - test connection to pick one"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:189
+#: flipp_dl/web/templates/settings.html:250
 msgid "Test connection"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:191
+#: flipp_dl/web/templates/settings.html:252
 msgid "Testing…"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:195
+#: flipp_dl/web/templates/settings.html:256
 msgid "Notifications"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:197
+#: flipp_dl/web/templates/settings.html:258
 msgid ""
 "Get a push notification when a new issue finishes downloading, or when a "
 "download fails. Two channels are supported and can be enabled "
 "independently - use one, both, or neither."
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:208
+#: flipp_dl/web/templates/settings.html:269
 msgid "Enable ntfy notifications"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:213
+#: flipp_dl/web/templates/settings.html:274
 msgid "ntfy server URL"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:224
+#: flipp_dl/web/templates/settings.html:285
 msgid "ntfy topic"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:235
+#: flipp_dl/web/templates/settings.html:296
 msgid "ntfy access token"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:244
+#: flipp_dl/web/templates/settings.html:305
 msgid "No token saved (only needed for a protected topic)"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:248
+#: flipp_dl/web/templates/settings.html:309
 msgid "Leave blank to keep the saved token."
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:260
+#: flipp_dl/web/templates/settings.html:321
 msgid "Enable webhook notifications"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:265
+#: flipp_dl/web/templates/settings.html:326
 msgid "Webhook URL"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:274
+#: flipp_dl/web/templates/settings.html:335
 msgid "No webhook URL saved"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:279
+#: flipp_dl/web/templates/settings.html:340
 msgid ""
 "A URL is saved and in use. Leave blank to keep it unchanged. Every new "
 "issue (or failure) is POSTed here as"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:284
+#: flipp_dl/web/templates/settings.html:345
 msgid "POSTs"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:284
+#: flipp_dl/web/templates/settings.html:345
 msgid "to this URL for every new issue (or failure)."
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:289
+#: flipp_dl/web/templates/settings.html:350
 msgid "Save Settings"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:297
-#: flipp_dl/web/templates/settings.html:312
+#: flipp_dl/web/templates/settings.html:358
+#: flipp_dl/web/templates/settings.html:373
 msgid "Import existing files"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:299
+#: flipp_dl/web/templates/settings.html:360
 msgid ""
 "Scan the output folder and reconcile it with the database: a file that "
 "already sits on disk marks its issue downloaded without fetching it "
@@ -984,15 +1058,15 @@ msgid ""
 "below instead of being fixed silently."
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:314
+#: flipp_dl/web/templates/settings.html:375
 msgid "Scanning…"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:321
+#: flipp_dl/web/templates/settings.html:382
 msgid "Codes: backup and catalogue"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:323
+#: flipp_dl/web/templates/settings.html:384
 msgid ""
 "The publication and issue codes are the irreplaceable part of the "
 "database - everything else can be downloaded again. Save them as a JSON "
@@ -1002,57 +1076,57 @@ msgid ""
 "ones you already have."
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:327
+#: flipp_dl/web/templates/settings.html:388
 msgid "Download a code backup"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:330
+#: flipp_dl/web/templates/settings.html:391
 msgid "Download codes (JSON)"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:343
+#: flipp_dl/web/templates/settings.html:404
 msgid "Restore a code backup"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:345
+#: flipp_dl/web/templates/settings.html:406
 msgid "Backup file (JSON)"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:348
+#: flipp_dl/web/templates/settings.html:409
 msgid "Restore codes"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:360
+#: flipp_dl/web/templates/settings.html:421
 msgid "Import a catalogue"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:362
+#: flipp_dl/web/templates/settings.html:423
 msgid "Catalogue file (JSON)"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:366
+#: flipp_dl/web/templates/settings.html:427
 msgid "Unlisted publications (JSON, optional)"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:368
+#: flipp_dl/web/templates/settings.html:429
 msgid ""
 "Imported as delisted so they never look like part of the official "
 "catalogue."
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:370
+#: flipp_dl/web/templates/settings.html:431
 msgid "Import catalogue"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:373
+#: flipp_dl/web/templates/settings.html:434
 msgid "Working…"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:379
+#: flipp_dl/web/templates/settings.html:440
 msgid "Editions"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:381
+#: flipp_dl/web/templates/settings.html:442
 msgid ""
 "Ask PageSuite for the full edition list of every publication - including "
 "the older editions the Flipp app hides - and store the codes for the ones"
@@ -1062,54 +1136,54 @@ msgid ""
 "find its publication."
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:391
+#: flipp_dl/web/templates/settings.html:452
 msgid "Discover editions"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:393
+#: flipp_dl/web/templates/settings.html:454
 msgid "Start discovery"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:405
+#: flipp_dl/web/templates/settings.html:466
 msgid "Import unlisted editions"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:407
+#: flipp_dl/web/templates/settings.html:468
 msgid "Editions file (JSON)"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:410
+#: flipp_dl/web/templates/settings.html:471
 msgid "Start import"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:424
+#: flipp_dl/web/templates/settings.html:485
 msgid "Debug"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:426
+#: flipp_dl/web/templates/settings.html:487
 msgid "Run a manual poll against the Flipp API and inspect the raw"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:427
+#: flipp_dl/web/templates/settings.html:488
 msgid ""
 "response. Useful for verifying your token and spotting new fields. "
 "Sensitive fields"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:428
+#: flipp_dl/web/templates/settings.html:489
 msgid "are redacted before the response reaches your browser."
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:440
+#: flipp_dl/web/templates/settings.html:501
 msgid "Run manual poll"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:442
+#: flipp_dl/web/templates/settings.html:503
 msgid "Polling Flipp API…"
 msgstr ""
 
-#: flipp_dl/web/templates/settings.html:473
-#: flipp_dl/web/templates/settings.html:478
+#: flipp_dl/web/templates/settings.html:675
+#: flipp_dl/web/templates/settings.html:680
 msgid "Selected - press Ctrl+C to copy"
 msgstr ""
 
@@ -1129,35 +1203,47 @@ msgstr ""
 msgid "idle"
 msgstr ""
 
-#: flipp_dl/web/routes.py:65
+#: flipp_dl/web/routes.py:66
 msgid "Use only characters that are valid in a folder name."
 msgstr ""
 
-#: flipp_dl/web/routes.py:66
+#: flipp_dl/web/routes.py:67
 msgid "That folder name is already used by another publication."
 msgstr ""
 
-#: flipp_dl/web/routes.py:67
+#: flipp_dl/web/routes.py:68
 msgid "The downloaded files could not be moved."
 msgstr ""
 
-#: flipp_dl/web/routes.py:76
+#: flipp_dl/web/routes.py:70
+msgid ""
+"Destination cannot be changed because this publication already has "
+"downloaded issues."
+msgstr ""
+
+#: flipp_dl/web/routes.py:73
+msgid ""
+"That folder does not exist. Create it first, or pick one with the browse "
+"button."
+msgstr ""
+
+#: flipp_dl/web/routes.py:83
 msgid ""
 "the address did not respond. Check that the URL is correct and that Komga"
 " is running."
 msgstr ""
 
-#: flipp_dl/web/routes.py:79
+#: flipp_dl/web/routes.py:86
 msgid "the login was rejected. Check the username, password or API key."
 msgstr ""
 
-#: flipp_dl/web/routes.py:81
+#: flipp_dl/web/routes.py:88
 msgid ""
 "the address responded, but the content doesn't look like it came from "
 "Komga."
 msgstr ""
 
-#: flipp_dl/web/routes.py:84
+#: flipp_dl/web/routes.py:91
 msgid "something went wrong. Check the address and try again."
 msgstr ""
 

@@ -24,6 +24,7 @@ from ..config import load_token
 from ..db.models import IssueStatus, JobStatus
 from ..db.repository import (
     DownloadRepository,
+    PublicationDestinationError,
     PublicationFolderConflict,
     PublicationFolderError,
     PublicationFolderMoveError,
@@ -65,6 +66,12 @@ _ = _mark_for_translation
 _INVALID_FOLDER_NAME = _("Use only characters that are valid in a folder name.")
 _FOLDER_NAME_CONFLICT = _("That folder name is already used by another publication.")
 _FOLDER_MOVE_FAILED = _("The downloaded files could not be moved.")
+_DESTINATION_CHANGE_BLOCKED = _(
+    "Destination cannot be changed because this publication already has downloaded issues."
+)
+_SECONDARY_ROOT_MISSING = _(
+    "That folder does not exist. Create it first, or pick one with the browse button."
+)
 
 # Short, non-technical messages for the "Test connection" button
 # (komga_test_connection below), keyed by KomgaError.reason. The
@@ -624,6 +631,34 @@ def register(app: FastAPI) -> None:
     # Publication detail – per-issue list and manual downloads
     # ------------------------------------------------------------------
 
+    def _publication_detail_response(
+        request: Request,
+        repo: DownloadRepository,
+        pub,
+        *,
+        destination_error: str | None = None,
+        status_code: int = 200,
+    ):
+        # Newest issues first - issue_date is a YYYY-MM-DD string so
+        # lexicographic sort matches chronological order.
+        issues = sorted(pub.issues, key=lambda i: i.issue_date or "", reverse=True)
+        _annotate_file_exists(issues, request.app.state.output_root)
+        return _templates(request).TemplateResponse(
+            request,
+            "publication_detail.html",
+            {
+                "publication": pub,
+                "issues": issues,
+                "delisted_issue_count": sum(1 for issue in issues if issue.delisted_at),
+                "komga": _komga_status(repo, pub),
+                "csrf_token": generate_csrf_token(request),
+                "queue_estimate": repo.estimate_missing_download_size(pub.id),
+                "queue_warn_threshold_bytes": repo.queue_warn_threshold_bytes(),
+                "destination_error": destination_error,
+            },
+            status_code=status_code,
+        )
+
     @app.get("/publications/{code}", response_class=HTMLResponse)
     async def publication_detail(request: Request, code: str):
         repo = _repo(request)
@@ -631,28 +666,42 @@ def register(app: FastAPI) -> None:
             pub = repo.get_publication(code)
             if pub is None:
                 return HTMLResponse("Publication not found", status_code=404)
-            # Newest issues first – issue_date is a YYYY-MM-DD string so
-            # lexicographic sort matches chronological order.
-            issues = sorted(pub.issues, key=lambda i: i.issue_date or "", reverse=True)
-            _annotate_file_exists(issues, request.app.state.output_root)
-            queue_estimate = repo.estimate_missing_download_size(pub.id)
-            queue_warn_threshold_bytes = repo.queue_warn_threshold_bytes()
-            delisted_issue_count = sum(1 for i in issues if i.delisted_at)
-            return _templates(request).TemplateResponse(
-                request,
-                "publication_detail.html",
-                {
-                    "publication": pub,
-                    "issues": issues,
-                    "delisted_issue_count": delisted_issue_count,
-                    "komga": _komga_status(repo, pub),
-                    "csrf_token": generate_csrf_token(request),
-                    "queue_estimate": queue_estimate,
-                    "queue_warn_threshold_bytes": queue_warn_threshold_bytes,
-                },
-            )
+            return _publication_detail_response(request, repo, pub)
         finally:
             repo.session.close()
+
+    @app.post("/publications/{code}/destination", response_class=HTMLResponse)
+    async def set_publication_destination(
+        request: Request, code: str, destination: str = Form("primary")
+    ):
+        """Set the publication output root without moving existing files."""
+        if not await check_csrf_form(request):
+            return HTMLResponse("CSRF validation failed", status_code=400)
+        try:
+            with get_session(request.app.state.session_factory) as session:
+                changed = DownloadRepository(session).set_publication_destination(
+                    code, destination
+                )
+                if not changed:
+                    return HTMLResponse("Publication not found", status_code=404)
+        except PublicationDestinationError:
+            lang = i18n.get_language(request)
+            message = i18n.translate(lang, _DESTINATION_CHANGE_BLOCKED)
+            repo = _repo(request)
+            try:
+                publication = repo.get_publication(code)
+                if publication is None:
+                    return HTMLResponse("Publication not found", status_code=404)
+                return _publication_detail_response(
+                    request,
+                    repo,
+                    publication,
+                    destination_error=message,
+                    status_code=400,
+                )
+            finally:
+                repo.session.close()
+        return RedirectResponse(f"/publications/{code}", status_code=303)
 
     @app.post("/publications/{code}/folder-name", response_class=HTMLResponse)
     async def set_publication_folder_name(
@@ -1201,6 +1250,7 @@ def register(app: FastAPI) -> None:
             settings = {
                 "poll_interval": repo.get_setting("poll_interval", "360"),
                 "workers": repo.get_setting("workers", "4"),
+                "secondary_output_root": repo.get_setting("secondary_output_root", ""),
                 "queue_warn_threshold_gb": _format_gb(
                     repo.queue_warn_threshold_bytes()
                 ),
@@ -1220,6 +1270,7 @@ def register(app: FastAPI) -> None:
         request: Request,
         poll_interval: int = Form(360),
         workers: int = Form(4),
+        secondary_output_root: str = Form(""),
         queue_warn_threshold_gb: str = Form(""),
         flipp_token: str = Form(""),
         komga_enabled: str | None = Form(None),
@@ -1259,10 +1310,33 @@ def register(app: FastAPI) -> None:
                 )
             queue_warn_threshold_bytes_value = round(gb_value * 1024**3)
 
+        # Set when a field was rejected: the page re-renders with the error
+        # and without the "saved" flash, keeping what was typed on screen.
+        settings_error: str | None = None
+
         with get_session(request.app.state.session_factory) as session:
             repo = DownloadRepository(session)
             repo.set_setting("poll_interval", str(poll_interval))
             repo.set_setting("workers", str(workers))
+            secondary_output_value = secondary_output_root.strip()
+            secondary_resolved = None
+            if secondary_output_value:
+                try:
+                    secondary_resolved = (
+                        Path(secondary_output_value).expanduser().resolve()
+                    )
+                except (OSError, RuntimeError):
+                    secondary_resolved = None
+                if secondary_resolved is None or not secondary_resolved.is_dir():
+                    settings_error = i18n.translate(
+                        i18n.get_language(request), _SECONDARY_ROOT_MISSING
+                    )
+                    secondary_resolved = None
+            if settings_error is None:
+                repo.set_setting(
+                    "secondary_output_root",
+                    str(secondary_resolved) if secondary_resolved else "",
+                )
             repo.set_setting(
                 "queue_warn_threshold_bytes",
                 (
@@ -1303,6 +1377,11 @@ def register(app: FastAPI) -> None:
             queue_warn_threshold_gb_display = _format_gb(
                 repo.queue_warn_threshold_bytes()
             )
+            secondary_output_root_display = (
+                secondary_output_value
+                if settings_error
+                else repo.get_setting("secondary_output_root", "")
+            )
             token_settings = _token_settings(repo)
             komga_settings = _komga_view_settings(repo)
             notify_settings = _notify_view_settings(repo)
@@ -1315,13 +1394,15 @@ def register(app: FastAPI) -> None:
                 "settings": {
                     "poll_interval": str(poll_interval),
                     "workers": str(workers),
+                    "secondary_output_root": secondary_output_root_display,
                     "queue_warn_threshold_gb": queue_warn_threshold_gb_display,
                     **token_settings,
                     **komga_settings,
                     **notify_settings,
                 },
                 "csrf_token": csrf,
-                "saved": True,
+                "saved": settings_error is None,
+                "settings_error": settings_error,
             },
         )
 
@@ -1403,7 +1484,15 @@ def register(app: FastAPI) -> None:
             return HTMLResponse("CSRF validation failed", status_code=400)
         with get_session(request.app.state.session_factory) as session:
             repo = DownloadRepository(session)
-            report = repo.import_existing_files(request.app.state.output_root)
+            secondary_output_value = repo.get_setting(
+                "secondary_output_root", ""
+            ).strip()
+            extra_roots = (
+                [Path(secondary_output_value)] if secondary_output_value else None
+            )
+            report = repo.import_existing_files(
+                request.app.state.output_root, extra_roots=extra_roots
+            )
         return _templates(request).TemplateResponse(
             request, "import_existing_result.html", {"report": report}
         )

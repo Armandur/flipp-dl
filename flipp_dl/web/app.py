@@ -135,11 +135,13 @@ def create_app(
     app.state.session_factory = session_factory
     app.state.templates = templates
     app.state.output_root = output
+    app.state.db_path = Path(db)
 
-    from . import api_routes, codes_routes, routes  # noqa: F401
+    from . import api_routes, codes_routes, path_browser, routes  # noqa: F401
 
     routes.register(app)
     api_routes.register(app)
     codes_routes.register(app)
+    path_browser.register(app)
 
     return app

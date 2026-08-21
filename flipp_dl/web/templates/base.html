@@ -35,6 +35,8 @@
     .flash { background: #1a3a2a; border: 1px solid #2a5a3a; color: #a6e3a1;
              border-radius: 6px; padding: 10px 14px; margin-bottom: 20px;
              font-size: 13px; }
+    /* Same shape as .flash, red - a rejected field, not a saved one. */
+    .flash-error { background: #3a1a1a; border-color: #5a2a2a; color: #f38ba8; }
 
     /* layout */
     main { max-width: 960px; margin: 32px auto; padding: 0 16px; }
@@ -325,6 +327,66 @@
             border-radius: 6px; padding: 10px 14px; margin-bottom: 20px; line-height: 1.6; }
     .note code { color: #a6e3a1; font-family: monospace; }
     .empty { padding: 24px; text-align: center; color: #6c7086; font-size: 13px; }
+
+    /* directory browser */
+    dialog.path-browser-dialog {
+      border: 1px solid #313244; border-radius: 12px; background: #1e1e2e;
+      color: #cdd6f4; padding: 0; width: min(680px, calc(100vw - 32px));
+      max-height: calc(100vh - 32px); margin: auto; font-family: inherit;
+    }
+    dialog.path-browser-dialog::backdrop { background: rgba(9, 9, 16, .78); }
+    .path-browser-card { padding: 22px 24px 20px; }
+    .path-browser-card header { position: relative; margin-bottom: 16px; }
+    .path-browser-card header h2 { margin: 0 36px 8px 0; color: #cdd6f4; }
+    .path-browser-card header p { line-height: 1.5; }
+    .path-browser-close {
+      position: absolute; top: -8px; right: -6px; border: 0; background: none;
+      color: #a6adc8; cursor: pointer; font-size: 26px; line-height: 1;
+    }
+    .path-browser-card footer { display: flex; justify-content: flex-end; gap: 10px; }
+    .path-field { display: flex; align-items: stretch; gap: 8px; }
+    .path-field input { min-width: 0; flex: 1; }
+    .path-field .path-browser-open { flex: 0 0 42px; margin: 0; padding: 8px; }
+    .path-browser-open svg {
+      display: block; width: 20px; height: 20px; margin: auto;
+      fill: none; stroke: currentColor; stroke-width: 2;
+    }
+    .path-roots { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .path-roots .btn { overflow: hidden; max-width: 100%; text-overflow: ellipsis; }
+    .path-breadcrumbs { overflow-x: auto; margin-bottom: 10px; }
+    .path-breadcrumbs ol {
+      display: flex; align-items: center; min-width: max-content; list-style: none;
+    }
+    .path-breadcrumbs li { display: flex; align-items: center; }
+    .path-breadcrumbs li:not(:last-child)::after {
+      content: "/"; padding: 0 7px; color: #6c7086;
+    }
+    .path-breadcrumbs button {
+      border: 0; background: none; color: #89b4fa; cursor: pointer; font: inherit;
+    }
+    .path-breadcrumbs [aria-current="location"] { font-weight: 600; }
+    .path-list-count { margin: 0 0 5px; text-align: right; }
+    .path-list {
+      min-height: 128px; max-height: 288px; overflow-y: auto; list-style: none;
+      margin: 0 0 16px; border: 1px solid #313244; border-radius: 6px;
+    }
+    .path-list li {
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
+      padding: 9px 12px; border-bottom: 1px solid #313244;
+    }
+    .path-list li:last-child { border-bottom: 0; }
+    .path-list li[role="option"]:hover { background: #24243a; }
+    .path-list li[role="option"].selected { background: #3a2a5a; color: #fff; }
+    .path-list li[role="option"].selected small { color: inherit; }
+    .path-name { display: flex; align-items: center; gap: 9px; min-width: 0; }
+    .path-name svg { width: 20px; height: 20px; flex: 0 0 auto; fill: currentColor; }
+    .path-writable { color: #a6e3a1; }
+    .path-readonly { color: #f38ba8; }
+    @media (max-width: 480px) {
+      .path-browser-card { padding: 18px 16px 16px; }
+      .path-browser-card footer { flex-direction: column-reverse; }
+      .path-browser-card footer .btn { width: 100%; }
+    }
   </style>
 </head>
 <body>

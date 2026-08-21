@@ -2397,3 +2397,76 @@ def test_settings_shows_the_token_console_snippet(client: TestClient):
     assert "flipp_token=" in resp.text
     assert "document.cookie" in resp.text
     assert "tidningar.flipp.se" in resp.text
+
+
+def test_destination_change_is_refused_for_downloaded_publication_in_swedish(
+    client: TestClient,
+):
+    client.get("/language/sv?next=/publications/KA")
+    token = _csrf_for(client)
+
+    response = client.post(
+        "/publications/KA/destination",
+        data={"_csrf_token": token, "destination": "secondary"},
+    )
+
+    assert response.status_code == 400
+    assert (
+        "Destinationen kan inte ändras eftersom publikationen redan har nedladdade utgåvor."
+        in response.text
+    )
+    assert 'class="error destination-error"' in response.text
+    with get_session(client.app.state.session_factory) as session:
+        publication = DownloadRepository(session).get_publication("KA")
+        assert publication.destination is None
+
+
+def test_settings_saves_secondary_output_root_as_absolute_path(
+    client: TestClient, tmp_path: Path
+):
+    selected = tmp_path / "secondary"
+    selected.mkdir()
+    token = _csrf_for(client)
+
+    response = client.post(
+        "/settings",
+        data={
+            "_csrf_token": token,
+            "poll_interval": "360",
+            "workers": "4",
+            "secondary_output_root": str(selected),
+        },
+    )
+
+    assert response.status_code == 200
+    with get_session(client.app.state.session_factory) as session:
+        assert DownloadRepository(session).get_setting("secondary_output_root") == str(
+            selected.resolve()
+        )
+
+
+def test_settings_rejects_a_secondary_root_that_does_not_exist(
+    client: TestClient, tmp_path: Path
+):
+    """A typo must not be stored - every download to it would fail later."""
+    token = _csrf_for(client)
+
+    response = client.post(
+        "/settings",
+        data={
+            "_csrf_token": token,
+            "poll_interval": "360",
+            "workers": "4",
+            "secondary_output_root": str(tmp_path / "finns-inte"),
+        },
+    )
+
+    assert response.status_code == 200
+    assert "That folder does not exist" in response.text
+    assert "Settings saved successfully" not in response.text
+    # The typed value stays on screen so it can be corrected.
+    assert "finns-inte" in response.text
+    with get_session(client.app.state.session_factory) as session:
+        assert (
+            DownloadRepository(session).get_setting("secondary_output_root", "") == ""
+        )

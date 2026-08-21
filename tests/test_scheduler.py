@@ -1358,3 +1358,28 @@ def test_cover_fetching_does_not_hold_the_write_lock(tmp_path, monkeypatch):
     assert wrote_during_fetch, "no cover was fetched - the test proves nothing"
     with get_session(factory) as session:
         assert DownloadRepository(session).get_setting("probe") == "written"
+
+
+def test_run_download_queue_uses_saved_secondary_output_root(
+    repo, session_factory, tmp_path
+):
+    issue_id, _job_id = _queue_download_job(repo)
+    secondary_root = tmp_path / "secondary"
+    repo.set_setting("secondary_output_root", str(secondary_root))
+    publication = repo.get_issue(issue_id).publication
+    publication.destination = "secondary"
+    repo.session.commit()
+
+    processed = run_download_queue(
+        _FakeFlippClient(),
+        session_factory,
+        tmp_path / "primary",
+        workers=1,
+        max_jobs=1,
+    )
+
+    assert processed == 1
+    with get_session(session_factory) as session:
+        issue = DownloadRepository(session).get_issue(issue_id)
+        assert Path(issue.file_path).is_relative_to(secondary_root)
+        assert Path(issue.file_path).is_file()

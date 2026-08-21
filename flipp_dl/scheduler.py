@@ -586,8 +586,18 @@ def run_download_queue(
         # immediately visible to the web UI between jobs.
         with get_session(session_factory) as session:
             repo = DownloadRepository(session)
+            secondary_output_value = repo.get_setting(
+                "secondary_output_root", ""
+            ).strip()
+            secondary_output_root = (
+                Path(secondary_output_value) if secondary_output_value else None
+            )
             downloader = IssueDownloader(
-                client, output_root, workers=workers, repository=repo
+                client,
+                output_root,
+                secondary_output_root=secondary_output_root,
+                workers=workers,
+                repository=repo,
             )
             try:
                 downloader.download_issue(domain_pub, domain_issue, skip_existing=True)

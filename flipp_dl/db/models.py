@@ -30,10 +30,17 @@ class _PublicationName(str):
     """Display name carrying its separate storage name across detaching."""
 
     folder_name: str | None
+    destination: str | None
 
-    def __new__(cls, value: str, folder_name: str | None = None):
+    def __new__(
+        cls,
+        value: str,
+        folder_name: str | None = None,
+        destination: str | None = None,
+    ):
         instance = super().__new__(cls, value)
         instance.folder_name = folder_name
+        instance.destination = destination
         return instance
 
 
@@ -83,6 +90,7 @@ class DbPublication(Base):
     # User-selected output folder component. The Flipp name remains in
     # name and continues to be used in the UI and PDF filenames.
     folder_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    destination: Mapped[str | None] = mapped_column(String(20), nullable=True)
     # Direct cover-art URL as returned by the Flipp API
     # (``latestCoverImageUrl``). Nullable because older rows predate this
     # column and the API may omit it for some publications.
@@ -144,7 +152,7 @@ class DbPublication(Base):
 
     @hybrid_property
     def name(self) -> str:
-        return _PublicationName(self._name, self.folder_name)
+        return _PublicationName(self._name, self.folder_name, self.destination)
 
     @name.inplace.setter
     def _set_name(self, value: str) -> None:

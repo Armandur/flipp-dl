@@ -2,9 +2,45 @@
 {% block title %}{{ _("Settings") }} – Flipp-DL{% endblock %}
 
 {% block content %}
+<dialog
+  class="path-browser-dialog"
+  id="path-browser"
+  data-empty="{{ _('The directory is empty') }}"
+  data-writable="{{ _('Writable') }}"
+  data-readonly="{{ _('Read-only') }}"
+  data-error="{{ _('The directory could not be read') }}"
+  data-directory="{{ _('directory') }}"
+  data-directories="{{ _('directories') }}"
+>
+  <div class="path-browser-card">
+    <header>
+      <button type="button" class="path-browser-close" aria-label="{{ _('Close') }}">&times;</button>
+      <h2>{{ _("Choose directory") }}</h2>
+      <p class="dim">{{ _("You see the application's mounted directories. The path on the host may have a different name.") }}</p>
+    </header>
+    <div class="path-roots">
+      <button type="button" class="btn btn-primary-soft" data-root="output">{{ request.app.state.output_root.resolve() }}</button>
+      {% if request.app.state.db_path.parent.resolve() != request.app.state.output_root.resolve() %}
+      <button type="button" class="btn btn-primary-soft" data-root="data">{{ request.app.state.db_path.parent.resolve() }}</button>
+      {% endif %}
+    </div>
+    <nav class="path-breadcrumbs" aria-label="{{ _('Current path') }}">
+      <ol id="path-browser-breadcrumbs"></ol>
+    </nav>
+    <p id="path-browser-count" class="path-list-count dim"></p>
+    <ul id="path-browser-list" class="path-list" role="listbox" aria-label="{{ _('Directories') }}" tabindex="0"></ul>
+    <footer>
+      <button type="button" class="btn btn-neutral" id="path-browser-cancel">{{ _("Cancel") }}</button>
+      <button type="button" class="btn btn-primary" id="path-browser-select">{{ _("Select this directory") }}</button>
+    </footer>
+  </div>
+</dialog>
 <h1>{{ _("Settings") }}</h1>
 
 <div class="settings-page">
+{% if settings_error %}
+<div class="flash flash-error">{{ settings_error }}</div>
+{% endif %}
 {% if saved %}
 <div class="flash">{{ _("Settings saved successfully.") }}</div>
 {% endif %}
@@ -73,6 +109,31 @@
         value="{{ settings.workers | default(4) }}"
         required
       >
+    </div>
+
+    <div class="field">
+      <label for="secondary_output_root">{{ _("Secondary output root") }}</label>
+      <div class="path-field">
+        <input
+          type="text"
+          id="secondary_output_root"
+          name="secondary_output_root"
+          value="{{ settings.secondary_output_root | default('') }}"
+          placeholder="/data/comics"
+        >
+        <button
+          type="button"
+          class="btn btn-primary-soft path-browser-open"
+          data-path-target="secondary_output_root"
+          aria-label="{{ _('Browse directories') }}"
+          title="{{ _('Browse directories') }}"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M3 6.5h7l2 2h9v10H3z"></path>
+          </svg>
+        </button>
+      </div>
+      <div class="note">{{ _("Leave blank to disable the secondary output root.") }}</div>
     </div>
 
     <div class="field">
@@ -446,6 +507,147 @@
   </div>
 </section>
 </div>
+
+<script>
+  (function () {
+    const dialog = document.getElementById("path-browser");
+    const list = document.getElementById("path-browser-list");
+    const breadcrumbs = document.getElementById("path-browser-breadcrumbs");
+    const count = document.getElementById("path-browser-count");
+    const select = document.getElementById("path-browser-select");
+    let targetInput = null;
+    let state = null;
+    let selectedIndex = -1;
+
+    function folderIcon() {
+      const namespace = "http://www.w3.org/2000/svg";
+      const icon = document.createElementNS(namespace, "svg");
+      const path = document.createElementNS(namespace, "path");
+      icon.setAttribute("viewBox", "0 0 24 24");
+      icon.setAttribute("aria-hidden", "true");
+      path.setAttribute("d", "M3 6.5h7l2 2h9v10H3z");
+      icon.append(path);
+      return icon;
+    }
+
+    function renderBreadcrumbs() {
+      breadcrumbs.replaceChildren();
+      const parts = state.path ? state.path.split("/") : [];
+      const crumbs = [{ label: state.root_path, path: "" }];
+      parts.forEach((part, index) => {
+        crumbs.push({ label: part, path: parts.slice(0, index + 1).join("/") });
+      });
+      crumbs.forEach((crumb, index) => {
+        const item = document.createElement("li");
+        if (index === crumbs.length - 1) {
+          const label = document.createElement("span");
+          label.textContent = crumb.label;
+          label.setAttribute("aria-current", "location");
+          item.append(label);
+        } else {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.textContent = crumb.label;
+          button.addEventListener("click", () => load(state.root, crumb.path, true));
+          item.append(button);
+        }
+        breadcrumbs.append(item);
+      });
+    }
+
+    function mark(index) {
+      const rows = [...list.querySelectorAll("[role=option]")];
+      selectedIndex = rows.length ? Math.max(0, Math.min(index, rows.length - 1)) : -1;
+      rows.forEach((row, rowIndex) => {
+        const selected = rowIndex === selectedIndex;
+        row.classList.toggle("selected", selected);
+        row.setAttribute("aria-selected", String(selected));
+      });
+      if (selectedIndex >= 0) {
+        list.setAttribute("aria-activedescendant", rows[selectedIndex].id);
+        rows[selectedIndex].scrollIntoView({ block: "nearest" });
+      } else {
+        list.removeAttribute("aria-activedescendant");
+      }
+    }
+
+    async function load(root, path = "", focusList = false) {
+      const query = new URLSearchParams({ root, path });
+      const response = await fetch(`/settings/directories?${query}`);
+      if (!response.ok) throw new Error(dialog.dataset.error);
+      state = await response.json();
+      selectedIndex = -1;
+      list.removeAttribute("aria-activedescendant");
+      renderBreadcrumbs();
+      const directoryCount = state.directories.length;
+      const label = directoryCount === 1 ? dialog.dataset.directory : dialog.dataset.directories;
+      count.textContent = `${directoryCount} ${label}`;
+      select.disabled = !state.writable;
+      select.title = state.writable ? "" : dialog.dataset.readonly;
+      list.replaceChildren();
+      if (!state.directories.length) {
+        const empty = document.createElement("li");
+        empty.className = "dim";
+        empty.textContent = dialog.dataset.empty;
+        list.append(empty);
+      }
+      state.directories.forEach((directory, index) => {
+        const item = document.createElement("li");
+        const name = document.createElement("span");
+        const status = document.createElement("small");
+        item.id = `path-option-${index}`;
+        item.setAttribute("role", "option");
+        item.setAttribute("aria-selected", "false");
+        name.className = "path-name";
+        name.append(folderIcon(), document.createTextNode(directory.name));
+        status.textContent = directory.writable ? dialog.dataset.writable : dialog.dataset.readonly;
+        status.className = directory.writable ? "path-writable" : "path-readonly";
+        item.addEventListener("click", () => { mark(index); list.focus(); });
+        item.addEventListener("dblclick", () => load(state.root, directory.path, true));
+        item.append(name, status);
+        list.append(item);
+      });
+      if (focusList) list.focus();
+    }
+
+    list.addEventListener("keydown", (event) => {
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        event.preventDefault();
+        const step = event.key === "ArrowDown" ? 1 : -1;
+        const start = step > 0 ? 0 : state.directories.length - 1;
+        mark(selectedIndex < 0 ? start : selectedIndex + step);
+      } else if (event.key === "Enter" && selectedIndex >= 0) {
+        event.preventDefault();
+        load(state.root, state.directories[selectedIndex].path, true);
+      } else if (event.key === "Backspace" && state.parent !== null) {
+        event.preventDefault();
+        load(state.root, state.parent, true);
+      }
+    });
+
+    document.querySelectorAll(".path-browser-open").forEach((button) => {
+      button.addEventListener("click", async () => {
+        targetInput = document.getElementById(button.dataset.pathTarget);
+        dialog.showModal();
+        try {
+          const root = dialog.querySelector("[data-root]").dataset.root;
+          await load(root, "", true);
+        } catch (error) {
+          list.textContent = error.message;
+        }
+      });
+    });
+    dialog.querySelectorAll("[data-root]").forEach((button) => {
+      button.addEventListener("click", () => load(button.dataset.root, "", true));
+    });
+    select.addEventListener("click", () => {
+      if (targetInput && state && state.writable) targetInput.value = state.absolute_path;
+      dialog.close();
+    });
+    dialog.querySelector(".path-browser-close").addEventListener("click", () => dialog.close());
+    document.getElementById("path-browser-cancel").addEventListener("click", () => dialog.close());
+  })();
+</script>
 
 <script>
   (function () {

@@ -393,3 +393,48 @@ def test_download_issue_marks_error_when_the_page_list_fetch_fails(wired):
         repo = DownloadRepository(session)
         issue = repo.get_issue_by_code("ka01", repo.get_publication("KA").id)
         assert issue.status == "error"
+
+
+def test_download_without_destination_uses_primary_root(tmp_path):
+    primary = tmp_path / "primary"
+    secondary = tmp_path / "secondary"
+
+    target = IssueDownloader(
+        FakeClient(pages=1),
+        primary,
+        secondary_output_root=secondary,
+        workers=1,
+    ).download_issue(PUB, ISSUE, skip_existing=False)
+
+    assert target.is_relative_to(primary)
+    assert target.is_file()
+
+
+def test_download_with_secondary_destination_uses_secondary_root(tmp_path):
+    primary = tmp_path / "primary"
+    secondary = tmp_path / "secondary"
+    publication = Publication(custom_code="FA", name="Fantomen")
+    publication.destination = "secondary"
+
+    target = IssueDownloader(
+        FakeClient(pages=1),
+        primary,
+        secondary_output_root=secondary,
+        workers=1,
+    ).download_issue(publication, ISSUE, skip_existing=False)
+
+    assert target.is_relative_to(secondary)
+    assert target.is_file()
+
+
+def test_download_with_missing_secondary_root_falls_back_to_primary(tmp_path):
+    primary = tmp_path / "primary"
+    publication = Publication(custom_code="FA", name="Fantomen")
+    publication.destination = "secondary"
+
+    target = IssueDownloader(FakeClient(pages=1), primary, workers=1).download_issue(
+        publication, ISSUE, skip_existing=False
+    )
+
+    assert target.is_relative_to(primary)
+    assert target.is_file()

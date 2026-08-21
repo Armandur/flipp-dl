@@ -17,7 +17,7 @@ from sqlalchemy.exc import OperationalError
 
 from .api import FlippClient
 from .models import Issue, Publication
-from .storage import issue_path, publication_folder
+from .storage import destination_root, issue_path, publication_folder
 
 if TYPE_CHECKING:
     from .db.repository import DownloadRepository
@@ -88,11 +88,15 @@ class IssueDownloader:
         client: FlippClient,
         output_root: Path,
         *,
+        secondary_output_root: Path | None = None,
         workers: int = DEFAULT_WORKERS,
         repository: DownloadRepository | None = None,
     ) -> None:
         self.client = client
         self.output_root = Path(output_root)
+        self.secondary_output_root = (
+            Path(secondary_output_root) if secondary_output_root is not None else None
+        )
         self.workers = max(1, workers)
         self.repository = repository
 
@@ -246,9 +250,10 @@ class IssueDownloader:
         self, publication: Publication, *, skip_existing: bool = True
     ) -> list[Path]:
         """Download every issue of *publication*. Returns written paths."""
-        publication_folder(self.output_root, publication).mkdir(
-            parents=True, exist_ok=True
+        root = destination_root(
+            self.output_root, self.secondary_output_root, publication
         )
+        publication_folder(root, publication).mkdir(parents=True, exist_ok=True)
         written: list[Path] = []
         for issue in publication.issues:
             try:
@@ -276,13 +281,16 @@ class IssueDownloader:
         the second one silently adopts the first one's file and its own
         content is never stored (TASK-1349).
         """
-        target = issue_path(self.output_root, publication, issue)
+        root = destination_root(
+            self.output_root, self.secondary_output_root, publication
+        )
+        target = issue_path(root, publication, issue)
         if self.repository is not None and db_issue_id is not None:
             owner = self.repository.get_issue_by_file_path(str(target))
         else:
             owner = None
         if owner is not None and owner.id != db_issue_id:
-            target = issue_path(self.output_root, publication, issue, disambiguate=True)
+            target = issue_path(root, publication, issue, disambiguate=True)
             logger.info(
                 "Filename taken by issue %s - using %s instead",
                 owner.custom_code,
@@ -290,9 +298,7 @@ class IssueDownloader:
             )
 
         try:
-            publication_root = publication_folder(
-                self.output_root, publication
-            ).resolve()
+            publication_root = publication_folder(root, publication).resolve()
             target.resolve().relative_to(publication_root)
         except (OSError, RuntimeError, ValueError) as exc:
             raise ValueError(

@@ -136,6 +136,29 @@
       <button class="btn btn-watch" type="submit">{{ _("Save") }}</button>
       <span class="dim">{{ _("Leave blank to use the publication name.") }}</span>
     </form>
+    <form
+      class="detail-actions"
+      method="post"
+      action="/publications/{{ publication.custom_code }}/destination"
+      style="margin-top:8px;"
+    >
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+      <label for="destination" class="dim">{{ _("Destination") }}</label>
+      <select class="inline-input" id="destination" name="destination">
+        <option value="primary" {% if publication.destination != "secondary" %}selected{% endif %}>
+          {{ _("Primary output root") }}
+        </option>
+        <option value="secondary" {% if publication.destination == "secondary" %}selected{% endif %}>
+          {{ _("Secondary output root") }}
+        </option>
+      </select>
+      <button class="btn btn-watch" type="submit">{{ _("Save") }}</button>
+    </form>
+    {% if destination_error %}
+    <div class="error destination-error" style="margin-top:8px;">
+      {{ destination_error }}
+    </div>
+    {% endif %}
   </div>
 </div>
 

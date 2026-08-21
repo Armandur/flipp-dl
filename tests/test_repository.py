@@ -1863,3 +1863,40 @@ def test_cover_backfill_prioritises_downloaded_issues(session):
 
     first = repo.issues_needing_cover_backfill(4)[0]
     assert first.id == old_but_downloaded.id
+
+
+def test_import_existing_files_scans_primary_and_secondary_roots(repo, tmp_path):
+    primary_root = tmp_path / "primary"
+    secondary_root = tmp_path / "secondary"
+    primary_pub = _publication("PRI", "Primary")
+    secondary_pub = _publication("SEC", "Secondary")
+    db_primary = repo.upsert_publication(primary_pub)
+    db_secondary = repo.upsert_publication(secondary_pub)
+    db_secondary.destination = "secondary"
+    primary_issue, _ = repo.upsert_issue(primary_pub.issues[0], db_primary.id)
+    secondary_issue, _ = repo.upsert_issue(secondary_pub.issues[0], db_secondary.id)
+    repo.session.commit()
+
+    primary_target = storage.issue_path(
+        primary_root, primary_pub, primary_pub.issues[0]
+    )
+    secondary_target = storage.issue_path(
+        secondary_root, db_secondary, secondary_pub.issues[0]
+    )
+    primary_target.parent.mkdir(parents=True)
+    secondary_target.parent.mkdir(parents=True)
+    primary_target.write_bytes(b"%PDF-1.4\n%primary\n")
+    secondary_target.write_bytes(b"%PDF-1.4\n%secondary\n")
+
+    report = repo.import_existing_files(primary_root, extra_roots=[secondary_root])
+    repo.session.commit()
+
+    assert {item["issue_id"] for item in report.backfilled} == {
+        primary_issue.id,
+        secondary_issue.id,
+    }
+    assert repo.get_issue(primary_issue.id).file_path == str(primary_target.resolve())
+    assert repo.get_issue(secondary_issue.id).file_path == str(
+        secondary_target.resolve()
+    )
+    assert report.missing_files == []
