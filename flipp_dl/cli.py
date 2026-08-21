@@ -146,6 +146,27 @@ def build_parser() -> argparse.ArgumentParser:
             "via the replica API), then exit."
         ),
     )
+    parser.add_argument(
+        "--export-codes",
+        nargs="?",
+        const="flipp-koder-backup.json",
+        default=None,
+        metavar="FILE",
+        help=(
+            "Back up every publication and issue code (pubids and eids) to a "
+            "JSON file (default: flipp-koder-backup.json), then exit. The "
+            "codes are the irreplaceable part - restore with --import-backup."
+        ),
+    )
+    parser.add_argument(
+        "--import-backup",
+        default=None,
+        metavar="FILE",
+        help=(
+            "Restore publications and issue codes from an --export-codes "
+            "backup file (no network calls), then exit."
+        ),
+    )
 
     # Scheduler mode
     scheduler_group = parser.add_argument_group("scheduler mode")
@@ -509,6 +530,120 @@ def _run_import_editions(args: argparse.Namespace) -> int:
     return 0
 
 
+def _run_export_codes(args: argparse.Namespace) -> int:
+    """Back up every pubid and eid to a JSON file (no network calls).
+
+    The codes are the irreplaceable part - a lost database can rebuild its
+    downloads from them (TASK-1438). Restore with --import-backup.
+    """
+    from sqlalchemy import select
+
+    from .db.models import DbIssue, DbPublication
+    from .db.session import get_session
+
+    session_factory = make_session_factory(args.db)
+    with get_session(session_factory) as session:
+        pubs = list(session.scalars(select(DbPublication)))
+        code_by_id = {p.id: p.custom_code for p in pubs}
+        publications = [
+            {
+                "customPublicationCode": p.custom_code,
+                "publicationCode": p.publication_code,
+                "name": p.name,
+                "delisted": p.delisted_at is not None,
+            }
+            for p in pubs
+        ]
+        issues = [
+            {
+                "issue_code": i.custom_code,
+                "publication_code": code_by_id.get(i.publication_id),
+                "issue_name": i.issue_name,
+                "issue_date": i.issue_date,
+            }
+            for i in session.scalars(select(DbIssue))
+        ]
+
+    payload = {"publications": publications, "issues": issues}
+    Path(args.export_codes).write_text(
+        json.dumps(payload, ensure_ascii=False, indent=1), encoding="utf-8"
+    )
+    print(
+        f"Exported {len(publications)} publications and {len(issues)} issue "
+        f"codes to {args.export_codes}."
+    )
+    return 0
+
+
+def _run_import_backup(args: argparse.Namespace) -> int:
+    """Restore publications and issue codes from an --export-codes file.
+
+    No network calls - the backup already carries names and dates, so it
+    rebuilds the codes directly rather than re-resolving them.
+    """
+    from datetime import datetime, timezone
+
+    from .db.repository import DownloadRepository
+    from .db.session import get_session
+    from .models import Issue, Publication
+
+    path = Path(args.import_backup)
+    if not path.exists():
+        logger.error("Backup file not found: %s", path)
+        return 2
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (ValueError, OSError) as exc:
+        logger.error("Could not read backup %s: %s", path, exc)
+        return 2
+    if not isinstance(payload, dict):
+        logger.error("Backup %s is not a JSON object", path)
+        return 2
+    publications = payload.get("publications", [])
+    issues = payload.get("issues", [])
+
+    session_factory = make_session_factory(args.db)
+    code_map: dict[str, str] = {}
+    with get_session(session_factory) as session:
+        repo = DownloadRepository(session)
+        for entry in publications:
+            code = entry.get("customPublicationCode")
+            name = entry.get("name")
+            if not code or not name:
+                continue
+            db_pub = repo.upsert_publication(Publication(custom_code=code, name=name))
+            if entry.get("delisted"):
+                db_pub.delisted_at = datetime.now(timezone.utc)
+            if entry.get("publicationCode"):
+                code_map[code] = entry["publicationCode"]
+        repo.backfill_publication_codes(code_map)
+
+        by_pub: dict[str, list[Issue]] = {}
+        for entry in issues:
+            eid = entry.get("issue_code")
+            pubid = entry.get("publication_code")
+            if not eid or not pubid:
+                continue
+            by_pub.setdefault(pubid, []).append(
+                Issue(
+                    custom_code=eid,
+                    issue_name=entry.get("issue_name", "") or "",
+                    issue_date=entry.get("issue_date", "") or "",
+                )
+            )
+        restored = 0
+        for pubid, pub_issues in by_pub.items():
+            db_pub = repo.get_publication(pubid)
+            if db_pub is None:
+                continue
+            restored += len(repo.discover_editions(db_pub.id, pub_issues))
+    print(
+        f"Restored {len(publications)} publications and {restored} issue "
+        f"codes from {path}."
+    )
+    return 0
+
+
 @dataclass
 class _FilenameMigrationReport:
     renamed: list[tuple[str, str]] = field(default_factory=list)
@@ -664,6 +799,10 @@ def main(argv: list[str] | None = None) -> int:
         return _run_discover_editions(args)
     if args.import_editions is not None:
         return _run_import_editions(args)
+    if args.export_codes is not None:
+        return _run_export_codes(args)
+    if args.import_backup is not None:
+        return _run_import_backup(args)
 
     # ------------------------------------------------------------------
     # Scheduler mode – hand off and block
