@@ -174,3 +174,46 @@ def test_destination_root_falls_back_when_secondary_is_not_configured():
     publication.destination = "secondary"
 
     assert destination_root(Path("/primary"), None, publication) == Path("/primary")
+
+
+# ---------------------------------------------------------------------------
+# Issues named after nothing but their own date (TASK-1460)
+# ---------------------------------------------------------------------------
+
+
+def _issue(name: str, date: str = "2020-02-20") -> Issue:
+    return Issue(custom_code="e1", issue_name=name, issue_date=date)
+
+
+def _pub() -> Publication:
+    return Publication(custom_code="91", name="91:an")
+
+
+def test_an_issue_named_after_its_own_date_does_not_repeat_it():
+    """PageSuite names discovered editions after their date, in another
+    notation - pasting that after the ISO date gave the same date twice."""
+    assert issue_filename(_pub(), _issue("20/02/2020")) == "91an - 2020-02-20.pdf"
+
+
+def test_an_issue_with_no_name_gets_no_dangling_separator():
+    assert issue_filename(_pub(), _issue("")) == "91an - 2020-02-20.pdf"
+
+
+def test_a_real_issue_name_is_kept_even_when_it_contains_a_date():
+    """ "Nr 3 2020" shares digits with the date - it must survive."""
+    assert (
+        issue_filename(_pub(), _issue("Nr 3 2020"))
+        == "91an - 2020-02-20 - Nr 3 2020.pdf"
+    )
+    assert (
+        issue_filename(_pub(), _issue("Nr 8/9 2023", "2023-03-24"))
+        == "91an - 2023-03-24 - Nr 8-9 2023.pdf"
+    )
+
+
+def test_a_date_named_issue_can_still_be_disambiguated():
+    """Two issues on the same date still get separate files (TASK-1349)."""
+    plain = issue_filename(_pub(), _issue("20/02/2020"))
+    unique = issue_filename(_pub(), _issue("20/02/2020"), disambiguate=True)
+    assert plain != unique
+    assert unique.startswith("91an - 2020-02-20 (")

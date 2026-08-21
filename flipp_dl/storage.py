@@ -94,6 +94,25 @@ def destination_root(
     return Path(primary)
 
 
+def _is_just_the_date(issue_name: str, issue_date: str) -> bool:
+    """Whether *issue_name* carries nothing but *issue_date* over again.
+
+    Editions discovered through PageSuite (TASK-1439) have no issue
+    number - PageSuite names them after their date, as ``DD/MM/YYYY``.
+    Pasting that after the ISO date gives filenames like
+    ``91an - 2020-02-20 - 20-02-2020.pdf``: the same date twice, in two
+    notations. Compared digit by digit so both notations match, and so a
+    name that merely contains a date ("Nr 3 2020, 20/02") is left alone.
+    """
+    name_digits = "".join(c for c in issue_name if c.isdigit())
+    date_digits = "".join(c for c in issue_date if c.isdigit())
+    if not name_digits or not date_digits:
+        return False
+    if any(c.isalpha() for c in issue_name):
+        return False
+    return sorted(name_digits) == sorted(date_digits)
+
+
 def issue_filename(
     publication: Publication, issue: Issue, *, disambiguate: bool = False
 ) -> str:
@@ -103,8 +122,20 @@ def issue_filename(
     publishes distinct issues that share all three (TASK-1349). Passing
     *disambiguate* appends part of the issue code so the second issue
     gets a file of its own instead of silently reusing the first one's.
+
+    An issue whose name is only its own date, or has no name at all, is
+    written without the name part - see :func:`_is_just_the_date`. That
+    avoids both ``... - 2020-02-20 - 20-02-2020.pdf`` and a filename
+    ending in a dangling separator.
     """
-    stem = safe_name(f"{publication.name} - {issue.issue_date} - {issue.issue_name}")
+    if not (issue.issue_name or "").strip() or _is_just_the_date(
+        issue.issue_name or "", issue.issue_date or ""
+    ):
+        stem = safe_name(f"{publication.name} - {issue.issue_date}")
+    else:
+        stem = safe_name(
+            f"{publication.name} - {issue.issue_date} - {issue.issue_name}"
+        )
     tail = _disambiguation_tail(issue, disambiguate)
     filename = safe_name(f"{stem}{tail}")
     return _shorten_component(filename, _MAX_COMPONENT_LENGTH, protected_tail=tail)

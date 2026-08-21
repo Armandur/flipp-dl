@@ -295,3 +295,50 @@ def test_main_migrate_filenames_recovers_database_after_interrupted_move(
         assert DownloadRepository(session).get_issue(issue_id).file_path == str(
             migrated_path
         )
+
+
+def test_main_migrate_filenames_renames_a_date_named_issue(
+    tmp_path, monkeypatch, capsys
+):
+    """The 129 issues downloaded before TASK-1460 must be renamable.
+
+    Their old name repeated the date ("... - 2020-02-20 - 20-02-2020.pdf");
+    the migration has to find the file under the old name and move it to
+    the new one, updating file_path.
+    """
+    from flipp_dl import storage
+    from flipp_dl.cli import main
+    from flipp_dl.db.repository import DownloadRepository
+    from flipp_dl.db.session import get_session, make_session_factory
+
+    monkeypatch.delenv("FLIPP_TOKEN", raising=False)
+    db_path = tmp_path / "flipp.db"
+    output = tmp_path / "Output"
+    pub = _pub("91", "91:an", cats=[52], issues=0)
+    issue = Issue(custom_code="e1", issue_name="20/02/2020", issue_date="2020-02-20")
+
+    factory = make_session_factory(db_path)
+    with get_session(factory) as session:
+        repo = DownloadRepository(session)
+        db_pub = repo.upsert_publication(pub)
+        db_issue, _ = repo.upsert_issue(issue, db_pub.id)
+        issue_id = db_issue.id
+        gammal = (
+            storage.publication_folder(output, pub)
+            / "91an - 2020-02-20 - 20-02-2020.pdf"
+        )
+        gammal.parent.mkdir(parents=True, exist_ok=True)
+        gammal.write_bytes(b"%PDF-1.4\n%dummy\n")
+        repo.mark_issue_done(issue_id, str(gammal))
+
+    exit_code = main(
+        ["--migrate-filenames", "--db", str(db_path), "--output", str(output)]
+    )
+
+    assert exit_code == 0
+    ny = storage.issue_path(output, pub, issue)
+    assert ny.name == "91an - 2020-02-20.pdf"
+    assert ny.exists()
+    assert not gammal.exists()
+    with get_session(factory) as session:
+        assert DownloadRepository(session).get_issue(issue_id).file_path == str(ny)
