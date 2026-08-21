@@ -44,6 +44,28 @@ Verifiering: tester i tests/test_storage.py och tests/test_downloader.py för kr
 
 ---
 
+## [P2][done] [flipp] Utgåvor som bara har ett datum som namn får datumet två gånger i filnamnet
+
+Rasmus 2026-08-22: utgåvorna som PageSuite-upptäckten hittar heter bara ett datum, så filnamnet upprepar datumet i två format:
+
+  /output/91an/91an - 2020-02-20 - 20-02-2020.pdf
+
+PageSuite sätter edition name till "20/02/2020", och issue_path bygger "<publikation> - <issue_date> - <issue_name>.pdf" medan safe_name gör om snedstrecken till bindestreck.
+
+Omfattning (mätt i en torrkörning av --discover-editions mot en kopia av produktionsdatabasen 2026-08-21): ALLA 1056 upptäckta utgåvor har ett namn på formen DD/MM/YYYY. Ingen av dem har ett riktigt utgåvenummer, för det finns inte i PageSuites data.
+
+Förslag: när utgåvenamnet bara är samma datum som issue_date, utelämna namndelen helt - "91an - 2020-02-20.pdf". Vilket format som helst som är entydigt duger, men jämförelsen måste tåla båda skrivsätten (DD/MM/YYYY mot YYYY-MM-DD).
+
+TIMING: det här bör helst göras INNAN de upptäckta utgåvorna laddas ner, annars måste 800+ redan hämtade filer döpas om med --migrate-filenames. Görs det efteråt: verifiera att migreringen klarar dem och att databasens file_path följer med.
+
+Klart när: en utgåva vars namn bara är dess datum får ett filnamn utan upprepning. Test i tests/test_storage.py.
+
+- ID: `01M0K821CYVB4AE6GCX12HQPVP`
+- Type: improvement
+- Actor: ai:claude-code
+
+---
+
 ## [P2][done] [flipp] En Komga-scan per tömning av kön, inte en per utgåva
 
 run_komga_sync_queue skapar ett komga_sync-jobb per färdig nedladdning, och varje jobb triggar en scan av HELA biblioteket och pollar sedan upp till 10 sekunder (KOMGA_WAIT_SECONDS) efter just sin bok.
@@ -85,7 +107,7 @@ Ingen oppen upprakning av pubids finns. De 91 kommer fran signin, de 27 fran Way
 
 ---
 
-## [P2][todo] [flipp] Dedupa publikationer via publicationCode i stallet for namn
+## [P2][done] [flipp] Dedupa publikationer via publicationCode i stallet for namn
 
 
 
@@ -427,6 +449,28 @@ Rätt fix är troligen en riktig claim-fråga mot DB (SELECT ... WHERE status=qu
 - ID: `01M0BBXMEPZZWZVNYZR3SF7RWF`
 - Type: bug
 - Actor: ai:claude-opus-5
+
+---
+
+## [P3][doing] [flipp] Generera omslag ur PDF:en för utgåvor som saknar cover_url
+
+Rasmus 2026-08-22: de upptäckta utgåvorna visar inget omslag. Vi har ju filen - borde kunna rendera och cachea första sidan.
+
+Läget: cache_covers hämtar omslag från cover_url, som kommer från Flipp-API:et. Utgåvor som upptäckts via PageSuite har ingen cover_url alls, så de får aldrig något omslag. Mätt i torrkörningen 2026-08-21: alla 1056 upptäckta utgåvor saknar cover_cache_path.
+
+Att utreda innan något byggs:
+- Rendering kräver ett nytt beroende. requirements.txt har bara pypdf, som inte kan rastrera. PyMuPDF (fitz) är enklast - ett pip-paket, inga systembibliotek. pdf2image kräver poppler i imagen. Det påverkar Dockerfile och imagestorleken.
+- Bara för utgåvor med status done och en fil som finns; övriga har inget att rendera ur.
+- Var i flödet? Rimligen i cache_covers, som redan äger omslagscachen och kör en gång per pollning, med samma filnamnskonvention (issue-<kod>.jpg).
+- Storlek och kvalitet: befintliga cachade omslag kommer från Flipps b600m-varianter, så sikta på motsvarande bredd.
+
+Notera: Komga genererar sina EGNA miniatyrer ur filerna, så det här är för flipp-dl:s egna vyer, inte för Komga.
+
+Klart när: en nedladdad utgåva utan cover_url får ett cachat omslag som syns i utgåvelistan. Verifiera i browser vid 390 och 1280 px.
+
+- ID: `01M0K821D5CWF41Y3EED2JSJ09`
+- Type: feature
+- Actor: ai:claude-code
 
 ---
 
@@ -1473,7 +1517,25 @@ Bygg vidare på befintliga byggstenar i stället för att uppfinna nya: `list_is
 
 ---
 
-## [P4][todo] [flipp] Publikationssidan har horisontell overflow på mobil
+## [P4][done] [flipp] Väljarna för destination och notiser är inte stylade
+
+Rasmus 2026-08-22: rullgardinerna "Primary output root" (destination) och "Notify on new issues" på publikationssidan ser inte ut som resten av gränssnittet.
+
+Orsak: båda är <select class="inline-input">. Den klassen är skriven för textfält (base.html: bakgrund, ram, padding), och det finns en separat regel för .field select - men de här ligger inte i ett .field-block utan i en inline .detail-actions-rad. Så de faller tillbaka på webbläsarens default-select, vilket syns tydligt mot det mörka temat.
+
+Att göra:
+- Ge select en egen stil som matchar inline-input, eller lägg till select i den befintliga .inline-input-regeln i base.html.
+- Kontrollera samtidigt de andra inline-väljarna på sidan (statusfilter, läst/oläst) så de blir konsekventa.
+
+Klart när: väljarna ser ut som de intilliggande textfälten i mörkt tema. Verifiera med shot vid 390 OCH 1280 px, se browser-verify-skillen.
+
+- ID: `01M0K6NSYJJ0BJXSE6J9HYTAYX`
+- Type: bug
+- Actor: ai:claude-code
+
+---
+
+## [P4][done] [flipp] Publikationssidan har horisontell overflow på mobil
 
 Vid 390 px breda viewport är document.documentElement.scrollWidth 412, alltså 22 px horisontell scroll. Mätt 2026-08-21.
 
