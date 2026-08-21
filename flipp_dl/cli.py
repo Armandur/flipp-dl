@@ -316,33 +316,6 @@ def _run_import_existing(args: argparse.Namespace) -> int:
 _UNLISTED_COMPANION = "docs/olistade-publikationer.json"
 
 
-def _import_publication_file(repo, entries: list, *, delisted: bool) -> tuple[int, int]:
-    """Upsert publications from *entries*; return ``(added, skipped)``.
-
-    Each entry needs ``customPublicationCode`` (== our ``custom_code``) and
-    ``name``. When *delisted* is true the publications are marked delisted -
-    used for the unlisted companion so they don't look like catalogue members.
-    """
-    from datetime import datetime, timezone
-
-    from .models import Publication
-
-    added = skipped = 0
-    for entry in entries:
-        code = entry.get("customPublicationCode")
-        name = entry.get("name")
-        if not code or not name:
-            skipped += 1
-            continue
-        existed = repo.get_publication(code) is not None
-        db_pub = repo.upsert_publication(Publication(custom_code=code, name=name))
-        if delisted:
-            db_pub.delisted_at = datetime.now(timezone.utc)
-        if not existed:
-            added += 1
-    return added, skipped
-
-
 def _load_json_list(path: Path) -> list | None:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
@@ -380,6 +353,7 @@ def _run_import_catalog(args: argparse.Namespace) -> int:
     (``docs/olistade-publikationer.json``) exists next to it, those
     publications are imported too and marked delisted (TASK-1442).
     """
+    from .codes import CodeFileError, import_catalog, parse_catalog
     from .db.repository import DownloadRepository
     from .db.session import get_session
 
@@ -387,40 +361,30 @@ def _run_import_catalog(args: argparse.Namespace) -> int:
     if not path.exists():
         logger.error("Catalogue file not found: %s", path)
         return 2
-    entries = _load_json_list(path)
-    if entries is None:
-        return 2
-
     companion = path.parent / "olistade-publikationer.json"
-    unlisted = _load_json_list(companion) if companion.exists() else []
-    if unlisted is None:
+    try:
+        entries = parse_catalog(path.read_bytes())
+        unlisted = parse_catalog(companion.read_bytes()) if companion.exists() else []
+    except CodeFileError as exc:
+        logger.error("Could not read the catalogue: %s", exc)
         return 2
-
-    # publicationCode (SE-UVH ...) is the stable human-readable identity that
-    # disambiguates same-named publications (TASK-1441); backfill it where the
-    # catalogue carries it.
-    code_by_custom_code = {
-        e["customPublicationCode"]: e["publicationCode"]
-        for e in entries
-        if e.get("customPublicationCode") and e.get("publicationCode")
-    }
+    except OSError as exc:
+        logger.error("Could not read the catalogue: %s", exc)
+        return 2
 
     session_factory = make_session_factory(args.db)
     with get_session(session_factory) as session:
-        repo = DownloadRepository(session)
-        added, skipped = _import_publication_file(repo, entries, delisted=False)
-        u_added, u_skipped = _import_publication_file(repo, unlisted, delisted=True)
-        coded = repo.backfill_publication_codes(code_by_custom_code)
+        result = import_catalog(DownloadRepository(session), entries, unlisted)
     print(
-        f"Catalogue import: {added} publications added "
-        f"({len(entries) - added - skipped} already known, {skipped} skipped), "
-        f"{coded} publication codes set."
+        f"Catalogue import: {result.added} publications added "
+        f"({result.known} already known, {result.skipped} skipped), "
+        f"{result.codes_set} publication codes set."
     )
-    if unlisted:
+    if result.unlisted_total:
         print(
-            f"Unlisted publications: {u_added} added as delisted "
-            f"({len(unlisted) - u_added - u_skipped} already known, "
-            f"{u_skipped} skipped)."
+            f"Unlisted publications: {result.unlisted_added} added as delisted "
+            f"({result.unlisted_known} already known, "
+            f"{result.unlisted_skipped} skipped)."
         )
     return 0
 
@@ -458,10 +422,7 @@ def _run_discover_editions(args: argparse.Namespace) -> int:
         if new_issues:
             total_new += len(new_issues)
             print(f"  {name}: {len(new_issues)} new editions")
-    print(
-        f"Edition discovery: {total_new} new editions across "
-        f"{checked} publications."
-    )
+    print(f"Edition discovery: {total_new} new editions across {checked} publications.")
     return 0
 
 
@@ -490,7 +451,9 @@ def _run_import_editions(args: argparse.Namespace) -> int:
 
     session_factory = make_session_factory(args.db)
     with get_session(session_factory) as session:
-        known_pubs = {p.custom_code for p in DownloadRepository(session).list_publications()}
+        known_pubs = {
+            p.custom_code for p in DownloadRepository(session).list_publications()
+        }
 
     client = PageSuiteClient()
     by_pub: dict[str, list[Issue]] = {}
@@ -536,41 +499,17 @@ def _run_export_codes(args: argparse.Namespace) -> int:
     The codes are the irreplaceable part - a lost database can rebuild its
     downloads from them (TASK-1438). Restore with --import-backup.
     """
-    from sqlalchemy import select
-
-    from .db.models import DbIssue, DbPublication
+    from .codes import build_backup_payload, dump_backup_payload
     from .db.session import get_session
 
     session_factory = make_session_factory(args.db)
     with get_session(session_factory) as session:
-        pubs = list(session.scalars(select(DbPublication)))
-        code_by_id = {p.id: p.custom_code for p in pubs}
-        publications = [
-            {
-                "customPublicationCode": p.custom_code,
-                "publicationCode": p.publication_code,
-                "name": p.name,
-                "delisted": p.delisted_at is not None,
-            }
-            for p in pubs
-        ]
-        issues = [
-            {
-                "issue_code": i.custom_code,
-                "publication_code": code_by_id.get(i.publication_id),
-                "issue_name": i.issue_name,
-                "issue_date": i.issue_date,
-            }
-            for i in session.scalars(select(DbIssue))
-        ]
+        payload = build_backup_payload(session)
 
-    payload = {"publications": publications, "issues": issues}
-    Path(args.export_codes).write_text(
-        json.dumps(payload, ensure_ascii=False, indent=1), encoding="utf-8"
-    )
+    Path(args.export_codes).write_text(dump_backup_payload(payload), encoding="utf-8")
     print(
-        f"Exported {len(publications)} publications and {len(issues)} issue "
-        f"codes to {args.export_codes}."
+        f"Exported {len(payload['publications'])} publications and "
+        f"{len(payload['issues'])} issue codes to {args.export_codes}."
     )
     return 0
 
@@ -581,64 +520,25 @@ def _run_import_backup(args: argparse.Namespace) -> int:
     No network calls - the backup already carries names and dates, so it
     rebuilds the codes directly rather than re-resolving them.
     """
-    from datetime import datetime, timezone
-
+    from .codes import CodeFileError, parse_backup, restore_backup
     from .db.repository import DownloadRepository
     from .db.session import get_session
-    from .models import Issue, Publication
 
     path = Path(args.import_backup)
     if not path.exists():
         logger.error("Backup file not found: %s", path)
         return 2
     try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except (ValueError, OSError) as exc:
+        payload = parse_backup(path.read_bytes())
+    except (CodeFileError, OSError) as exc:
         logger.error("Could not read backup %s: %s", path, exc)
         return 2
-    if not isinstance(payload, dict):
-        logger.error("Backup %s is not a JSON object", path)
-        return 2
-    publications = payload.get("publications", [])
-    issues = payload.get("issues", [])
 
     session_factory = make_session_factory(args.db)
-    code_map: dict[str, str] = {}
     with get_session(session_factory) as session:
-        repo = DownloadRepository(session)
-        for entry in publications:
-            code = entry.get("customPublicationCode")
-            name = entry.get("name")
-            if not code or not name:
-                continue
-            db_pub = repo.upsert_publication(Publication(custom_code=code, name=name))
-            if entry.get("delisted"):
-                db_pub.delisted_at = datetime.now(timezone.utc)
-            if entry.get("publicationCode"):
-                code_map[code] = entry["publicationCode"]
-        repo.backfill_publication_codes(code_map)
-
-        by_pub: dict[str, list[Issue]] = {}
-        for entry in issues:
-            eid = entry.get("issue_code")
-            pubid = entry.get("publication_code")
-            if not eid or not pubid:
-                continue
-            by_pub.setdefault(pubid, []).append(
-                Issue(
-                    custom_code=eid,
-                    issue_name=entry.get("issue_name", "") or "",
-                    issue_date=entry.get("issue_date", "") or "",
-                )
-            )
-        restored = 0
-        for pubid, pub_issues in by_pub.items():
-            db_pub = repo.get_publication(pubid)
-            if db_pub is None:
-                continue
-            restored += len(repo.discover_editions(db_pub.id, pub_issues))
+        result = restore_backup(DownloadRepository(session), payload)
     print(
-        f"Restored {len(publications)} publications and {restored} issue "
+        f"Restored {result.publications} publications and {result.issues} issue "
         f"codes from {path}."
     )
     return 0
