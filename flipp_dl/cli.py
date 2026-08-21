@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import sys
 from collections.abc import Iterable
@@ -274,51 +275,104 @@ def _run_import_existing(args: argparse.Namespace) -> int:
     return 0
 
 
+# The companion file next to a listed catalogue, holding publications Egmont
+# does not list but whose pubid we know (TASK-1442). They are marked delisted so
+# they never masquerade as part of the official catalogue, but stay reachable so
+# --discover-editions still fetches their issues.
+_UNLISTED_COMPANION = "docs/olistade-publikationer.json"
+
+
+def _import_publication_file(repo, entries: list, *, delisted: bool) -> tuple[int, int]:
+    """Upsert publications from *entries*; return ``(added, skipped)``.
+
+    Each entry needs ``customPublicationCode`` (== our ``custom_code``) and
+    ``name``. When *delisted* is true the publications are marked delisted -
+    used for the unlisted companion so they don't look like catalogue members.
+    """
+    from datetime import datetime, timezone
+
+    from .models import Publication
+
+    added = skipped = 0
+    for entry in entries:
+        code = entry.get("customPublicationCode")
+        name = entry.get("name")
+        if not code or not name:
+            skipped += 1
+            continue
+        existed = repo.get_publication(code) is not None
+        db_pub = repo.upsert_publication(Publication(custom_code=code, name=name))
+        if delisted:
+            db_pub.delisted_at = datetime.now(timezone.utc)
+        if not existed:
+            added += 1
+    return added, skipped
+
+
+def _load_json_list(path: Path) -> list | None:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (ValueError, OSError) as exc:
+        logger.error("Could not read %s: %s", path, exc)
+        return None
+    if not isinstance(data, list):
+        logger.error("%s is not a JSON list", path)
+        return None
+    return data
+
+
 def _run_import_catalog(args: argparse.Namespace) -> int:
     """Add publications from a catalogue JSON file (no network calls).
 
     The file is the shape of ``docs/alla-publikationer.json``: a list of
     objects with ``customPublicationCode`` (== the PageSuite pubid, our
     ``custom_code``) and ``name``. Existing publications are left as they
-    are; only missing ones are inserted.
+    are; only missing ones are inserted. If the unlisted companion
+    (``docs/olistade-publikationer.json``) exists next to it, those
+    publications are imported too and marked delisted (TASK-1442).
     """
-    import json
-
     from .db.repository import DownloadRepository
     from .db.session import get_session
-    from .models import Publication
 
     path = Path(args.import_catalog)
     if not path.exists():
         logger.error("Catalogue file not found: %s", path)
         return 2
-    try:
-        entries = json.loads(path.read_text(encoding="utf-8"))
-    except (ValueError, OSError) as exc:
-        logger.error("Could not read catalogue %s: %s", path, exc)
-        return 2
-    if not isinstance(entries, list):
-        logger.error("Catalogue %s is not a JSON list", path)
+    entries = _load_json_list(path)
+    if entries is None:
         return 2
 
+    companion = path.parent / "olistade-publikationer.json"
+    unlisted = _load_json_list(companion) if companion.exists() else []
+    if unlisted is None:
+        return 2
+
+    # publicationCode (SE-UVH ...) is the stable human-readable identity that
+    # disambiguates same-named publications (TASK-1441); backfill it where the
+    # catalogue carries it.
+    code_by_custom_code = {
+        e["customPublicationCode"]: e["publicationCode"]
+        for e in entries
+        if e.get("customPublicationCode") and e.get("publicationCode")
+    }
+
     session_factory = make_session_factory(args.db)
-    added = skipped = 0
     with get_session(session_factory) as session:
         repo = DownloadRepository(session)
-        for entry in entries:
-            code = entry.get("customPublicationCode")
-            name = entry.get("name")
-            if not code or not name:
-                skipped += 1
-                continue
-            existed = repo.get_publication(code) is not None
-            repo.upsert_publication(Publication(custom_code=code, name=name))
-            if not existed:
-                added += 1
+        added, skipped = _import_publication_file(repo, entries, delisted=False)
+        u_added, u_skipped = _import_publication_file(repo, unlisted, delisted=True)
+        coded = repo.backfill_publication_codes(code_by_custom_code)
     print(
         f"Catalogue import: {added} publications added "
-        f"({len(entries) - added - skipped} already known, {skipped} skipped)."
+        f"({len(entries) - added - skipped} already known, {skipped} skipped), "
+        f"{coded} publication codes set."
     )
+    if unlisted:
+        print(
+            f"Unlisted publications: {u_added} added as delisted "
+            f"({len(unlisted) - u_added - u_skipped} already known, "
+            f"{u_skipped} skipped)."
+        )
     return 0
 
 

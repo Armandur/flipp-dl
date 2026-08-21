@@ -76,6 +76,7 @@ class DbPublication(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     custom_code: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    publication_code: Mapped[str | None] = mapped_column(String(20), nullable=True, index=True)
     _name: Mapped[str] = mapped_column("name", String(255), nullable=False)
     # User-selected output folder component. The Flipp name remains in
     # name and continues to be used in the UI and PDF filenames.

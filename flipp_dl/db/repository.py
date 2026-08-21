@@ -292,6 +292,25 @@ class DownloadRepository:
             .where(DbPublication.custom_code == custom_code)
         )
 
+    def backfill_publication_codes(
+        self, code_by_custom_code: dict[str, str]
+    ) -> int:
+        """Set publication_code where custom_code is in the mapping.
+
+        Returns count updated. Only sets it where currently different;
+        never clears it.
+        """
+        updated = 0
+        for publication in self.session.scalars(select(DbPublication)):
+            publication_code = code_by_custom_code.get(publication.custom_code)
+            if (
+                publication_code is not None
+                and publication.publication_code != publication_code
+            ):
+                publication.publication_code = publication_code
+                updated += 1
+        return updated
+
     def list_publications(self, watched_only: bool = False) -> list[DbPublication]:
         """Return publications with issue counts, without loading issues.
 
