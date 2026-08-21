@@ -119,7 +119,11 @@ def register(app: FastAPI) -> None:
         data = await _read_upload(catalog)
         if isinstance(data, str):
             return _error(request, data)
+        # The unlisted companion is optional: no file at all is fine, but a
+        # file we could not use is an error rather than a silent skip.
         unlisted_data = await _read_upload(unlisted)
+        if unlisted_data == "too_large":
+            return _error(request, "too_large")
         try:
             entries = parse_catalog(data)
             unlisted_entries = (
@@ -127,8 +131,6 @@ def register(app: FastAPI) -> None:
             )
         except CodeFileError as exc:
             return _error(request, exc.reason)
-        if isinstance(unlisted_data, str) and unlisted_data == "too_large":
-            return _error(request, "too_large")
 
         with get_session(request.app.state.session_factory) as session:
             result = import_catalog(
