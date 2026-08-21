@@ -694,6 +694,17 @@ def _komga_wait_seconds() -> int:
         return DEFAULT_WAIT_SECONDS
 
 
+# The one failure the drain retries: Komga scans asynchronously, so a job
+# can look for a book that is on disk but not indexed yet. Shared between
+# the message and the check so the two cannot drift apart.
+_BOOK_NOT_INDEXED = "not found in Komga"
+
+
+def _is_book_missing(message: str) -> bool:
+    """Whether *message* means "not indexed yet" rather than a real failure."""
+    return _BOOK_NOT_INDEXED in message
+
+
 def _wait_for_book(
     client: KomgaClient,
     series_id: int | str,
@@ -799,7 +810,7 @@ def _push_publication_and_issue_metadata(
     book = _wait_for_book(client, series_id, stems, wait_seconds)
     if book is None:
         return (
-            f"Book for issue {domain_issue.issue_name!r} not found in Komga "
+            f"Book for issue {domain_issue.issue_name!r} {_BOOK_NOT_INDEXED} "
             f"series {series_id} after waiting {wait_seconds}s - run the "
             "sync again manually once Komga has finished scanning."
         )
@@ -832,10 +843,17 @@ def _push_publication_and_issue_metadata(
 def run_komga_sync_queue(session_factory, *, max_jobs: int | None = None) -> int:
     """Drain queued ``komga_sync`` jobs.
 
-    Each job triggers a library scan, then - when the job carries an
-    ``issue_id`` (TASK-1327) - maps the publication to its Komga series
-    (once, cached forever in ``komga_series_id``) and pushes series +
-    book metadata and the cover.
+    One library scan per drain, not per job (TASK-1458). Every job in the
+    queue when the drain starts is about a file already on disk, so a
+    single scan covers all of them - and a back-catalogue fetch would
+    otherwise trigger hundreds of scans and serialise hundreds of waits.
+    The metadata push stays per book: it maps the publication to its
+    Komga series (once, cached forever in ``komga_series_id``) and
+    pushes series + book metadata and the cover.
+
+    A book that has not been indexed yet - the scan runs asynchronously,
+    so the first jobs of a drain can outrun it - gets one more scan and
+    one more wait before the job counts as failed.
 
     A no-op (returns 0 without touching the DB or the network) whenever
     ``KOMGA_ENABLED`` is off - an instance without Komga configured must
@@ -849,6 +867,9 @@ def run_komga_sync_queue(session_factory, *, max_jobs: int | None = None) -> int
 
     wait_seconds = _komga_wait_seconds()
     processed = 0
+    # Libraries already scanned in this drain, so job number two and
+    # onwards skip straight to their metadata push.
+    scanned: set[str] = set()
     while max_jobs is None or processed < max_jobs:
         with get_session(session_factory) as session:
             repo = DownloadRepository(session)
@@ -879,14 +900,16 @@ def run_komga_sync_queue(session_factory, *, max_jobs: int | None = None) -> int
             password=settings["password"],
             api_key=settings["api_key"],
         )
-        try:
-            client.scan_library(library_id)
-        except KomgaError as exc:
-            with get_session(session_factory) as s2:
-                DownloadRepository(s2).finish_job(job_id, error=str(exc))
-            logger.error("Komga sync job %d failed: %s", job_id, exc)
-            processed += 1
-            continue
+        if str(library_id) not in scanned:
+            try:
+                client.scan_library(library_id)
+            except KomgaError as exc:
+                with get_session(session_factory) as s2:
+                    DownloadRepository(s2).finish_job(job_id, error=str(exc))
+                logger.error("Komga sync job %d failed: %s", job_id, exc)
+                processed += 1
+                continue
+            scanned.add(str(library_id))
 
         sync_error = None
         if issue_id is not None:
@@ -894,6 +917,14 @@ def run_komga_sync_queue(session_factory, *, max_jobs: int | None = None) -> int
                 sync_error = _push_publication_and_issue_metadata(
                     session_factory, client, library_id, int(issue_id), wait_seconds
                 )
+                if sync_error and _is_book_missing(sync_error):
+                    # The scan is asynchronous, so an early job can look
+                    # for a book Komga has not indexed yet. Scan once more
+                    # and give it one more wait before giving up.
+                    client.scan_library(library_id)
+                    sync_error = _push_publication_and_issue_metadata(
+                        session_factory, client, library_id, int(issue_id), wait_seconds
+                    )
             except KomgaError as exc:
                 sync_error = str(exc)
             if sync_error:

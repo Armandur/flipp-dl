@@ -1447,3 +1447,111 @@ def test_only_the_opted_in_publication_is_listed_in_the_notification(
     _title, message = channel.sent[0]
     assert "Kalle Anka & Co" in message
     assert "Bilar" not in message
+
+
+# ---------------------------------------------------------------------------
+# One scan per drain, not per job (TASK-1458)
+# ---------------------------------------------------------------------------
+
+
+def test_a_drain_scans_the_library_once_no_matter_how_many_jobs(
+    repo, session_factory, monkeypatch
+):
+    """A back-catalogue fetch queues hundreds of jobs for one library.
+
+    Scanning per job made that hundreds of scans, each followed by its own
+    wait - so the tick spent hours doing what one scan covers.
+    """
+    monkeypatch.setattr("flipp_dl.scheduler.KomgaClient", _FakeKomgaClient)
+    _FakeKomgaClient.instances.clear()
+
+    repo.set_setting("komga_enabled", "true")
+    repo.set_setting("komga_url", "http://localhost:25600")
+    repo.set_setting("komga_library_id", "lib-1")
+    for _ in range(5):
+        repo.create_job("komga_sync", {"library_id": "lib-1"})
+    repo.session.commit()
+
+    processed = run_komga_sync_queue(session_factory)
+
+    assert processed == 5
+    scans = [lib for i in _FakeKomgaClient.instances for lib in i.scanned]
+    assert scans == ["lib-1"]
+
+
+def test_two_libraries_in_one_drain_are_scanned_once_each(
+    repo, session_factory, monkeypatch
+):
+    monkeypatch.setattr("flipp_dl.scheduler.KomgaClient", _FakeKomgaClient)
+    _FakeKomgaClient.instances.clear()
+
+    repo.set_setting("komga_enabled", "true")
+    repo.set_setting("komga_url", "http://localhost:25600")
+    repo.set_setting("komga_library_id", "lib-1")
+    for lib in ("lib-1", "lib-2", "lib-1", "lib-2"):
+        repo.create_job("komga_sync", {"library_id": lib})
+    repo.session.commit()
+
+    run_komga_sync_queue(session_factory)
+
+    scans = [lib for i in _FakeKomgaClient.instances for lib in i.scanned]
+    assert sorted(scans) == ["lib-1", "lib-2"]
+
+
+class _SlowIndexKomgaClient(_FakeKomgaClient):
+    """Komga that only reveals the book after a second scan.
+
+    Mirrors the real race: the scan is asynchronous, so the first job of a
+    drain can look for a book that is on disk but not indexed yet.
+    """
+
+    scans_before_book = 2
+
+    def list_series_books(self, series_id):
+        total = sum(len(i.scanned) for i in _FakeKomgaClient.instances)
+        if total < _SlowIndexKomgaClient.scans_before_book:
+            return []
+        return _FakeKomgaClient.books_by_series.get(series_id, [])
+
+
+def test_a_book_not_indexed_yet_gets_one_more_scan_before_failing(
+    repo, session_factory, monkeypatch, tmp_path
+):
+    monkeypatch.setattr("flipp_dl.scheduler.KomgaClient", _SlowIndexKomgaClient)
+    monkeypatch.setenv("KOMGA_WAIT_SECONDS", "0")
+    _FakeKomgaClient.instances.clear()
+    _FakeKomgaClient.series_by_name = {"Kalle Anka och Co": {"id": "s-1"}}
+
+    issue_id = _seed_issue(repo)
+    # Komga names the book after the file, and the file name comes from
+    # storage.issue_filename - not from the raw publication name (safe_name
+    # turns "&" into "och").
+    from flipp_dl import storage
+
+    stem = Path(
+        storage.issue_filename(
+            Publication(custom_code="KA", name="Kalle Anka & Co"),
+            Issue(custom_code="KA-01", issue_name="Nr 1", issue_date="2024-01-01"),
+        )
+    ).stem
+    with get_session(session_factory) as session:
+        pdf = tmp_path / f"{stem}.pdf"
+        pdf.write_bytes(b"%PDF-1.4\n")
+        DownloadRepository(session).mark_issue_done(issue_id, str(pdf))
+    _FakeKomgaClient.books_by_series = {"s-1": [{"id": "b-1", "name": stem}]}
+
+    repo.set_setting("komga_enabled", "true")
+    repo.set_setting("komga_url", "http://localhost:25600")
+    repo.set_setting("komga_library_id", "lib-1")
+    job = repo.create_job("komga_sync", {"library_id": "lib-1", "issue_id": issue_id})
+    repo.session.commit()
+    job_id = job.id
+
+    run_komga_sync_queue(session_factory)
+
+    scans = [lib for i in _FakeKomgaClient.instances for lib in i.scanned]
+    assert scans == ["lib-1", "lib-1"]  # first scan, then the retry
+    with get_session(session_factory) as session:
+        assert DownloadRepository(session).get_job(job_id).status == JobStatus.DONE
+    _FakeKomgaClient.series_by_name = {}
+    _FakeKomgaClient.books_by_series = {}
