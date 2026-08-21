@@ -509,6 +509,36 @@ class DownloadRepository:
             ) from exc
         return True
 
+    def set_publication_notify(self, custom_code: str, enabled: bool) -> bool:
+        """Toggle per-publication notifications. False if not found.
+
+        Independent of ``watched``: watching decides what gets
+        downloaded, this decides what gets announced. A publication can
+        be watched and silent, and a manual download of an unwatched
+        publication still notifies if this is set.
+        """
+        db_pub = self.get_publication(custom_code)
+        if db_pub is None:
+            return False
+        db_pub.notify_enabled = enabled
+        return True
+
+    def notifying_publication_codes(self, custom_codes: set[str]) -> set[str]:
+        """Of *custom_codes*, the ones that have notifications enabled.
+
+        Asked once per queue drain rather than once per issue - a bulk
+        backfill can drain thousands of jobs in one call.
+        """
+        if not custom_codes:
+            return set()
+        rows = self.session.scalars(
+            select(DbPublication.custom_code).where(
+                DbPublication.custom_code.in_(custom_codes),
+                DbPublication.notify_enabled.is_(True),
+            )
+        )
+        return set(rows)
+
     def set_publication_destination(self, custom_code: str, destination: str) -> bool:
         """Set the output destination unless downloaded issues already exist."""
         publication = self.get_publication(custom_code)

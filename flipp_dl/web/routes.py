@@ -703,6 +703,26 @@ def register(app: FastAPI) -> None:
                 repo.session.close()
         return RedirectResponse(f"/publications/{code}", status_code=303)
 
+    @app.post("/publications/{code}/notify", response_class=HTMLResponse)
+    async def set_publication_notify(
+        request: Request, code: str, notify_enabled: str = Form("off")
+    ):
+        """Turn notifications on or off for one publication (TASK-1447).
+
+        Independent of watching: watching decides what is downloaded,
+        this decides what is announced. A channel still has to be
+        configured under /settings for anything to be sent at all.
+        """
+        if not await check_csrf_form(request):
+            return HTMLResponse("CSRF validation failed", status_code=400)
+        with get_session(request.app.state.session_factory) as session:
+            found = DownloadRepository(session).set_publication_notify(
+                code, notify_enabled == "on"
+            )
+        if not found:
+            return HTMLResponse("Publication not found", status_code=404)
+        return RedirectResponse(f"/publications/{code}", status_code=303)
+
     @app.post("/publications/{code}/folder-name", response_class=HTMLResponse)
     async def set_publication_folder_name(
         request: Request, code: str, folder_name: str = Form("")

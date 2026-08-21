@@ -154,6 +154,25 @@
       </select>
       <button class="btn btn-watch" type="submit">{{ _("Save") }}</button>
     </form>
+    <form
+      class="detail-actions"
+      method="post"
+      action="/publications/{{ publication.custom_code }}/notify"
+      style="margin-top:8px;"
+    >
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+      <label for="notify_enabled" class="dim">{{ _("Notifications") }}</label>
+      <select class="inline-input" id="notify_enabled" name="notify_enabled">
+        <option value="off" {% if not publication.notify_enabled %}selected{% endif %}>
+          {{ _("Silent") }}
+        </option>
+        <option value="on" {% if publication.notify_enabled %}selected{% endif %}>
+          {{ _("Notify on new issues") }}
+        </option>
+      </select>
+      <button class="btn btn-watch" type="submit">{{ _("Save") }}</button>
+      <span class="dim">{{ _("Needs a notification channel configured under Settings.") }}</span>
+    </form>
     {% if destination_error %}
     <div class="error destination-error" style="margin-top:8px;">
       {{ destination_error }}

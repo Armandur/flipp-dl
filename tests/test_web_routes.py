@@ -2470,3 +2470,45 @@ def test_settings_rejects_a_secondary_root_that_does_not_exist(
         assert (
             DownloadRepository(session).get_setting("secondary_output_root", "") == ""
         )
+
+
+# ---------------------------------------------------------------------------
+# Per-publication notifications (TASK-1447)
+# ---------------------------------------------------------------------------
+
+
+def test_publication_notifications_are_off_until_turned_on(client: TestClient):
+    token = _csrf_for(client)
+
+    response = client.post(
+        "/publications/KA/notify",
+        data={"_csrf_token": token, "notify_enabled": "on"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    with get_session(client.app.state.session_factory) as session:
+        assert DownloadRepository(session).get_publication("KA").notify_enabled is True
+
+    client.post(
+        "/publications/KA/notify",
+        data={"_csrf_token": token, "notify_enabled": "off"},
+        follow_redirects=False,
+    )
+    with get_session(client.app.state.session_factory) as session:
+        assert DownloadRepository(session).get_publication("KA").notify_enabled is False
+
+
+def test_notify_toggle_requires_a_csrf_token(client: TestClient):
+    _csrf_for(client)
+    response = client.post("/publications/KA/notify", data={"notify_enabled": "on"})
+    assert response.status_code == 400
+    with get_session(client.app.state.session_factory) as session:
+        assert DownloadRepository(session).get_publication("KA").notify_enabled is False
+
+
+def test_publication_page_renders_the_notification_toggle(client: TestClient):
+    page = client.get("/publications/KA")
+    assert page.status_code == 200
+    assert 'name="notify_enabled"' in page.text
+    assert "/publications/KA/notify" in page.text

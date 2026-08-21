@@ -1089,6 +1089,7 @@ def test_run_download_queue_sends_one_bundled_notification_for_several_issues(
     for i in range(3):
         pub = Publication(custom_code="KA", name="Kalle Anka & Co")
         db_pub = repo.upsert_publication(pub)
+        repo.set_publication_notify("KA", True)
         repo.session.commit()
         issue = Issue(
             custom_code=f"KA-{i}", issue_name=f"Nr {i}", issue_date="2024-01-01"
@@ -1157,6 +1158,8 @@ def test_run_download_queue_bundles_failures_into_their_own_notification(
     )
     _enable_ntfy(repo)
     issue_id, job_id = _queue_download_job(repo)
+    repo.set_publication_notify("KA", True)
+    repo.session.commit()
 
     processed = run_download_queue(
         _FailingFlippClient(), session_factory, tmp_path / "out", workers=1, max_jobs=1
@@ -1383,3 +1386,64 @@ def test_run_download_queue_uses_saved_secondary_output_root(
         issue = DownloadRepository(session).get_issue(issue_id)
         assert Path(issue.file_path).is_relative_to(secondary_root)
         assert Path(issue.file_path).is_file()
+
+
+def test_a_silent_publication_sends_no_notification(
+    repo, session_factory, tmp_path, monkeypatch
+):
+    """Opt-in per publication: a configured channel is not enough.
+
+    Without this the flag would look like it worked (it is stored, the UI
+    shows it) while every download still notified.
+    """
+    channel = _RecordingChannel()
+    monkeypatch.setattr(
+        "flipp_dl.scheduler.build_notify_channels", lambda settings: [channel]
+    )
+    _enable_ntfy(repo)
+    _queue_download_job(repo)  # publikationen KA lämnas tyst
+
+    processed = run_download_queue(
+        _FakeFlippClient(), session_factory, tmp_path / "out", workers=1, max_jobs=1
+    )
+
+    assert processed == 1
+    assert channel.sent == []
+
+
+def test_only_the_opted_in_publication_is_listed_in_the_notification(
+    repo, session_factory, tmp_path, monkeypatch
+):
+    """A drain covering two publications announces only the one opted in."""
+    channel = _RecordingChannel()
+    monkeypatch.setattr(
+        "flipp_dl.scheduler.build_notify_channels", lambda settings: [channel]
+    )
+    _enable_ntfy(repo)
+    repo.set_setting("flipp_token", "dummy-token")
+
+    for code, namn, tyst in (("KA", "Kalle Anka & Co", False), ("BI", "Bilar", True)):
+        db_pub = repo.upsert_publication(Publication(custom_code=code, name=namn))
+        repo.set_publication_notify(code, not tyst)
+        repo.session.commit()
+        db_issue, _ = repo.upsert_issue(
+            Issue(
+                custom_code=f"{code}-1",
+                issue_name=f"Nr 1 {namn}",
+                issue_date="2024-01-01",
+            ),
+            db_pub.id,
+        )
+        repo.session.commit()
+        repo.create_job("download", {"issue_id": db_issue.id})
+        repo.session.commit()
+
+    processed = run_download_queue(
+        _FakeFlippClient(), session_factory, tmp_path / "out", workers=1
+    )
+
+    assert processed == 2
+    assert len(channel.sent) == 1
+    _title, message = channel.sent[0]
+    assert "Kalle Anka & Co" in message
+    assert "Bilar" not in message

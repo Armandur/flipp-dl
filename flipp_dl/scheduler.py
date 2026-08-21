@@ -561,8 +561,9 @@ def run_download_queue(
     if not client.token:
         return 0
     notify_channels = build_notify_channels(resolve_notify_settings(session_factory))
-    notify_successes: list[str] = []
-    notify_failures: list[str] = []
+    # (publikationskod, etikett) - koden behövs för opt-in-filtret nedan.
+    notify_successes: list[tuple[str, str]] = []
+    notify_failures: list[tuple[str, str]] = []
     processed = 0
 
     # Promote any RETRY_PENDING issue whose backoff window has elapsed
@@ -581,6 +582,9 @@ def run_download_queue(
             break
         job_id, domain_pub, domain_issue, issue_id = claimed
         issue_label = f"{domain_pub.name} - {domain_issue.issue_name}"
+        # Carried alongside the label so the notification filter below can
+        # ask which publications opted in, without a query per issue.
+        issue_code = domain_pub.custom_code
 
         # Run the download in its own session so status commits are
         # immediately visible to the web UI between jobs.
@@ -635,11 +639,11 @@ def run_download_queue(
                     )
                 else:
                     logger.error("Download job %d failed: %s", job_id, exc)
-                    notify_failures.append(issue_label)
+                    notify_failures.append((issue_code, issue_label))
                 processed += 1
                 continue
 
-        notify_successes.append(issue_label)
+        notify_successes.append((issue_code, issue_label))
 
         with get_session(session_factory) as s2:
             repo2 = DownloadRepository(s2)
@@ -667,7 +671,16 @@ def run_download_queue(
         processed += 1
 
     if notify_channels and (notify_successes or notify_failures):
-        _send_download_notifications(notify_channels, notify_successes, notify_failures)
+        # Notifications are opt-in per publication (TASK-1447): a channel
+        # being configured only means it CAN send, not that every
+        # publication should. One query for the whole drain.
+        koder = {code for code, _ in notify_successes + notify_failures}
+        with get_session(session_factory) as session:
+            notifying = DownloadRepository(session).notifying_publication_codes(koder)
+        successes = [label for code, label in notify_successes if code in notifying]
+        failures = [label for code, label in notify_failures if code in notifying]
+        if successes or failures:
+            _send_download_notifications(notify_channels, successes, failures)
 
     return processed
 

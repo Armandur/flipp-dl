@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-08-21 19:15+0200\n"
+"POT-Creation-Date: 2026-08-21 21:16+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -95,7 +95,7 @@ msgid "Recent Downloads"
 msgstr ""
 
 #: flipp_dl/web/templates/dashboard.html:19
-#: flipp_dl/web/templates/publication_detail.html:205
+#: flipp_dl/web/templates/publication_detail.html:224
 #: flipp_dl/web/templates/search.html:43
 msgid "Issue"
 msgstr ""
@@ -111,7 +111,7 @@ msgstr ""
 
 #: flipp_dl/web/templates/dashboard.html:22
 #: flipp_dl/web/templates/library.html:41
-#: flipp_dl/web/templates/publication_detail.html:209
+#: flipp_dl/web/templates/publication_detail.html:228
 msgid "File"
 msgstr ""
 
@@ -139,7 +139,7 @@ msgstr ""
 #: flipp_dl/web/templates/dashboard.html:84
 #: flipp_dl/web/templates/job_detail.html:19
 #: flipp_dl/web/templates/jobs.html:28
-#: flipp_dl/web/templates/publication_detail.html:207
+#: flipp_dl/web/templates/publication_detail.html:226
 #: flipp_dl/web/templates/search.html:46
 msgid "Status"
 msgstr ""
@@ -160,7 +160,7 @@ msgstr ""
 #: flipp_dl/web/templates/issue_row.html:45
 #: flipp_dl/web/templates/job_detail.html:82
 #: flipp_dl/web/templates/jobs.html:32
-#: flipp_dl/web/templates/publication_detail.html:185
+#: flipp_dl/web/templates/publication_detail.html:204
 #: flipp_dl/web/templates/search.html:24 flipp_dl/web/templates/search.html:68
 msgid "Error"
 msgstr ""
@@ -299,7 +299,7 @@ msgid "No longer listed"
 msgstr ""
 
 #: flipp_dl/web/templates/issue_row.html:35
-#: flipp_dl/web/templates/publication_detail.html:184
+#: flipp_dl/web/templates/publication_detail.html:203
 #: flipp_dl/web/templates/publications.html:39
 #: flipp_dl/web/templates/search.html:23 flipp_dl/web/templates/search.html:60
 #: flipp_dl/web/templates/stats_cards.html:15
@@ -307,7 +307,7 @@ msgid "Downloaded"
 msgstr ""
 
 #: flipp_dl/web/templates/issue_row.html:38
-#: flipp_dl/web/templates/publication_detail.html:183
+#: flipp_dl/web/templates/publication_detail.html:202
 #: flipp_dl/web/templates/search.html:21
 msgid "Downloading"
 msgstr ""
@@ -318,7 +318,7 @@ msgid "Downloading…"
 msgstr ""
 
 #: flipp_dl/web/templates/issue_row.html:43
-#: flipp_dl/web/templates/publication_detail.html:182
+#: flipp_dl/web/templates/publication_detail.html:201
 #: flipp_dl/web/templates/search.html:20 flipp_dl/web/templates/search.html:64
 msgid "Queued"
 msgstr ""
@@ -329,19 +329,19 @@ msgid "Retry pending"
 msgstr ""
 
 #: flipp_dl/web/templates/issue_row.html:49
-#: flipp_dl/web/templates/publication_detail.html:181
+#: flipp_dl/web/templates/publication_detail.html:200
 #: flipp_dl/web/templates/search.html:19 flipp_dl/web/templates/search.html:70
 msgid "Not downloaded"
 msgstr ""
 
 #: flipp_dl/web/templates/issue_row.html:55
-#: flipp_dl/web/templates/publication_detail.html:189
 #: flipp_dl/web/templates/publication_detail.html:208
+#: flipp_dl/web/templates/publication_detail.html:227
 msgid "Read"
 msgstr ""
 
 #: flipp_dl/web/templates/issue_row.html:57
-#: flipp_dl/web/templates/publication_detail.html:190
+#: flipp_dl/web/templates/publication_detail.html:209
 msgid "Unread"
 msgstr ""
 
@@ -606,6 +606,7 @@ msgstr ""
 #: flipp_dl/web/templates/publication_detail.html:119
 #: flipp_dl/web/templates/publication_detail.html:136
 #: flipp_dl/web/templates/publication_detail.html:155
+#: flipp_dl/web/templates/publication_detail.html:173
 msgid "Save"
 msgstr ""
 
@@ -630,39 +631,56 @@ msgstr ""
 msgid "Secondary output root"
 msgstr ""
 
-#: flipp_dl/web/templates/publication_detail.html:175
+#: flipp_dl/web/templates/publication_detail.html:164
+#: flipp_dl/web/templates/settings.html:258
+msgid "Notifications"
+msgstr ""
+
+#: flipp_dl/web/templates/publication_detail.html:167
+msgid "Silent"
+msgstr ""
+
+#: flipp_dl/web/templates/publication_detail.html:170
+msgid "Notify on new issues"
+msgstr ""
+
+#: flipp_dl/web/templates/publication_detail.html:174
+msgid "Needs a notification channel configured under Settings."
+msgstr ""
+
+#: flipp_dl/web/templates/publication_detail.html:194
 msgid "Search issues…"
 msgstr ""
 
-#: flipp_dl/web/templates/publication_detail.html:180
+#: flipp_dl/web/templates/publication_detail.html:199
 #: flipp_dl/web/templates/search.html:18
 msgid "All statuses"
 msgstr ""
 
-#: flipp_dl/web/templates/publication_detail.html:188
+#: flipp_dl/web/templates/publication_detail.html:207
 msgid "Read/unread"
 msgstr ""
 
-#: flipp_dl/web/templates/publication_detail.html:193
+#: flipp_dl/web/templates/publication_detail.html:212
 #: flipp_dl/web/templates/publications.html:25
 msgid "No longer listed only"
 msgstr ""
 
-#: flipp_dl/web/templates/publication_detail.html:206
+#: flipp_dl/web/templates/publication_detail.html:225
 #: flipp_dl/web/templates/search.html:44
 msgid "Date"
 msgstr ""
 
-#: flipp_dl/web/templates/publication_detail.html:210
+#: flipp_dl/web/templates/publication_detail.html:229
 #: flipp_dl/web/templates/search.html:47
 msgid "Action"
 msgstr ""
 
-#: flipp_dl/web/templates/publication_detail.html:221
+#: flipp_dl/web/templates/publication_detail.html:240
 msgid "No issues match the current filters."
 msgstr ""
 
-#: flipp_dl/web/templates/publication_detail.html:225
+#: flipp_dl/web/templates/publication_detail.html:244
 msgid "No issues for this publication yet. Run a poll to refresh."
 msgstr ""
 
@@ -996,10 +1014,6 @@ msgstr ""
 
 #: flipp_dl/web/templates/settings.html:254
 msgid "Testing…"
-msgstr ""
-
-#: flipp_dl/web/templates/settings.html:258
-msgid "Notifications"
 msgstr ""
 
 #: flipp_dl/web/templates/settings.html:260

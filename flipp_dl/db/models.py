@@ -13,6 +13,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    false,
 )
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -113,6 +114,11 @@ class DbPublication(Base):
     # description contains the standard "Nästa nummer kommer …" line.
     next_issue_date: Mapped[str | None] = mapped_column(String(20), nullable=True)
     watched: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # Opt-in per publication: a download only notifies when this is set,
+    # and only when a notification channel is configured at all.
+    notify_enabled: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False, server_default=false()
+    )
     # When watching was (most recently) turned on for this publication
     # (TASK-1361). Watching only bevakar framåt - it queues nothing by
     # itself - so poll's catch-up pass uses this as the cutoff: an issue
