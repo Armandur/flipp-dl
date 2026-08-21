@@ -44,6 +44,25 @@ Verifiering: tester i tests/test_storage.py och tests/test_downloader.py för kr
 
 ---
 
+## [P2][done] [flipp] En Komga-scan per tömning av kön, inte en per utgåva
+
+run_komga_sync_queue skapar ett komga_sync-jobb per färdig nedladdning, och varje jobb triggar en scan av HELA biblioteket och pollar sedan upp till 10 sekunder (KOMGA_WAIT_SECONDS) efter just sin bok.
+
+För en eller två nya utgåvor per pollning är det oproblematiskt. För en bakkatalogshämtning är det illa: 809 nedladdningar ger 809 scan-triggningar, och väntan körs i serie - i värsta fallet drygt två timmar där tickan bara pollar medan Komga scannar om och om igen.
+
+Att göra:
+- Trigga scan en gång per bibliotek och tömning, inte per jobb. Alla jobb i kön vid tömningens start rör filer som redan ligger på disk, så en scan täcker dem.
+- Behåll metadatapushen per bok - den är per utgåva och ska så vara.
+- Hantera att en bok inte hunnit indexeras: trigga om scan och vänta en gång till innan jobbet räknas som misslyckat, annars faller de första jobben medan scanningen fortfarande pågår.
+
+Klart när: en tömning med N jobb mot samma bibliotek gör en scan-triggning, inte N. Verifiera med ett test som räknar anropen mot en fejkad KomgaClient.
+
+- ID: `01M0K5Z7EW8CDSJNZNJ9F754HR`
+- Type: improvement
+- Actor: ai:claude-code
+
+---
+
 ## [P2][done] [flipp] Importera de olistade publikationerna (pubids ur olistade-utgavor.json)
 
 ## Context
@@ -408,6 +427,26 @@ Rätt fix är troligen en riktig claim-fråga mot DB (SELECT ... WHERE status=qu
 - ID: `01M0BBXMEPZZWZVNYZR3SF7RWF`
 - Type: bug
 - Actor: ai:claude-opus-5
+
+---
+
+## [P3][todo] [flipp] Logga in mot Flipp direkt från flipp-dl i stället för konsolsnutten
+
+Rasmus 2026-08-21: i stället för att visa en JS-snutt att klistra i webbläsarkonsolen borde flipp-dl kunna logga in mot Flipp självt och hämta token.
+
+Läget: inställningssidan har ett token-fält plus en utfällbar hjälp med snutten som läser flipp_token ur document.cookie på tidningar.flipp.se. Fungerar, men kräver att man är inloggad i rätt webbläsare och kan konsolen.
+
+Att utreda innan något byggs:
+- Vilket inloggningsflöde Flipp faktiskt använder. Går det att posta e-post och lösenord mot en endpoint och få token, eller sitter det bakom ett OAuth-/SSO-flöde med redirect? refreshsignintoken-anropet som debug-vyn redan gör är en ledtråd till vad token är värd, men inte till hur den skapas.
+- Om det finns MFA, captcha eller enhetsbindning i vägen.
+- Var lösenordet i så fall lagras. Databasen har redan hemligheter (Komga-lösenord, ntfy-token) så mönstret finns, men ett Flipp-lösenord är känsligare än en token som ändå går att förnya.
+- Alternativ om direktinloggning inte går: en bookmarklet i stället för konsolklistrande, eller en webbläsarextension.
+
+Konsolsnutten kan behållas som fallback oavsett.
+
+- ID: `01M0JVVQJWSVZDJ8VXCZ4XGVH6`
+- Type: feature
+- Actor: ai:claude-code
 
 ---
 
@@ -1431,6 +1470,22 @@ Bygg vidare på befintliga byggstenar i stället för att uppfinna nya: `list_is
 - ID: `01M0BBY3X4VKXXTRYY9T2EGDP4`
 - Type: feature
 - Actor: ai:claude-opus-5
+
+---
+
+## [P4][todo] [flipp] Publikationssidan har horisontell overflow på mobil
+
+Vid 390 px breda viewport är document.documentElement.scrollWidth 412, alltså 22 px horisontell scroll. Mätt 2026-08-21.
+
+Det som spiller över är sidans egen container, inte något enskilt fält: DIV.detail-info, H1 och DIV.detail-actions är alla 396 px breda i en 390 px vy och slutar på x=412.
+
+Verifierat att det INTE är nytt: samma 412 med och utan notisväxeln (mätt genom att stasha publication_detail.html och mäta om). Buggen fanns alltså före TASK-1447.
+
+Klart när: scrollWidth == viewportbredden vid 390 px. Verifiera med Playwright vid 390 OCH 1280 px, se browser-verify-skillen.
+
+- ID: `01M0JW6X8APZ8FACCNE2XXGA23`
+- Type: bug
+- Actor: ai:claude-code
 
 ---
 
