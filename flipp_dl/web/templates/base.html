@@ -100,7 +100,8 @@
     .status-filter a:hover { border-color: #45475a; color: #cdd6f4; }
     .status-filter a.active { border-color: #7c3aed; color: #cba6f7; background: #2a1f3d; }
     .status-filter .count { color: #6c7086; margin-left: 4px; }
-    .detail-actions { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+    .detail-actions { display: flex; align-items: center; gap: 10px; margin-top: 12px;
+                      flex-wrap: wrap; }
     a.job-link { color: #89b4fa; text-decoration: none; }
     a.job-link:hover { text-decoration: underline; }
     pre.payload, pre.job-error {
@@ -153,7 +154,7 @@
     .detail-cover { width: 110px; height: 150px; object-fit: cover;
                     border-radius: 6px; background: #181825;
                     box-shadow: 0 2px 8px rgba(0,0,0,.5); flex-shrink: 0; }
-    .detail-info { flex: 1; }
+    .detail-info { flex: 1; min-width: 0; overflow-wrap: anywhere; }
     .detail-info h1 { margin-bottom: 6px; }
     .detail-meta { font-size: 12px; }
     .detail-meta .mono { font-family: "SFMono-Regular", Consolas, monospace; }
@@ -275,12 +276,15 @@
     .field select { cursor: pointer; }
     /* Same look for a field sitting inline in a form rather than in a
        .field block - it keeps its own width instead of filling the row. */
-    input.inline-input {
+    input.inline-input,
+    select.inline-input {
       background: #181825; border: 1px solid #45475a; border-radius: 6px;
       color: #cdd6f4; padding: 8px 10px; font-size: 14px;
       font-family: inherit; outline: none; transition: border-color .15s;
     }
-    input.inline-input:focus { border-color: #7c3aed; }
+    input.inline-input:focus,
+    select.inline-input:focus { border-color: #7c3aed; }
+    select.inline-input { color-scheme: dark; cursor: pointer; }
     .token-help { margin-top: 10px; }
     .token-help summary { cursor: pointer; font-size: 13px; color: #a6adc8; }
     .token-help summary:hover { color: #cdd6f4; }
@@ -316,7 +320,7 @@
     .filter-bar input[type="search"]::placeholder { color: #6c7086; }
     .filter-bar input[type="search"]:focus,
     .filter-bar select:focus { border-color: #7c3aed; }
-    .filter-bar select { min-width: 160px; cursor: pointer; }
+    .filter-bar select { min-width: 160px; color-scheme: dark; cursor: pointer; }
     .filter-bar .watch-filter {
       display: inline-flex; align-items: center; gap: 6px;
       font-size: 13px; color: #a6adc8; margin: 0; cursor: pointer;
