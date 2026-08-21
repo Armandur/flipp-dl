@@ -452,7 +452,7 @@ Rätt fix är troligen en riktig claim-fråga mot DB (SELECT ... WHERE status=qu
 
 ---
 
-## [P3][doing] [flipp] Generera omslag ur PDF:en för utgåvor som saknar cover_url
+## [P3][done] [flipp] Generera omslag ur PDF:en för utgåvor som saknar cover_url
 
 Rasmus 2026-08-22: de upptäckta utgåvorna visar inget omslag. Vi har ju filen - borde kunna rendera och cachea första sidan.
 
