@@ -44,7 +44,72 @@ Verifiering: tester i tests/test_storage.py och tests/test_downloader.py för kr
 
 ---
 
-## [P2][todo] [flipp] Bevara alla utgåvokoder vi någonsin sett
+## [P2][done] [flipp] Importera de olistade publikationerna (pubids ur olistade-utgavor.json)
+
+## Context
+docs/olistade-utgavor.json innehaller olistade UTGAVOR vars publication_code (pubid) tillhor 27 publikationer som INTE finns i den listade 91-katalogen (docs/alla-publikationer.json). Verifierat 2026-08-21: alla testade svarar mot editionshtml5_json med fulla bakkataloger (Hjemmet Bilag 304 utgavor, Her og Na TV 450, Bornytt 35, Disney Nyheter 27 ...). 12 av 27 gav 1106 utgavor.
+
+Alltsa: signin-katalogen ger 91 listade publikationer, men vi har 27 TILL vars pubid ar kand och fungerar oppet. Tillsammans 118 publikationer atkomliga utan inloggning.
+
+## Vad som ska goras
+- Extrahera de 27 distinkta olistade publikationerna (pubid + namn) ur docs/olistade-utgavor.json till en importfil (t.ex. docs/olistade-publikationer.json), namn + customPublicationCode.
+- Lat --import-catalog aven ta den filen (eller kor den separat), sa publikationerna laggs till i DB.
+- Markera dem delisted direkt (de ar inte i den officiella katalogen) sa de inte forvaxlas med listade - men behall dem sa --discover-editions plockar deras utgavor.
+- Sedan tacker flipp-dl 118 publikationer i stallet for 91.
+
+## Grans
+Ingen oppen upprakning av pubids finns. De 91 kommer fran signin, de 27 fran Wayback-utgavejakten. Publikationer vi aldrig sett en pubid for kraver fortfarande en extern upptacktskalla. Se doc 01M0GM0G.
+
+- ID: `01M0JAP1P586MHBG16E6DJ0DT3`
+- Type: feature
+- Actor: ai:claude-code
+
+---
+
+## [P2][todo] [flipp] Dedupa publikationer via publicationCode i stallet for namn
+
+
+
+## Status 2026-08-21: data-lagret byggt (commit 2a689d7)
+KLART: publication_code lagras (kolumn + migration 0015 + index), backfillas via
+repository.backfill_publication_codes fran docs/alla-publikationer.json vid
+--import-catalog. 91 koder satta. De tva Hjemmet skiljs nu at: DK-HJM / NO-HJE,
+synligt i alla queries och display.
+
+KVAR (medvetet inte byggt an - incidentkanslig folder-logik): auto-disambiguera
+MAPPNAMN via publication_code vid kollision, i stallet for att pausa bevakning
+(_disable_watched_folder_collisions). Risk: att auto-doma om folder_name pa en
+publikation som redan har nedladdningar i t.ex. Hjemmet/ foraldralosar de filerna
+(samma klass av problem som TASK-1404). Sakert monster nar det byggs: bara
+auto-satt "namn (publication_code)" for kollisioner dar ingen av parterna annu
+har nedladdningar; annars behall pausa-och-fraga men foresla namn+kod. Kraver
+egen genomtankt PR med tester mot befintliga nedladdningar.
+
+- ID: `01M0J5SM8SX6M0WY5EX3WDG9AM`
+- Type: improvement
+- Actor: ai:claude-code
+
+---
+
+## [P2][done] [flipp] Upptäck utgåvor via PageSuites utgåvelista
+
+
+
+## Bevara historiska publicationCodes (aldrig hard-radera)
+Nar en publikation forsvinner ur signin-svaret: markera delisted, ta ALDRIG
+bort raden. publicationCode + customPublicationCode (= pubid) ar oersattliga -
+sa lange vi har dem kan utgavorna fortfarande hamtas via editionshtml5_json
+(oppet, kan svara aven for avlistade pub, precis som olistade utgavor).
+Samma princip som TASK-1438 for utgavokoder, fast pa publikationsniva. Aterbruka
+delisted-monstret fran _mark_missing_publications_delisted.
+
+- ID: `01M0HQZ9JV1NENJVASB3T6RN6T`
+- Type: feature
+- Actor: ai:claude-code
+
+---
+
+## [P2][done] [flipp] Bevara alla utgåvokoder vi någonsin sett
 
 ## Context
 1916 utgåvor har redan fallit ur Flipps listning, och deras koder finns bara i vår databas. Det finns ingen väg att lista dem på nytt - det är utrett och besvarat. Faller en kod bort innan vi hunnit se den är den oåtkomlig för alltid, eftersom uppslaget av sidor kräver att man redan känner koden.
@@ -346,7 +411,84 @@ Rätt fix är troligen en riktig claim-fråga mot DB (SELECT ... WHERE status=qu
 
 ---
 
-## [P3][todo] [flipp] Importera utgåvor från en lista med kända koder
+## [P3][todo] [flipp] Destination per publikation: Komga-serier vs rena tidningar
+
+Alla publikationer hör inte hemma på samma ställe. Serietidningar (Bamse, Fantomen, Kalle Anka) hör hemma i Komga; rena tidningar utan seriekaraktär (Scandinavian Retro, Pyssla med prinsessorna, Djurliv) passar bättre i ett Calibre-bibliotek.
+
+Läget i dag: en enda output-rot för allt, och publikationens enda placeringsval är folder_name (migration 0012).
+
+Att göra:
+- Ett val per publikation för vart utgåvorna hamnar. Samma ställe som folder_name, dvs en kolumn på publications plus ett fält i publikationsvyn.
+- Minst två destinationer, konfigurerbara: en Komga-rot och en för resten.
+- Nedladdaren skriver till den valda roten, och import-existing/migrate-filenames måste kunna hitta filer i båda.
+
+Viktigt (utrett 2026-08-21): Calibre går INTE att lösa som "ännu en output-rot". Calibre äger sin egen biblioteksstruktur (Författare/Titel (id)/ plus metadata.db) och läser inte en katalog man bara pekar på - den matas med `calibredb add`. Så antingen blir Calibre-destinationen en inkorg som en separat process plockar från, eller så anropar flipp-dl calibredb. Det valet är inte taget.
+
+Beroende: TASK-1358 (Komga-biblioteket) bör vara på plats först, annars finns ingen Komga-rot att peka på.
+
+- ID: `01M0JJC8B37RXVMYNFMPZKFRX2`
+- Type: feature
+- Actor: ai:claude-code
+
+---
+
+## [P3][doing] [flipp] Exponera katalog-/utgave-/backup-kommandon i webb-UI:t
+
+
+
+## Rasmus krav (2026-08-21): JSON ska kunna bade laddas UPP och NED i webben
+Backup och liknande: --export-codes -> nedladdning (GET, FileResponse/Streaming
+med Content-Disposition attachment), --import-backup och --import-catalog ->
+uppladdning (POST multipart-fil). Bada riktningarna, inte bara knappar.
+
+## Tekniska fynd (fran forstudien, sa nasta session slipper aterupptacka)
+- Monster: POST /settings/import-existing (routes.py:1392) - CSRF via
+  check_csrf_form (auth.py:89) + TemplateResponse-partial som HTMX swappar in.
+  Knapp-markup: settings.html:296 (hx-post/hx-target/hx-vals med csrf_token).
+- CSRF med multipart: check_csrf_form laser request.form() som funkar aven for
+  multipart - filuppladdning behover _csrf_token som ett formfalt bredvid filen.
+- INGEN UploadFile/File anvands an i web/ - detta blir forsta filuppladdningen.
+  Kraver "from fastapi import File, UploadFile".
+- Export = GET som returnerar filen (FileResponse eller StreamingResponse med
+  Content-Disposition: attachment; filename=...).
+- REFAKTORERA FORST: kärnlogiken ligger i cli.py:_run_export_codes /
+  _run_import_backup / _run_import_catalog blandad med argparse + print. Bryt ut
+  ateranvandbara funktioner (build_backup_payload(session)->dict,
+  restore_backup(repo,payload)->counts, import-katalog-hjalparen _import_
+  publication_file finns redan) sa web-routes och CLI delar dem. Ev. ny modul
+  flipp_dl/codes.py.
+- De tva tunga (discover-editions/import-editions) = bakgrundsjobb, egen
+  delleverans (se tasken ovan). Bygg de tre snabba forst.
+
+- ID: `01M0JDMK02MNQ0QMGDXJRHTKM2`
+- Type: feature
+- Actor: ai:claude-code
+
+---
+
+## [P3][done] [flipp] Systematisk Wayback-svep for att hitta unika olistade utgavor
+
+## Context
+editionshtml5_json ar INTE komplett per publikation - den missar genuint unika utgavor. Verifierat 2026-08-21: av 8 stickprovade in-katalog-utgavor som listan missar var 5 genuint unika (Bamse Sagoserier 2018 x2, Classic Motor 2021, Fantomens Skattkammare 2025, Kalle Anka Junior 2019 - olika omslag OCH innehall), bara 3 dubbletter (Bilar-ompublikationer, byte-identiska). Spanner alla ar, inte bara 2024.
+
+Dessa unika hittades via Wayback CDX (sa de 227 i docs/olistade-utgavor.json hittades). editionshtml5_json OCH get_edition_by_date returnerar bara den kanoniska mangden (en per datum) och missar dessa. Enda live-kalla ar Wayback.
+
+## Vad som ska goras
+- Kor en systematisk Wayback CDX-svep for ALLA 118 publikationer (91 katalog + 27 olistade), inte bara stickprov. Monster: reader.flipp.se default.aspx?edid= och www.flipp.se/tidningar/ arkiverade sidor.
+- Extrahera alla eids, verifiera mot editionshtml5_json-listan, spara de som saknas (unika) till docs/olistade-utgavor.json.
+- Filtrera bort dubbletter: jamfor omslag (get_image pnum=1 md5) mot listade utgavors omslag - byte-identisk = ompublikation, hoppa. Behall bara unika.
+- Importera de unika som issues (TASK-1438-principen: bevara alla eids vi sett).
+
+## Grans
+Ingen live-API ger dessa (editionshtml5_json + get_edition_by_date deduplicerar till kanonisk mangd). Wayback ar enda kallan, och den ar inte uttommande - bara det som arkiverats. Se doc 01M0GM0G.
+
+- ID: `01M0JBHQPBP75G57M8HA7ZTZ3K`
+- Type: feature
+- Actor: ai:claude-code
+
+---
+
+## [P3][done] [flipp] Importera utgåvor från en lista med kända koder
 
 ## Context
 Vi hittar utgåvor som Flipps lista inte känner till - tre av Bilar ligger redan i docs/olistade-utgavor.json, verifierade och hämtbara. Fler lär tillkomma (TASK-1436). I dag finns ingen väg att få in dem i flipp-dl: publikationer och utgåvor skapas bara av sync_publications utifrån API-svaret.
@@ -366,6 +508,16 @@ Det här är en väg in i databasen som kringgår API-synken. Var noga med att e
 ## Verification
 - Tester: import av känd kod, okänd publikationskod, redan befintlig utgåva, och att en poll efteråt lämnar raderna ifred.
 - Skarpt: importera de tre Bilar-utgåvorna i docs/olistade-utgavor.json mot en kopia av driftdatabasen och ladda ner en av dem.
+
+## Premissändring 2026-08-21
+TASK-1439 ändrar förutsättningarna. `editionshtml5_json.aspx` listar utgåvorna
+per publikation, inklusive de dolda, och ger namn, datum och sidantal.
+Kriteriet ovan om att reader-API:t saknar namn och datum stämmer alltså inte
+längre, och handhållna kodlistor är inte upptäcktsvägen.
+
+Kvar av den här uppgiften är importmekanismen som sådan: en uttrycklig väg in
+i databasen vid sidan av synken. Bygg TASK-1439 först och avgör sedan om detta
+fortfarande behövs separat.
 
 - ID: `01M0GFA3B11H5AZMQH8B8229A1`
 - Type: feature
