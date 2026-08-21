@@ -303,7 +303,14 @@ def _run_import_existing(args: argparse.Namespace) -> int:
     output_root = args.output or default_output_path()
     session_factory = make_session_factory(args.db)
     with get_session(session_factory) as session:
-        report = DownloadRepository(session).import_existing_files(output_root)
+        repo = DownloadRepository(session)
+        # Publications sent to the secondary root keep their files there,
+        # so a scan that only walks the primary root would report every
+        # one of them as missing.
+        secondary = repo.get_setting("secondary_output_root", "").strip()
+        report = repo.import_existing_files(
+            output_root, extra_roots=[Path(secondary)] if secondary else None
+        )
     _print_import_report(report)
     return 0
 

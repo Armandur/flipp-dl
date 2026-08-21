@@ -161,6 +161,47 @@ def test_main_import_existing_backfills_a_file_already_on_disk(
         assert repo.get_issue(issue_id).status == "done"
 
 
+def test_main_import_existing_also_scans_the_secondary_root(
+    tmp_path, monkeypatch, capsys
+):
+    """A publication sent to the secondary root must not read as missing."""
+    from flipp_dl import storage
+    from flipp_dl.cli import main
+    from flipp_dl.db.repository import DownloadRepository
+    from flipp_dl.db.session import get_session, make_session_factory
+
+    monkeypatch.delenv("FLIPP_TOKEN", raising=False)
+
+    db_path = tmp_path / "flipp.db"
+    output = tmp_path / "Output"
+    secondary = tmp_path / "Secondary"
+    secondary.mkdir()
+    pub = _pub("KA", "Kalle Anka", cats=[52], issues=1)
+
+    factory = make_session_factory(db_path)
+    with get_session(factory) as session:
+        repo = DownloadRepository(session)
+        db_pub = repo.upsert_publication(pub)
+        db_pub.destination = "secondary"
+        db_issue, _ = repo.upsert_issue(pub.issues[0], db_pub.id)
+        repo.mark_issue_queued(db_issue.id)
+        repo.set_setting("secondary_output_root", str(secondary))
+        issue_id = db_issue.id
+
+    target = storage.issue_path(secondary, pub, pub.issues[0])
+    target.parent.mkdir(parents=True)
+    target.write_bytes(b"%PDF-1.4\n%dummy\n")
+
+    exit_code = main(
+        ["--import-existing", "--db", str(db_path), "--output", str(output)]
+    )
+
+    assert exit_code == 0
+    assert "Backfilled 1 issue(s)" in capsys.readouterr().out
+    with get_session(factory) as session:
+        assert DownloadRepository(session).get_issue(issue_id).status == "done"
+
+
 # ---------------------------------------------------------------------------
 # --migrate-filenames (TASK-1400) - explicit and restartable
 # ---------------------------------------------------------------------------
