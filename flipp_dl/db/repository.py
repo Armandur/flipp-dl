@@ -677,6 +677,59 @@ class DownloadRepository:
             )
         )
 
+    def link_publication_covers_from_issues(self) -> int:
+        """Give publications with no cover URL their newest issue's cover.
+
+        The unlisted publications (TASK-1442) never came from the Flipp
+        API, so they have no ``cover_url`` and nothing will ever fetch a
+        cover for them - the publication list renders them blank forever.
+        Their issues do have covers, fetched from PageSuite by eid, so
+        the newest one stands in for the publication.
+
+        Only touches publications that have no ``cover_url`` of their own,
+        so a real cover is never overwritten. Re-runs cheaply: writes only
+        when the newest issue cover differs from what is stored, which is
+        also how the publication follows along when a newer issue arrives.
+
+        Returns the number of publications updated.
+        """
+        newest = (
+            select(
+                DbIssue.publication_id.label("publication_id"),
+                DbIssue.cover_cache_path.label("cover_cache_path"),
+                func.row_number()
+                .over(
+                    partition_by=DbIssue.publication_id,
+                    order_by=(DbIssue.issue_date.desc(), DbIssue.id.desc()),
+                )
+                .label("rank"),
+            )
+            .where(DbIssue.cover_cache_path.is_not(None))
+            .subquery()
+        )
+        rows = self.session.execute(
+            select(DbPublication, newest.c.cover_cache_path)
+            .join(newest, newest.c.publication_id == DbPublication.id)
+            .where(
+                newest.c.rank == 1,
+                or_(
+                    DbPublication.cover_url.is_(None),
+                    DbPublication.cover_url == "",
+                ),
+            )
+        ).all()
+
+        updated = 0
+        for publication, cover_cache_path in rows:
+            if publication.cover_cache_path == cover_cache_path:
+                continue
+            publication.cover_cache_path = cover_cache_path
+            # No source URL: nothing fetched it, so the change detection
+            # in publications_needing_cover_refresh must never pick it up.
+            publication.cover_cache_source_url = None
+            updated += 1
+        return updated
+
     def set_publication_cover_cache(
         self, publication_id: int, cache_filename: str, source_url: str
     ) -> None:

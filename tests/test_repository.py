@@ -1900,3 +1900,67 @@ def test_import_existing_files_scans_primary_and_secondary_roots(repo, tmp_path)
         secondary_target.resolve()
     )
     assert report.missing_files == []
+
+
+# ---------------------------------------------------------------------------
+# Publications with no cover URL borrow their newest issue's cover (TASK-1461)
+# ---------------------------------------------------------------------------
+
+
+def test_a_publication_without_a_cover_url_borrows_its_newest_issue_cover(repo):
+    """The unlisted publications never came from Flipp, so nothing fetches
+    them a cover - the list would render them blank forever."""
+    pub = Publication(custom_code="AS", name="Ankeborgs samlarpocket")
+    db_pub = repo.upsert_publication(pub)
+    for code, datum in (("a1", "2023-01-10"), ("a2", "2023-11-09")):
+        db_issue, _ = repo.upsert_issue(
+            Issue(custom_code=code, issue_name=datum, issue_date=datum), db_pub.id
+        )
+        repo.set_issue_cover_cache(db_issue.id, f"issue-{code}.jpg")
+
+    assert repo.link_publication_covers_from_issues() == 1
+    assert repo.get_publication("AS").cover_cache_path == "issue-a2.jpg"
+
+
+def test_a_publication_with_its_own_cover_url_is_never_overwritten(repo):
+    pub = Publication(
+        custom_code="KA", name="Kalle Anka", cover_url="https://flipp/ka.jpg"
+    )
+    db_pub = repo.upsert_publication(pub)
+    repo.set_publication_cover_cache(db_pub.id, "pub-KA.jpg", "https://flipp/ka.jpg")
+    db_issue, _ = repo.upsert_issue(
+        Issue(custom_code="ka1", issue_name="Nr 1", issue_date="2024-01-01"), db_pub.id
+    )
+    repo.set_issue_cover_cache(db_issue.id, "issue-ka1.jpg")
+
+    assert repo.link_publication_covers_from_issues() == 0
+    assert repo.get_publication("KA").cover_cache_path == "pub-KA.jpg"
+
+
+def test_linking_follows_along_when_a_newer_issue_arrives(repo):
+    """Re-running is cheap and keeps the publication on its newest issue."""
+    db_pub = repo.upsert_publication(Publication(custom_code="AS", name="Ankeborg"))
+    first, _ = repo.upsert_issue(
+        Issue(custom_code="a1", issue_name="1", issue_date="2023-01-10"), db_pub.id
+    )
+    repo.set_issue_cover_cache(first.id, "issue-a1.jpg")
+    repo.link_publication_covers_from_issues()
+
+    # Running again with nothing new must not write anything.
+    assert repo.link_publication_covers_from_issues() == 0
+
+    later, _ = repo.upsert_issue(
+        Issue(custom_code="a2", issue_name="2", issue_date="2023-11-09"), db_pub.id
+    )
+    repo.set_issue_cover_cache(later.id, "issue-a2.jpg")
+    assert repo.link_publication_covers_from_issues() == 1
+    assert repo.get_publication("AS").cover_cache_path == "issue-a2.jpg"
+
+
+def test_a_publication_whose_issues_have_no_covers_is_left_alone(repo):
+    db_pub = repo.upsert_publication(Publication(custom_code="AS", name="Ankeborg"))
+    repo.upsert_issue(
+        Issue(custom_code="a1", issue_name="1", issue_date="2023-01-10"), db_pub.id
+    )
+    assert repo.link_publication_covers_from_issues() == 0
+    assert repo.get_publication("AS").cover_cache_path is None

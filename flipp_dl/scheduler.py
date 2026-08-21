@@ -318,6 +318,15 @@ def cache_covers(session_factory, new_issue_ids: list[int] | None = None) -> int
                 DownloadRepository(session).set_issue_cover_cache(issue_id, filename)
             cached += 1
 
+    # Publications with no cover_url of their own borrow their newest
+    # issue's cover, which is already in the cache (TASK-1461). Nothing
+    # is fetched here, so it runs after the loops above and is counted
+    # separately from what was downloaded.
+    with get_session(session_factory) as session:
+        linked = DownloadRepository(session).link_publication_covers_from_issues()
+    if linked:
+        logger.info("Poll: linked %d publication cover(s) to an issue cover", linked)
+
     return cached
 
 
