@@ -1,7 +1,7 @@
-"""Catalogue and code-backup routes for the settings page.
+"""Catalogue, code-backup and edition routes for the settings page.
 
-The web counterpart to the CLI's ``--import-catalog``, ``--export-codes``
-and ``--import-backup``. Both sides share :mod:`flipp_dl.codes`, so a file
+The web counterpart to the CLI's ``--import-catalog``, ``--export-codes``,
+``--import-backup``, ``--discover-editions`` and ``--import-editions``. Both sides share :mod:`flipp_dl.codes`, so a file
 means the same thing whichever way it is fed in.
 
 JSON goes both ways: the export is a download (GET with a
@@ -9,11 +9,17 @@ JSON goes both ways: the export is a download (GET with a
 (multipart POST). The CSRF token rides along as a hidden form field, since
 ``check_csrf_form`` reads it out of the same parsed form as the file.
 
+The two edition runs make one HTTP call per publication (or per edition),
+far too slow for a request, so they are queued as jobs and drained by
+:func:`flipp_dl.editions.run_editions_queue` in the scheduler. The settings
+page polls a status partial while one is running.
+
 Kept out of ``routes.py`` (already 1400+ lines) per TASK-1292.
 """
 
 from __future__ import annotations
 
+import json
 import logging
 from datetime import datetime, timezone
 from typing import Annotated
@@ -30,8 +36,10 @@ from ..codes import (
     parse_catalog,
     restore_backup,
 )
+from ..db.models import JobStatus
 from ..db.repository import DownloadRepository
 from ..db.session import get_session
+from ..editions import JOB_DISCOVER, JOB_IMPORT, JOB_TYPES, parse_editions
 from . import i18n
 from .auth import check_csrf_form
 from .routes import _mark_for_translation as _
@@ -53,7 +61,12 @@ _FILE_ERROR_MESSAGES = {
     ),
     "empty": _("No file was selected."),
     "too_large": _("The file is too large."),
+    "no_editions": _("The file contains no editions."),
 }
+
+# A job in one of these states is still going to change, so the status
+# partial keeps polling; anything else is its final word.
+_ACTIVE_JOB_STATUSES = (JobStatus.QUEUED.value, JobStatus.RUNNING.value)
 
 
 def _error(request: Request, reason: str) -> HTMLResponse:
@@ -166,3 +179,80 @@ def register(app: FastAPI) -> None:
             "codes_result.html",
             {"error": None, "result": result, "kind": "backup"},
         )
+
+    # ------------------------------------------------------------------
+    # Editions - queued as jobs, drained by the scheduler
+    # ------------------------------------------------------------------
+
+    def _editions_status(request: Request) -> HTMLResponse:
+        """Render the latest editions job, with its progress or result."""
+        with get_session(request.app.state.session_factory) as session:
+            job = DownloadRepository(session).latest_job_of_types(JOB_TYPES)
+            view = None
+            if job is not None:
+                try:
+                    payload = json.loads(job.payload)
+                except (TypeError, ValueError):
+                    payload = {}
+                view = {
+                    "id": job.id,
+                    "type": job.job_type,
+                    "status": job.status,
+                    "error": job.error_message,
+                    "progress": payload.get("progress") or {},
+                    "result": payload.get("result") or {},
+                    "active": job.status in _ACTIVE_JOB_STATUSES,
+                }
+        return _templates(request).TemplateResponse(
+            request, "editions_status.html", {"job": view}
+        )
+
+    def _queue_editions_job(request: Request, job_type: str, payload: dict):
+        """Queue *job_type* unless a run is already waiting or working.
+
+        Returns ``None`` when a job was queued, or the busy status partial
+        when one is already in flight - two concurrent discovery runs would
+        just fetch the same editions twice.
+        """
+        with get_session(request.app.state.session_factory) as session:
+            repo = DownloadRepository(session)
+            latest = repo.latest_job_of_types(JOB_TYPES)
+            if latest is not None and latest.status in _ACTIVE_JOB_STATUSES:
+                return _editions_status(request)
+            repo.create_job(job_type, payload)
+        return None
+
+    @app.get("/settings/editions-status", response_class=HTMLResponse)
+    async def editions_status(request: Request):
+        """Poll target for the running editions job (HTMX)."""
+        return _editions_status(request)
+
+    @app.post("/settings/discover-editions", response_class=HTMLResponse)
+    async def discover_editions_route(request: Request):
+        """Queue a full edition discovery run across every publication."""
+        if not await check_csrf_form(request):
+            return HTMLResponse("CSRF validation failed", status_code=400)
+        busy = _queue_editions_job(request, JOB_DISCOVER, {})
+        return busy or _editions_status(request)
+
+    @app.post("/settings/import-editions", response_class=HTMLResponse)
+    async def import_editions_route(
+        request: Request,
+        editions: Annotated[UploadFile | None, File()] = None,
+    ):
+        """Queue an import of unlisted editions from an uploaded file."""
+        if not await check_csrf_form(request):
+            return HTMLResponse("CSRF validation failed", status_code=400)
+
+        data = await _read_upload(editions)
+        if isinstance(data, str):
+            return _error(request, data)
+        try:
+            entries = parse_editions(data)
+        except CodeFileError as exc:
+            return _error(request, exc.reason)
+        if not entries:
+            return _error(request, "no_editions")
+
+        busy = _queue_editions_job(request, JOB_IMPORT, {"input": {"entries": entries}})
+        return busy or _editions_status(request)

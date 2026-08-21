@@ -376,6 +376,51 @@
   </div>
 
   <div class="settings-action">
+    <h3>{{ _("Editions") }}</h3>
+    <div class="note">
+      {{ _("Ask PageSuite for the full edition list of every publication - including the older editions the Flipp app hides - and store the codes for the ones we do not have. This makes one request per publication and runs in the background; follow it below or under Jobs. The import takes a file of edition codes that no listing returns at all, and looks each one up to find its publication.") }}
+    </div>
+
+    <div class="form-card">
+      <form
+        hx-post="/settings/discover-editions"
+        hx-target="#editions-output"
+        hx-swap="innerHTML"
+      >
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+        <h4>{{ _("Discover editions") }}</h4>
+        <button type="submit" class="btn btn-primary-soft" id="discover-editions-btn">
+          {{ _("Start discovery") }}
+        </button>
+      </form>
+
+      <form
+        class="codes-upload"
+        hx-post="/settings/import-editions"
+        hx-target="#editions-output"
+        hx-swap="innerHTML"
+        hx-encoding="multipart/form-data"
+      >
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+        <h4>{{ _("Import unlisted editions") }}</h4>
+        <div class="field">
+          <label for="editions-file">{{ _("Editions file (JSON)") }}</label>
+          <input type="file" id="editions-file" name="editions" accept=".json,application/json" required>
+        </div>
+        <button type="submit" class="btn btn-primary-soft">{{ _("Start import") }}</button>
+      </form>
+
+      <div
+        id="editions-output"
+        style="margin-top:18px;"
+        hx-get="/settings/editions-status"
+        hx-trigger="load"
+        hx-swap="innerHTML"
+      ></div>
+    </div>
+  </div>
+
+  <div class="settings-action">
     <h3>{{ _("Debug") }}</h3>
     <div class="note">
       {{ _("Run a manual poll against the Flipp API and inspect the raw") }}

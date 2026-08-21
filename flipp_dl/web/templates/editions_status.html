@@ -1,0 +1,63 @@
+{# Self-replacing status for the latest edition discovery/import job.
+   While the job is queued or running it re-requests itself every three
+   seconds; the finished version carries no hx-trigger, so the polling
+   stops on its own rather than hammering the endpoint forever. #}
+<div
+  class="import-summary"
+  {% if job and job.active %}
+  hx-get="/settings/editions-status"
+  hx-trigger="every 3s"
+  hx-target="#editions-output"
+  hx-swap="innerHTML"
+  {% endif %}
+>
+  {% if not job %}
+  <p class="dim">{{ _("No edition run has been started yet.") }}</p>
+  {% else %}
+  {% set label = _("Edition discovery") if job.type == "discover_editions" else _("Edition import") %}
+  <p>
+    <strong>{{ label }}</strong>
+    <span class="badge badge-{{ job.status }}">{{ job.status }}</span>
+    <a class="job-link dim" href="/jobs/{{ job.id }}">#{{ job.id }}</a>
+  </p>
+
+  {% if job.status == "queued" %}
+  <p class="dim">{{ _("Waiting for the scheduler to pick it up - this takes up to a minute.") }}</p>
+  {% elif job.status == "running" %}
+  <p class="dim">
+    {% if job.progress %}
+    {{ _("%(done)s of %(total)s done, %(found)s new so far.") % {
+      "done": job.progress.done, "total": job.progress.total,
+      "found": job.progress.found} }}
+    {% else %}
+    {{ _("Starting…") }}
+    {% endif %}
+  </p>
+  {% endif %}
+
+  {% if job.error %}
+  <p class="error">{{ job.error }}</p>
+  {% endif %}
+
+  {% if job.result %}
+  <p>
+    {% if job.type == "discover_editions" %}
+    {{ _("Found %(new)s new editions across %(checked)s publications (%(failed)s could not be fetched).") % {
+      "new": job.result.new_editions, "checked": job.result.checked,
+      "failed": job.result.failed} }}
+    {% else %}
+    {{ _("Imported %(imported)s editions (%(dead)s dead codes, %(no_publication)s with no known publication).") % {
+      "imported": job.result.imported, "dead": job.result.dead,
+      "no_publication": job.result.no_publication} }}
+    {% endif %}
+  </p>
+  {% if job.result.per_publication %}
+  <ul>
+    {% for name, count in job.result.per_publication %}
+    <li>{{ name }}: {{ count }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% endif %}
+  {% endif %}
+</div>
