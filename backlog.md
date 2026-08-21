@@ -411,7 +411,29 @@ Rätt fix är troligen en riktig claim-fråga mot DB (SELECT ... WHERE status=qu
 
 ---
 
-## [P3][todo] [flipp] Destination per publikation: Komga-serier vs rena tidningar
+## [P3][todo] [flipp] API i flipp-dl och prenly-dl så en orkestrerare kan styra båda
+
+Rasmus 2026-08-21: flipp-dl och prenly-dl överlappar delvis - båda hämtar tidningar, båda har publikationer/utgåvor/jobb, och båda har utgåvor som hör hemma i Calibre snarare än Komga. Vore vettigt med API:er i båda så en orkestrerare kan styra dem gemensamt i stället för två separata gränssnitt.
+
+Läget i dag:
+- flipp-dl har flipp_dl/web/api_routes.py, men bara läsande JSON-vyer (publikationer, jobb). Inget skrivande API.
+- prenly-dl har veterligen inget API alls (att kontrollera).
+
+Att utreda innan något byggs:
+- Vad ska orkestreraren faktiskt kunna? Starta pollning, köa nedladdning, läsa jobbstatus, styra destination? Det avgör om det räcker med läsande API plus ett fåtal kommandon.
+- Gemensam form eller två olika? Publikation/utgåva/jobb liknar varandra men är inte identiska (prenly har sites och bilagor, flipp har bevakning och Komga).
+- Auth: flipp-dl har HTTP Basic mot FLIPP_PASSWORD för /api och OPDS. prenly-dl behöver något motsvarande.
+- Är orkestreraren en tredje tjänst eller räcker det att den ena kan anropa den andra?
+
+Relaterat: TASK-1445 (destination per publikation i flipp-dl) och prenly TASK-1369 (Calibre-integration i prenly-dl) löser Calibre-halvan var för sig. Blir det två olika lösningar är det ett argument för att ta den här först.
+
+- ID: `01M0JK3SAMNGXVMQFV69W8PVJ3`
+- Type: spike
+- Actor: ai:claude-code
+
+---
+
+## [P3][done] [flipp] Destination per publikation: Komga-serier vs rena tidningar
 
 Alla publikationer hör inte hemma på samma ställe. Serietidningar (Bamse, Fantomen, Kalle Anka) hör hemma i Komga; rena tidningar utan seriekaraktär (Scandinavian Retro, Pyssla med prinsessorna, Djurliv) passar bättre i ett Calibre-bibliotek.
 
@@ -1426,7 +1448,7 @@ Verifiering: klicka knappen i webbläsaren mot instansen över http och kontroll
 
 ---
 
-## [P4][todo] [flipp] Filträdsväljare för sökvägsfält
+## [P4][done] [flipp] Filträdsväljare för sökvägsfält
 
 ## Context
 Sökvägar matas in som fritext, vilket betyder att man måste veta exakt hur katalogstrukturen ser ut inifrån containern och skriva rätt på första försöket. Ett stavfel eller en katalog som inte är skrivbar upptäcks först när något går fel.
