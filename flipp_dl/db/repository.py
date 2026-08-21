@@ -421,19 +421,42 @@ class DownloadRepository:
         return None
 
     def _disable_watched_folder_collisions(self) -> None:
-        """Pause watched publications whose effective folders now collide.
+        """Resolve safe folder collisions, otherwise pause watching.
 
-        Flipp can rename a publication after watching was enabled. Pausing
-        every affected publication makes the next Watch click ask for an
-        explicit folder name instead of letting a later poll download into
-        an ambiguous directory.
+        Publications without downloads can safely receive a folder name based
+        on their publication code. If any publication in a collision has a
+        downloaded issue, or lacks a code, pausing preserves the existing
+        folder and makes the next Watch click require an explicit choice.
         """
+        downloaded_publication_ids = set(
+            self.session.scalars(
+                select(DbIssue.publication_id)
+                .where(DbIssue.status == IssueStatus.DONE)
+                .distinct()
+            )
+        )
         by_component: dict[str, list[DbPublication]] = {}
         for publication in self.session.scalars(select(DbPublication)):
             component = self._publication_folder_component(publication).casefold()
             by_component.setdefault(component, []).append(publication)
         for publications in by_component.values():
             if len(publications) < 2:
+                continue
+            can_disambiguate = all(
+                publication.publication_code is not None
+                and publication.id not in downloaded_publication_ids
+                for publication in publications
+            )
+            if can_disambiguate:
+                for publication in publications:
+                    if publication.folder_name is None:
+                        publication.folder_name = storage.safe_name(
+                            f"{publication.name} ({publication.publication_code})"
+                        )
+                        logger.info(
+                            "Disambiguated publication folder for %s",
+                            publication.custom_code,
+                        )
                 continue
             for publication in publications:
                 if publication.watched:
