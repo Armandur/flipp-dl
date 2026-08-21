@@ -19,15 +19,22 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
+    # An earlier version of this migration declared the column NOT NULL,
+    # which makes Alembic rebuild the whole table on SQLite: create a
+    # temp copy, DROP TABLE publications, rename. That DROP fails with
+    # "FOREIGN KEY constraint failed" because issues and
+    # publication_categories reference publications and the connection
+    # runs with PRAGMA foreign_keys=ON - and it leaves the temp table
+    # behind, so every later start failed on "table
+    # _alembic_tmp_publications already exists". Clean that up first for
+    # any database that hit it.
+    op.execute("DROP TABLE IF EXISTS _alembic_tmp_publications")
+
+    # Nullable: SQLite can add a nullable column in place, no rebuild and
+    # therefore no foreign keys in the way. NULL means the same as false.
     with op.batch_alter_table("publications") as batch_op:
-        batch_op.add_column(
-            sa.Column(
-                "notify_enabled",
-                sa.Boolean(),
-                nullable=False,
-                server_default=sa.false(),
-            )
-        )
+        batch_op.add_column(sa.Column("notify_enabled", sa.Boolean(), nullable=True))
+    op.execute("UPDATE publications SET notify_enabled = 0")
     # New publications start silent, but the ones already being watched
     # were notifying before this column existed - keep them that way so
     # the migration doesn't quietly turn off notifications someone relies
