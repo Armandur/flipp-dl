@@ -22,6 +22,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from ..api import FlippClient
 from ..config import load_token
 from ..db.session import make_session_factory
+from ..editions import run_editions_queue
 from ..scheduler import (
     poll_publications,
     recover_stuck_jobs,
@@ -109,6 +110,18 @@ _scheduler.add_job(
     trigger="interval",
     hours=24,
     id="komga_read_status_sync",
+    kwargs=dict(session_factory=_session_factory),
+)
+# The edition discovery/import runs the settings page queues. One at a
+# time and coalesced - a run takes minutes, and a tick that fires while
+# one is still working should be dropped, not stacked up behind it.
+_scheduler.add_job(
+    run_editions_queue,
+    trigger="interval",
+    seconds=60,
+    id="editions",
+    coalesce=True,
+    max_instances=1,
     kwargs=dict(session_factory=_session_factory),
 )
 _scheduler.start()

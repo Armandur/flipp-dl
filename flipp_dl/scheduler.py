@@ -41,6 +41,7 @@ from .db.repository import (
 )
 from .db.session import get_session, make_session_factory
 from .downloader import DEFAULT_WORKERS, IssueDownloader, purge_old_previews
+from .editions import reset_stuck_editions_jobs, run_editions_queue
 from .komga import (
     DEFAULT_WAIT_SECONDS,
     ISSUE_METADATA_FIELDS,
@@ -441,6 +442,9 @@ def recover_stuck_jobs(session_factory) -> int:
         reset = repo.reset_stuck_download_jobs()
         orphaned = repo.reset_orphaned_issues()
         duplicates = repo.release_duplicate_file_claims()
+    editions = reset_stuck_editions_jobs(session_factory)
+    if editions:
+        logger.info("Startup: requeued %d interrupted editions job(s)", editions)
     if reset:
         logger.info("Startup: reset %d stuck running download job(s) to queued", reset)
     if orphaned:
@@ -1012,6 +1016,19 @@ def build_scheduler(
         trigger="interval",
         hours=24,
         id="komga_read_status_sync",
+        kwargs=dict(session_factory=session_factory),
+    )
+
+    # One at a time and coalesced: an editions run takes minutes, and a
+    # tick that fires while the previous one is still working should be
+    # dropped rather than queued up behind it.
+    scheduler.add_job(
+        run_editions_queue,
+        trigger="interval",
+        seconds=60,
+        id="editions",
+        coalesce=True,
+        max_instances=1,
         kwargs=dict(session_factory=session_factory),
     )
 

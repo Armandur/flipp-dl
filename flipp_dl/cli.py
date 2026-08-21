@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import json
 import logging
 import sys
 from collections.abc import Iterable
@@ -316,33 +315,6 @@ def _run_import_existing(args: argparse.Namespace) -> int:
 _UNLISTED_COMPANION = "docs/olistade-publikationer.json"
 
 
-def _load_json_list(path: Path) -> list | None:
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (ValueError, OSError) as exc:
-        logger.error("Could not read %s: %s", path, exc)
-        return None
-    if not isinstance(data, list):
-        logger.error("%s is not a JSON list", path)
-        return None
-    return data
-
-
-def _load_json_list_or_key(path: Path, key: str) -> list | None:
-    """Load a JSON list, or the *key* inside a top-level object."""
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (ValueError, OSError) as exc:
-        logger.error("Could not read %s: %s", path, exc)
-        return None
-    if isinstance(data, dict):
-        data = data.get(key, [])
-    if not isinstance(data, list):
-        logger.error("%s did not contain a list at %r", path, key)
-        return None
-    return data
-
-
 def _run_import_catalog(args: argparse.Namespace) -> int:
     """Add publications from a catalogue JSON file (no network calls).
 
@@ -391,38 +363,15 @@ def _run_import_catalog(args: argparse.Namespace) -> int:
 
 def _run_discover_editions(args: argparse.Namespace) -> int:
     """Discover editions for every publication via PageSuite (network calls)."""
-    from .db.repository import DownloadRepository
-    from .db.session import get_session
-    from .pagesuite import PageSuiteClient, PageSuiteError
+    from .editions import discover_all_editions
 
-    session_factory = make_session_factory(args.db)
-    client = PageSuiteClient()
-
-    with get_session(session_factory) as session:
-        pubs = [
-            (p.custom_code, p.name)
-            for p in DownloadRepository(session).list_publications()
-        ]
-
-    total_new = 0
-    checked = 0
-    for code, name in pubs:
-        try:
-            editions = client.fetch_editions(code)
-        except PageSuiteError as exc:
-            logger.warning("Skipped %s: %s", name, exc)
-            continue
-        checked += 1
-        with get_session(session_factory) as session:
-            repo = DownloadRepository(session)
-            db_pub = repo.get_publication(code)
-            if db_pub is None:
-                continue
-            new_issues = repo.discover_editions(db_pub.id, editions)
-        if new_issues:
-            total_new += len(new_issues)
-            print(f"  {name}: {len(new_issues)} new editions")
-    print(f"Edition discovery: {total_new} new editions across {checked} publications.")
+    result = discover_all_editions(make_session_factory(args.db))
+    for name, count in result.per_publication:
+        print(f"  {name}: {count} new editions")
+    print(
+        f"Edition discovery: {result.new_editions} new editions across "
+        f"{result.checked} publications."
+    )
     return 0
 
 
@@ -431,64 +380,28 @@ def _run_import_editions(args: argparse.Namespace) -> int:
 
     Reads a file shaped like ``docs/olistade-utgavor.json`` (a
     ``found_unlisted_issues`` list of objects with ``issue_code`` and an
-    optional ``publication_code``). Each eid is resolved through the replica
-    API to find its real publication and date, then attached to that
-    publication if it exists in the database. Editions whose publication is
-    unknown to the DB, or whose eid is dead, are skipped.
+    optional ``publication_code``).
     """
-    from .db.repository import DownloadRepository
-    from .db.session import get_session
-    from .models import Issue
-    from .pagesuite import PageSuiteClient
+    from .codes import CodeFileError
+    from .editions import import_unlisted_editions, parse_editions
 
     path = Path(args.import_editions)
     if not path.exists():
         logger.error("Editions file not found: %s", path)
         return 2
-    data = _load_json_list_or_key(path, "found_unlisted_issues")
-    if data is None:
+    try:
+        entries = parse_editions(path.read_bytes())
+    except (CodeFileError, OSError) as exc:
+        logger.error("Could not read %s: %s", path, exc)
         return 2
 
-    session_factory = make_session_factory(args.db)
-    with get_session(session_factory) as session:
-        known_pubs = {
-            p.custom_code for p in DownloadRepository(session).list_publications()
-        }
-
-    client = PageSuiteClient()
-    by_pub: dict[str, list[Issue]] = {}
-    dead = skipped_no_pub = 0
-    for entry in data:
-        eid = entry.get("issue_code")
-        if not eid:
-            continue
-        meta = client.fetch_edition_metadata(eid)
-        if meta is None:
-            dead += 1
-            continue
-        pubid = meta.publication_guid or entry.get("publication_code")
-        if pubid not in known_pubs:
-            skipped_no_pub += 1
-            continue
-        name = meta.edition_name or entry.get("publication_name") or ""
-        by_pub.setdefault(pubid, []).append(
-            Issue(custom_code=eid, issue_name=name, issue_date=meta.iso_date)
-        )
-
-    total_new = 0
-    with get_session(session_factory) as session:
-        repo = DownloadRepository(session)
-        for pubid, issues in by_pub.items():
-            db_pub = repo.get_publication(pubid)
-            if db_pub is None:
-                continue
-            new_issues = repo.discover_editions(db_pub.id, issues)
-            if new_issues:
-                total_new += len(new_issues)
-                print(f"  {db_pub.name}: {len(new_issues)} imported")
+    result = import_unlisted_editions(make_session_factory(args.db), entries)
+    for name, count in result.per_publication:
+        print(f"  {name}: {count} imported")
     print(
-        f"Edition import: {total_new} shadow editions imported "
-        f"({dead} dead eids, {skipped_no_pub} with no known publication)."
+        f"Edition import: {result.imported} shadow editions imported "
+        f"({result.dead} dead eids, {result.no_publication} with no known "
+        f"publication)."
     )
     return 0
 

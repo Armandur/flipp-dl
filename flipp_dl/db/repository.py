@@ -292,9 +292,7 @@ class DownloadRepository:
             .where(DbPublication.custom_code == custom_code)
         )
 
-    def backfill_publication_codes(
-        self, code_by_custom_code: dict[str, str]
-    ) -> int:
+    def backfill_publication_codes(self, code_by_custom_code: dict[str, str]) -> int:
         """Set publication_code where custom_code is in the mapping.
 
         Returns count updated. Only sets it where currently different;
@@ -1453,6 +1451,54 @@ class DownloadRepository:
                 if issue is not None and issue.status == IssueStatus.DOWNLOADING:
                     issue.status = IssueStatus.QUEUED
         return len(stuck_jobs)
+
+    def reset_stuck_jobs_of_type(self, job_type: str) -> int:
+        """Reset RUNNING jobs of *job_type* back to QUEUED.
+
+        For the job types that own no row outside the jobs table (the
+        edition discovery and import runs) - a restart mid-run would
+        otherwise leave a job RUNNING that nothing ever claims, and the
+        progress view would spin on it forever. Both runs are safe to
+        start over: ``discover_editions`` skips codes it already has.
+
+        Returns the number of job rows reset.
+        """
+        stmt = select(DbJob).where(
+            DbJob.job_type == job_type, DbJob.status == JobStatus.RUNNING
+        )
+        stuck = list(self.session.scalars(stmt))
+        for job in stuck:
+            job.status = JobStatus.QUEUED
+            job.started_at = None
+        return len(stuck)
+
+    def merge_job_payload(self, job_id: int, updates: dict) -> None:
+        """Merge *updates* into a job's JSON payload.
+
+        Long-running jobs write their progress here so the UI can show
+        movement rather than an unchanging "running".
+        """
+        job = self.session.get(DbJob, job_id)
+        if job is None:
+            return
+        try:
+            payload = json.loads(job.payload)
+        except (TypeError, ValueError):
+            payload = {}
+        if not isinstance(payload, dict):
+            payload = {}
+        payload.update(updates)
+        job.payload = json.dumps(payload, ensure_ascii=False)
+
+    def latest_job_of_types(self, job_types: tuple[str, ...]) -> DbJob | None:
+        """The newest job across *job_types*, whatever its status."""
+        stmt = (
+            select(DbJob)
+            .where(DbJob.job_type.in_(job_types))
+            .order_by(DbJob.created_at.desc(), DbJob.id.desc())
+            .limit(1)
+        )
+        return self.session.scalars(stmt).first()
 
     def list_active_download_jobs(self) -> list[DbJob]:
         """Download jobs that are still queued or running."""
