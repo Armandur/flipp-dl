@@ -23,9 +23,7 @@ def upgrade() -> None:
         batch_op.add_column(
             sa.Column("publication_code", sa.String(length=20), nullable=True)
         )
-        batch_op.create_index(
-            "ix_publications_publication_code", ["publication_code"]
-        )
+        batch_op.create_index("ix_publications_publication_code", ["publication_code"])
 
 
 def downgrade() -> None:

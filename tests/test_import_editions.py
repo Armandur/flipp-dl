@@ -19,7 +19,9 @@ class _FakeMeta:
 def _seed_pub(db, code, name="Bilar"):
     factory = make_session_factory(str(db))
     with factory() as s:
-        DownloadRepository(s).upsert_publication(Publication(custom_code=code, name=name))
+        DownloadRepository(s).upsert_publication(
+            Publication(custom_code=code, name=name)
+        )
         s.commit()
 
 
@@ -35,7 +37,10 @@ def test_import_editions_attaches_shadow_eids(tmp_path, capsys, monkeypatch):
             {
                 "found_unlisted_issues": [
                     {"issue_code": "shadow-1", "publication_code": "pub-1"},
-                    {"issue_code": "shadow-2", "publication_code": None},  # resolved via replica
+                    {
+                        "issue_code": "shadow-2",
+                        "publication_code": None,
+                    },  # resolved via replica
                     {"issue_code": "dead-1", "publication_code": "pub-1"},
                     {"issue_code": "orphan-1", "publication_code": "unknown-pub"},
                 ]
@@ -82,6 +87,11 @@ def test_import_editions_missing_file_errors(tmp_path):
     from flipp_dl.cli import main
 
     rc = main(
-        ["--db", str(tmp_path / "x.db"), "--import-editions", str(tmp_path / "nope.json")]
+        [
+            "--db",
+            str(tmp_path / "x.db"),
+            "--import-editions",
+            str(tmp_path / "nope.json"),
+        ]
     )
     assert rc == 2

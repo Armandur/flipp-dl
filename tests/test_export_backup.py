@@ -72,5 +72,7 @@ def test_export_then_import_backup_round_trips(tmp_path, capsys):
 def test_import_backup_missing_file_errors(tmp_path):
     from flipp_dl.cli import main
 
-    rc = main(["--db", str(tmp_path / "x.db"), "--import-backup", str(tmp_path / "no.json")])
+    rc = main(
+        ["--db", str(tmp_path / "x.db"), "--import-backup", str(tmp_path / "no.json")]
+    )
     assert rc == 2

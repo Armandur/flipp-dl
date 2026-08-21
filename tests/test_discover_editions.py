@@ -107,8 +107,16 @@ def test_import_catalog_adds_publications(tmp_path, capsys):
     catalog.write_text(
         json.dumps(
             [
-                {"name": "Bilar", "customPublicationCode": "aaaa", "publicationCode": "SE-CAR"},
-                {"name": "91:an", "customPublicationCode": "bbbb", "publicationCode": "SE-NIT"},
+                {
+                    "name": "Bilar",
+                    "customPublicationCode": "aaaa",
+                    "publicationCode": "SE-CAR",
+                },
+                {
+                    "name": "91:an",
+                    "customPublicationCode": "bbbb",
+                    "publicationCode": "SE-NIT",
+                },
                 {"name": "no code"},  # skipped
             ]
         ),
@@ -129,7 +137,14 @@ def test_import_catalog_adds_publications(tmp_path, capsys):
 def test_import_catalog_missing_file_errors(tmp_path):
     from flipp_dl.cli import main
 
-    rc = main(["--db", str(tmp_path / "x.db"), "--import-catalog", str(tmp_path / "nope.json")])
+    rc = main(
+        [
+            "--db",
+            str(tmp_path / "x.db"),
+            "--import-catalog",
+            str(tmp_path / "nope.json"),
+        ]
+    )
     assert rc == 2
 
 
