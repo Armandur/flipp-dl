@@ -1,0 +1,912 @@
+[
+ {
+  "name": "Uti vår hage",
+  "publicationCode": "SE-UVH",
+  "customPublicationCode": "e52d5789-953d-47ad-886c-80a499d6f08f",
+  "visibility": "Featured",
+  "visibleIssuesPremium": 6,
+  "visibleIssuesSolo": 6,
+  "visibleIssuesSubscriber": 6,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "91:an",
+  "publicationCode": "SE-NIT",
+  "customPublicationCode": "c5df5c5b-6eb1-41dd-9f4b-dbacdb7596af",
+  "visibility": "Featured",
+  "visibleIssuesPremium": 26,
+  "visibleIssuesSolo": 26,
+  "visibleIssuesSubscriber": 26,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "Kalle Ankas Pocket Special",
+  "publicationCode": "SE-KAS",
+  "customPublicationCode": "673bb8b3-7282-45ce-952c-1881bdb4d251",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 12,
+  "visibleIssuesSolo": 12,
+  "visibleIssuesSubscriber": 12,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "87:an",
+  "publicationCode": "SE-ATS",
+  "customPublicationCode": "7904cc13-7a77-47e9-9dc6-f142fe07a232",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 6,
+  "visibleIssuesSolo": 6,
+  "visibleIssuesSubscriber": 6,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "91:an Klassiker",
+  "publicationCode": "SE-NITK",
+  "customPublicationCode": "369fa67e-4ee0-46d9-874f-c882c0264b85",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 12,
+  "visibleIssuesSolo": 12,
+  "visibleIssuesSubscriber": 12,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "Fantomens Skattkammare",
+  "publicationCode": "SE-FANS",
+  "customPublicationCode": "432f59b5-3a8e-4b81-8daf-0f7cccf1b603",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 99,
+  "visibleIssuesSolo": 99,
+  "visibleIssuesSubscriber": 99,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "Kalle Ankas Pocket Extra",
+  "publicationCode": "SE-KAPE",
+  "customPublicationCode": "fddb9e2c-3771-4c99-9ec5-2399345e97ce",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 5,
+  "visibleIssuesSolo": 5,
+  "visibleIssuesSubscriber": 5,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "Loppis & Antikt",
+  "publicationCode": "SE-LOP",
+  "customPublicationCode": "4a793e4b-415b-43dc-9d15-bd4815f12e5a",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 1000,
+  "visibleIssuesSolo": 1000,
+  "visibleIssuesSubscriber": 1000,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "Pyssla med prinsessorna",
+  "publicationCode": "SE-PUL",
+  "customPublicationCode": "eb043632-4408-4e3a-8a25-e3952bb58c08",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 6,
+  "visibleIssuesSolo": 6,
+  "visibleIssuesSubscriber": 6,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "Kalle Anka & C:o",
+  "publicationCode": "SE-KAL",
+  "customPublicationCode": "bd472c0c-1c84-4b51-bbd6-f3055bede368",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 21,
+  "visibleIssuesSolo": 21,
+  "visibleIssuesSubscriber": 21,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "Bamse",
+  "publicationCode": "SE-BAM",
+  "customPublicationCode": "5397df02-7858-4df7-9657-fe9282f068e5",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 20,
+  "visibleIssuesSolo": 20,
+  "visibleIssuesSubscriber": 20,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "Hemmets Journal",
+  "publicationCode": "SE-HEM",
+  "customPublicationCode": "94e44cd3-a04c-4f07-ad5e-00d94ed25669",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 3000,
+  "visibleIssuesSolo": 3000,
+  "visibleIssuesSubscriber": 3000,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "Auto Motor & Sport",
+  "publicationCode": "SE-AMS",
+  "customPublicationCode": "6030eb36-2ca3-4c47-8a73-3ded446aace7",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 3000,
+  "visibleIssuesSolo": 3000,
+  "visibleIssuesSubscriber": 3000,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "Kalle Ankas Pocket",
+  "publicationCode": "SE-KAP",
+  "customPublicationCode": "cfc43876-b4f6-4568-bc64-3aecd58fb474",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 12,
+  "visibleIssuesSolo": 12,
+  "visibleIssuesSubscriber": 12,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "Fantomen",
+  "publicationCode": "SE-FAN",
+  "customPublicationCode": "9af0cb8e-87ec-4702-abed-64b20e690294",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 18,
+  "visibleIssuesSolo": 18,
+  "visibleIssuesSubscriber": 18,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "Icakuriren",
+  "publicationCode": "SE-ICA",
+  "customPublicationCode": "fca94813-68c1-470c-a257-a01bf9383f4d",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 3000,
+  "visibleIssuesSolo": 3000,
+  "visibleIssuesSubscriber": 3000,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "Praktiskt Båtägande",
+  "publicationCode": "SE-PRB",
+  "customPublicationCode": "83a94cfb-9b60-4a22-9cf2-d2366ce07f34",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 3000,
+  "visibleIssuesSolo": 3000,
+  "visibleIssuesSubscriber": 3000,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "Hus & Hem",
+  "publicationCode": "SE-HOH",
+  "customPublicationCode": "a9c0af69-a0a0-4088-9c5c-a98d663c3ae9",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 3000,
+  "visibleIssuesSolo": 3000,
+  "visibleIssuesSubscriber": 3000,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "Bamse för de yngsta",
+  "publicationCode": "SE-BFY",
+  "customPublicationCode": "c54a72de-dbd7-48ec-abd5-105ad6559c81",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 10,
+  "visibleIssuesSolo": 10,
+  "visibleIssuesSubscriber": 10,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "Hemmets Journals Guldkryss",
+  "publicationCode": "SE-HJG",
+  "customPublicationCode": "ffecdfb4-530f-4738-ac20-78e02acb92ad",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 4,
+  "visibleIssuesSolo": 4,
+  "visibleIssuesSubscriber": 4,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "Knasen",
+  "publicationCode": "SE-KAN",
+  "customPublicationCode": "bfec2fe5-fef5-4393-8357-accaee560088",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 18,
+  "visibleIssuesSolo": 18,
+  "visibleIssuesSubscriber": 18,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "Kalle Anka & C:o Presenterar",
+  "publicationCode": "SE-KAB",
+  "customPublicationCode": "ca8682a2-50fe-436c-84f1-a92658ca1d27",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 6,
+  "visibleIssuesSolo": 6,
+  "visibleIssuesSubscriber": 6,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "Kalle Anka & C:o Nostalgoteket",
+  "publicationCode": "SE-KANT",
+  "customPublicationCode": "8ae83b8e-9974-46bd-ae8f-9019b52e8851",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 12,
+  "visibleIssuesSolo": 12,
+  "visibleIssuesSubscriber": 12,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "Kalle Anka Mästertecknarna",
+  "publicationCode": "SE-DMP",
+  "customPublicationCode": "4329d539-1e2c-4e45-ae32-42e3778512a7",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 8,
+  "visibleIssuesSolo": 8,
+  "visibleIssuesSubscriber": 8,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "Min Häst",
+  "publicationCode": "SE-MHA",
+  "customPublicationCode": "2a2c45b9-b89b-4f96-baed-aa09170cc2c8",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 3000,
+  "visibleIssuesSolo": 3000,
+  "visibleIssuesSubscriber": 3000,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "Husvagn & Camping",
+  "publicationCode": "SE-HUC",
+  "customPublicationCode": "52d57d62-fbbe-47ea-8183-a8a0b0fedd4f",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 3000,
+  "visibleIssuesSolo": 3000,
+  "visibleIssuesSubscriber": 3000,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "Stickat & Sånt",
+  "publicationCode": "SE-STI",
+  "customPublicationCode": "8fdbccbc-c37e-482c-ac93-b6bc50514b0a",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 3000,
+  "visibleIssuesSolo": 3000,
+  "visibleIssuesSubscriber": 3000,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "Hälge",
+  "publicationCode": "SE-HAL",
+  "customPublicationCode": "ad0da067-56a0-4266-b5b6-2028ed9e6f48",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 12,
+  "visibleIssuesSolo": 12,
+  "visibleIssuesSubscriber": 12,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "Kalle Anka Klassiker",
+  "publicationCode": "SE-KAX",
+  "customPublicationCode": "42d795f5-d284-459b-a29e-2b58d3a3d9c6",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 6,
+  "visibleIssuesSolo": 6,
+  "visibleIssuesSubscriber": 6,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "Robot Presenterar",
+  "publicationCode": "SE-ROP",
+  "customPublicationCode": "d484523c-b5c5-47ab-abc4-c389f1e3c47e",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 6,
+  "visibleIssuesSolo": 6,
+  "visibleIssuesSubscriber": 6,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "Utemagasinet",
+  "publicationCode": "SE-UTE",
+  "customPublicationCode": "803d3202-5c4f-421d-b076-3e95a0367d45",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 3000,
+  "visibleIssuesSolo": 3000,
+  "visibleIssuesSubscriber": 3000,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "Classic Motor",
+  "publicationCode": "SE-CLA",
+  "customPublicationCode": "7be6f7f9-4cc8-4d7c-9b5c-29100d8e310a",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 3000,
+  "visibleIssuesSolo": 3000,
+  "visibleIssuesSubscriber": 3000,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "Hälsa",
+  "publicationCode": "SE-HAS",
+  "customPublicationCode": "69998a77-e090-480f-80aa-b90e9e08cff6",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 3000,
+  "visibleIssuesSolo": 3000,
+  "visibleIssuesSubscriber": 3000,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "Robot",
+  "publicationCode": "SE-ROB",
+  "customPublicationCode": "263d6c57-18fa-46ee-aa07-a1f1dc589353",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 6,
+  "visibleIssuesSolo": 6,
+  "visibleIssuesSubscriber": 6,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "Agent X9",
+  "publicationCode": "SE-AGX",
+  "customPublicationCode": "1edf5eee-9c6d-40a8-b34f-3bc2079a8c98",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 12,
+  "visibleIssuesSolo": 12,
+  "visibleIssuesSubscriber": 12,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "Bamse Sagoserier",
+  "publicationCode": "SE-SAG",
+  "customPublicationCode": "137baf38-1f09-4363-9132-1926637dd65b",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 3000,
+  "visibleIssuesSolo": 3000,
+  "visibleIssuesSubscriber": 3000,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "Scandinavian Retro",
+  "publicationCode": "SE-RET",
+  "customPublicationCode": "02a162ff-b39a-4c0a-9322-1972e3aaae9e",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 3000,
+  "visibleIssuesSolo": 3000,
+  "visibleIssuesSubscriber": 3000,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "Vagabond",
+  "publicationCode": "SE-VAG",
+  "customPublicationCode": "66950b9f-3c9a-4c92-ba52-2a548e478e16",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 3000,
+  "visibleIssuesSolo": 3000,
+  "visibleIssuesSubscriber": 3000,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "Svenska Öden & Äventyr",
+  "publicationCode": "SE-SOD",
+  "customPublicationCode": "689e6852-1c2f-4883-b5dc-b6ab0e223c4f",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 3000,
+  "visibleIssuesSolo": 3000,
+  "visibleIssuesSubscriber": 3000,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "Nära",
+  "publicationCode": "SE-NAR",
+  "customPublicationCode": "ce4582e6-d9f9-4729-afc1-936670a6c8c0",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 3000,
+  "visibleIssuesSolo": 3000,
+  "visibleIssuesSubscriber": 3000,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "Åka Skidor",
+  "publicationCode": "SE-SKI",
+  "customPublicationCode": "f0bbef5d-9fa5-444f-8a2c-24d415613b48",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 3000,
+  "visibleIssuesSolo": 3000,
+  "visibleIssuesSubscriber": 3000,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "Hemmets Journal Special",
+  "publicationCode": "SE-HJO",
+  "customPublicationCode": "81cf568e-1443-4ce4-b47b-2413c2335957",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 3000,
+  "visibleIssuesSolo": 3000,
+  "visibleIssuesSubscriber": 3000,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "Svensk Golf",
+  "publicationCode": "SE-SVG",
+  "customPublicationCode": "4cd428a5-40d0-471c-9de5-616b3e87e361",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 3000,
+  "visibleIssuesSolo": 3000,
+  "visibleIssuesSubscriber": 3000,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "Café",
+  "publicationCode": "SE-CAF",
+  "customPublicationCode": "6e1a869a-8aad-46c6-a522-b3cde1538e86",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 3000,
+  "visibleIssuesSolo": 3000,
+  "visibleIssuesSubscriber": 3000,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "Historiska Brott & Mysterier",
+  "publicationCode": "SE-HBR",
+  "customPublicationCode": "b7ffe03a-ea07-4bfa-87bb-d250898f4309",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 3000,
+  "visibleIssuesSolo": 3000,
+  "visibleIssuesSubscriber": 3000,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "Bagaren och Kocken",
+  "publicationCode": "SE-AOB",
+  "customPublicationCode": "4293cda3-e45a-4f91-b4a7-485b3d4a1d00",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 8,
+  "visibleIssuesSolo": 8,
+  "visibleIssuesSubscriber": 8,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "Robot Special: Pokémon",
+  "publicationCode": "SE-ROSP",
+  "customPublicationCode": "0716eb50-a4ff-4e60-932f-dc5549deee0a",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 6,
+  "visibleIssuesSolo": 6,
+  "visibleIssuesSubscriber": 6,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "Wheels Magazine",
+  "publicationCode": "SE-WHE",
+  "customPublicationCode": "6f7c7494-af7f-4e9c-8d7e-f05f47443f54",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 3000,
+  "visibleIssuesSolo": 3000,
+  "visibleIssuesSubscriber": 3000,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "King",
+  "publicationCode": "SE-KNG",
+  "customPublicationCode": "f414b2be-fa2e-424d-935a-7d50c7747fa9",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 3000,
+  "visibleIssuesSolo": 3000,
+  "visibleIssuesSubscriber": 3000,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "Lasse-Majas Detektivbyrå",
+  "publicationCode": "SE-LAS",
+  "customPublicationCode": "a802f4bc-ecb7-4da9-8d8d-aa92e506f867",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 12,
+  "visibleIssuesSolo": 12,
+  "visibleIssuesSubscriber": 12,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "Power Magazine",
+  "publicationCode": "SE-POW",
+  "customPublicationCode": "e5e35fea-982c-4267-a13f-d8a81e0d7fee",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 3000,
+  "visibleIssuesSolo": 3000,
+  "visibleIssuesSubscriber": 3000,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "Frost",
+  "publicationCode": "SE-FRO",
+  "customPublicationCode": "8460b906-b586-44da-b885-b0441545223a",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 12,
+  "visibleIssuesSolo": 12,
+  "visibleIssuesSubscriber": 12,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "Kalle Anka Junior",
+  "publicationCode": "SE-KJR",
+  "customPublicationCode": "1ecb2f0d-8bb8-4290-a038-5fa9f9406119",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 12,
+  "visibleIssuesSolo": 12,
+  "visibleIssuesSubscriber": 12,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "Auto Motor Sport Special",
+  "publicationCode": "SE-ASS",
+  "customPublicationCode": "426c3489-568a-4635-8cf3-5d80a27b84fc",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 3000,
+  "visibleIssuesSolo": 3000,
+  "visibleIssuesSubscriber": 3000,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "Bilar",
+  "publicationCode": "SE-CAR",
+  "customPublicationCode": "41f076e1-0126-4a6e-a263-bb8082213465",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 12,
+  "visibleIssuesSolo": 12,
+  "visibleIssuesSubscriber": 12,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "Disney Prinsessor",
+  "publicationCode": "SE-PRI",
+  "customPublicationCode": "9360174b-8272-4f2e-b57e-3c602d9576bc",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 16,
+  "visibleIssuesSolo": 16,
+  "visibleIssuesSubscriber": 16,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "Glutenfri Matlust",
+  "publicationCode": "SE-GLM",
+  "customPublicationCode": "26479cd1-03ac-40e6-80eb-7fee1b1b7bc3",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 3000,
+  "visibleIssuesSolo": 3000,
+  "visibleIssuesSubscriber": 3000,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "GOAL",
+  "publicationCode": "SE-GOL",
+  "customPublicationCode": "2bde9e4b-3d32-4563-80a4-274d4255547b",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 3000,
+  "visibleIssuesSolo": 3000,
+  "visibleIssuesSubscriber": 3000,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "Hemmets Journals Bästa Kryss",
+  "publicationCode": "SE-HJK",
+  "customPublicationCode": "468349aa-8568-4316-bc16-c7dd6350bb42",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 4,
+  "visibleIssuesSolo": 4,
+  "visibleIssuesSubscriber": 4,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "Hus & Hem Trädgård",
+  "publicationCode": "SE-HHT",
+  "customPublicationCode": "aaf4c6b2-ef11-4950-929f-5225a42cff60",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 3000,
+  "visibleIssuesSolo": 3000,
+  "visibleIssuesSubscriber": 3000,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "Pets",
+  "publicationCode": "SE-PET",
+  "customPublicationCode": "14af5b49-175a-467c-a5f9-fdd0fc3e918e",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 9,
+  "visibleIssuesSolo": 9,
+  "visibleIssuesSubscriber": 9,
+  "languageCulture": "sv-SE"
+ },
+ {
+  "name": "Made by me",
+  "publicationCode": "NO-MBM",
+  "customPublicationCode": "e03dce6c-bb48-4dc2-b197-6a9bcf3c89d5",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 10,
+  "visibleIssuesSolo": 10,
+  "visibleIssuesSubscriber": 10,
+  "languageCulture": "nb-NO"
+ },
+ {
+  "name": "ALT for damerne",
+  "publicationCode": "DK-ALT",
+  "customPublicationCode": "5b67dd8c-99d4-4867-a5b6-23008232beaa",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 3000,
+  "visibleIssuesSolo": 3000,
+  "visibleIssuesSubscriber": 3000,
+  "languageCulture": "da-DK"
+ },
+ {
+  "name": "Hjemmet",
+  "publicationCode": "DK-HJM",
+  "customPublicationCode": "9c9ba8cc-dda7-4276-aa7c-79cd4e07efde",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 3000,
+  "visibleIssuesSolo": 3000,
+  "visibleIssuesSubscriber": 3000,
+  "languageCulture": "da-DK"
+ },
+ {
+  "name": "Hendes Verden",
+  "publicationCode": "DK-HEV",
+  "customPublicationCode": "a9a7c983-5b4c-4164-9ec5-df5bfe2fe397",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 3000,
+  "visibleIssuesSolo": 3000,
+  "visibleIssuesSubscriber": 3000,
+  "languageCulture": "da-DK"
+ },
+ {
+  "name": "BoligLiv",
+  "publicationCode": "DK-BOL",
+  "customPublicationCode": "1a0ee677-323b-4ef0-a01d-c3dd5dedf645",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 3000,
+  "visibleIssuesSolo": 3000,
+  "visibleIssuesSubscriber": 3000,
+  "languageCulture": "da-DK"
+ },
+ {
+  "name": "fit LIVING",
+  "publicationCode": "DK-FIT",
+  "customPublicationCode": "a1068b6a-a47e-4343-9929-41e7725c6e5d",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 3000,
+  "visibleIssuesSolo": 3000,
+  "visibleIssuesSubscriber": 3000,
+  "languageCulture": "da-DK"
+ },
+ {
+  "name": "Eurowoman",
+  "publicationCode": "DK-EUW",
+  "customPublicationCode": "db4cedcd-15ef-4488-8959-02d184ad4a79",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 3000,
+  "visibleIssuesSolo": 3000,
+  "visibleIssuesSubscriber": 3000,
+  "languageCulture": "da-DK"
+ },
+ {
+  "name": "gastro",
+  "publicationCode": "DK-GAS",
+  "customPublicationCode": "cf6a2daa-2375-4ca4-9d7d-64989da32439",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 3000,
+  "visibleIssuesSolo": 3000,
+  "visibleIssuesSubscriber": 3000,
+  "languageCulture": "da-DK"
+ },
+ {
+  "name": "Euroman",
+  "publicationCode": "DK-EUM",
+  "customPublicationCode": "c6fdb41d-3345-4917-8302-56599dc3fcf9",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 3000,
+  "visibleIssuesSolo": 3000,
+  "visibleIssuesSubscriber": 3000,
+  "languageCulture": "da-DK"
+ },
+ {
+  "name": "RUM",
+  "publicationCode": "DK-RUM",
+  "customPublicationCode": "a72aa0cf-d7c8-4263-a876-506fa790455c",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 3000,
+  "visibleIssuesSolo": 3000,
+  "visibleIssuesSubscriber": 3000,
+  "languageCulture": "da-DK"
+ },
+ {
+  "name": "Vores Børn",
+  "publicationCode": "DK-VOB",
+  "customPublicationCode": "e384d7d8-ffb2-4b14-b0ad-abd4932818ac",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 3000,
+  "visibleIssuesSolo": 3000,
+  "visibleIssuesSubscriber": 3000,
+  "languageCulture": "da-DK"
+ },
+ {
+  "name": "Her og Nå",
+  "publicationCode": "NO-HER",
+  "customPublicationCode": "d6734ef5-5f64-4ed3-9cc2-c24ef9cb7e00",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 3000,
+  "visibleIssuesSolo": 3000,
+  "visibleIssuesSubscriber": 3000,
+  "languageCulture": "nb-NO"
+ },
+ {
+  "name": "Hjemmet",
+  "publicationCode": "NO-HJE",
+  "customPublicationCode": "c11c5f9b-a6e2-449e-9862-790e8158f4b6",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 3001,
+  "visibleIssuesSolo": 3000,
+  "visibleIssuesSubscriber": 3000,
+  "languageCulture": "nb-NO"
+ },
+ {
+  "name": "Norsk Ukeblad",
+  "publicationCode": "NO-NU",
+  "customPublicationCode": "967be593-9722-4417-8522-f770db97dd6e",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 3000,
+  "visibleIssuesSolo": 3000,
+  "visibleIssuesSubscriber": 3000,
+  "languageCulture": "nb-NO"
+ },
+ {
+  "name": "Vi Menn",
+  "publicationCode": "NO-VIM",
+  "customPublicationCode": "1a84b2a1-aaf4-44c9-8659-7ec102287f01",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 5000,
+  "visibleIssuesSolo": 5000,
+  "visibleIssuesSubscriber": 5000,
+  "languageCulture": "nb-NO"
+ },
+ {
+  "name": "Kamille",
+  "publicationCode": "NO-MIL",
+  "customPublicationCode": "c8e385f8-e8a1-4df1-89b5-3ad48b082e0a",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 3000,
+  "visibleIssuesSolo": 3000,
+  "visibleIssuesSubscriber": 3000,
+  "languageCulture": "nb-NO"
+ },
+ {
+  "name": "Bonytt",
+  "publicationCode": "NO-BHF",
+  "customPublicationCode": "3f9ca895-54fe-4cee-8205-fe7ff684c11a",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 3000,
+  "visibleIssuesSolo": 3000,
+  "visibleIssuesSubscriber": 3000,
+  "languageCulture": "nb-NO"
+ },
+ {
+  "name": "ROM123",
+  "publicationCode": "NO-ROM",
+  "customPublicationCode": "6f088475-1621-4dc0-a213-343b3c502246",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 3000,
+  "visibleIssuesSolo": 3000,
+  "visibleIssuesSubscriber": 3000,
+  "languageCulture": "nb-NO"
+ },
+ {
+  "name": "Hytteliv",
+  "publicationCode": "NO-HYT",
+  "customPublicationCode": "c95f219c-99fb-4a93-8058-d3b7d86efdb4",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 3000,
+  "visibleIssuesSolo": 3000,
+  "visibleIssuesSubscriber": 3000,
+  "languageCulture": "nb-NO"
+ },
+ {
+  "name": "Familien",
+  "publicationCode": "NO-FAM",
+  "customPublicationCode": "acca0d40-48bf-4934-affc-6bfabeb4c6da",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 3000,
+  "visibleIssuesSolo": 3000,
+  "visibleIssuesSubscriber": 3000,
+  "languageCulture": "nb-NO"
+ },
+ {
+  "name": "Hageliv & Uterom",
+  "publicationCode": "NO-HAG",
+  "customPublicationCode": "e919902a-d75d-4f83-b132-8de7f25f177b",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 3000,
+  "visibleIssuesSolo": 3000,
+  "visibleIssuesSubscriber": 3000,
+  "languageCulture": "nb-NO"
+ },
+ {
+  "name": "Maison Interiør",
+  "publicationCode": "NO-MAI",
+  "customPublicationCode": "07f38b2a-6587-4400-bd1a-0a6629baecf6",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 3000,
+  "visibleIssuesSolo": 3000,
+  "visibleIssuesSubscriber": 3000,
+  "languageCulture": "nb-NO"
+ },
+ {
+  "name": "BoligDrøm",
+  "publicationCode": "NO-BOL",
+  "customPublicationCode": "601503e7-3180-45b4-ad1e-c44bd229d21d",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 3000,
+  "visibleIssuesSolo": 3000,
+  "visibleIssuesSubscriber": 3000,
+  "languageCulture": "nb-NO"
+ },
+ {
+  "name": "Lev Landlig",
+  "publicationCode": "NO-LEV",
+  "customPublicationCode": "66e8fb3c-4420-43a4-81fe-1610642b86cf",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 3000,
+  "visibleIssuesSolo": 3000,
+  "visibleIssuesSubscriber": 3000,
+  "languageCulture": "nb-NO"
+ },
+ {
+  "name": "Maison Mat og Vin",
+  "publicationCode": "NO-MAT",
+  "customPublicationCode": "4bd2c67b-cb88-470a-9574-9ec96b53e7d7",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 3000,
+  "visibleIssuesSolo": 3000,
+  "visibleIssuesSubscriber": 3000,
+  "languageCulture": "nb-NO"
+ },
+ {
+  "name": "Villmarksliv",
+  "publicationCode": "NO-VIL",
+  "customPublicationCode": "741ac3d6-15bd-4a59-9721-58ae8982089d",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 3000,
+  "visibleIssuesSolo": 3000,
+  "visibleIssuesSubscriber": 3000,
+  "languageCulture": "nb-NO"
+ },
+ {
+  "name": "Vi Menn Tema",
+  "publicationCode": "NO-VMT",
+  "customPublicationCode": "a94e08fa-c6bb-40b6-b2b0-7c1ce3ad9277",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 3000,
+  "visibleIssuesSolo": 3000,
+  "visibleIssuesSubscriber": 3000,
+  "languageCulture": "nb-NO"
+ },
+ {
+  "name": "Alt om fiske",
+  "publicationCode": "NO-AOF",
+  "customPublicationCode": "d97f9552-484e-4232-93ae-e27fdd07e26e",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 3000,
+  "visibleIssuesSolo": 3000,
+  "visibleIssuesSubscriber": 3000,
+  "languageCulture": "nb-NO"
+ },
+ {
+  "name": "Norsk Motorveteran",
+  "publicationCode": "NO-NMV",
+  "customPublicationCode": "44d087d9-2160-4eec-9d63-e4b37f5d54f1",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 3000,
+  "visibleIssuesSolo": 3000,
+  "visibleIssuesSubscriber": 3000,
+  "languageCulture": "nb-NO"
+ },
+ {
+  "name": "Ditt Bryllup",
+  "publicationCode": "NO-XDBR",
+  "customPublicationCode": "2d79d4eb-a921-4b55-b4c3-6c88b763fe6e",
+  "visibility": "Limited",
+  "visibleIssuesPremium": 3000,
+  "visibleIssuesSolo": 3000,
+  "visibleIssuesSubscriber": 3000,
+  "languageCulture": "nb-NO"
+ }
+]

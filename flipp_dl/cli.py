@@ -111,6 +111,27 @@ def build_parser() -> argparse.ArgumentParser:
             "update their database paths, print a summary, and exit."
         ),
     )
+    parser.add_argument(
+        "--import-catalog",
+        nargs="?",
+        const="docs/alla-publikationer.json",
+        default=None,
+        metavar="FILE",
+        help=(
+            "Import the publication catalogue from a JSON file (default: "
+            "docs/alla-publikationer.json), adding any publications that "
+            "are missing, then exit. No network calls."
+        ),
+    )
+    parser.add_argument(
+        "--discover-editions",
+        action="store_true",
+        help=(
+            "For every known publication, list its editions via PageSuite's "
+            "open endpoint and add any that are missing - including the "
+            "hidden ones the Flipp app omits - then exit."
+        ),
+    )
 
     # Scheduler mode
     scheduler_group = parser.add_argument_group("scheduler mode")
@@ -250,6 +271,94 @@ def _run_import_existing(args: argparse.Namespace) -> int:
     with get_session(session_factory) as session:
         report = DownloadRepository(session).import_existing_files(output_root)
     _print_import_report(report)
+    return 0
+
+
+def _run_import_catalog(args: argparse.Namespace) -> int:
+    """Add publications from a catalogue JSON file (no network calls).
+
+    The file is the shape of ``docs/alla-publikationer.json``: a list of
+    objects with ``customPublicationCode`` (== the PageSuite pubid, our
+    ``custom_code``) and ``name``. Existing publications are left as they
+    are; only missing ones are inserted.
+    """
+    import json
+
+    from .db.repository import DownloadRepository
+    from .db.session import get_session
+    from .models import Publication
+
+    path = Path(args.import_catalog)
+    if not path.exists():
+        logger.error("Catalogue file not found: %s", path)
+        return 2
+    try:
+        entries = json.loads(path.read_text(encoding="utf-8"))
+    except (ValueError, OSError) as exc:
+        logger.error("Could not read catalogue %s: %s", path, exc)
+        return 2
+    if not isinstance(entries, list):
+        logger.error("Catalogue %s is not a JSON list", path)
+        return 2
+
+    session_factory = make_session_factory(args.db)
+    added = skipped = 0
+    with get_session(session_factory) as session:
+        repo = DownloadRepository(session)
+        for entry in entries:
+            code = entry.get("customPublicationCode")
+            name = entry.get("name")
+            if not code or not name:
+                skipped += 1
+                continue
+            existed = repo.get_publication(code) is not None
+            repo.upsert_publication(Publication(custom_code=code, name=name))
+            if not existed:
+                added += 1
+    print(
+        f"Catalogue import: {added} publications added "
+        f"({len(entries) - added - skipped} already known, {skipped} skipped)."
+    )
+    return 0
+
+
+def _run_discover_editions(args: argparse.Namespace) -> int:
+    """Discover editions for every publication via PageSuite (network calls)."""
+    from .db.repository import DownloadRepository
+    from .db.session import get_session
+    from .pagesuite import PageSuiteClient, PageSuiteError
+
+    session_factory = make_session_factory(args.db)
+    client = PageSuiteClient()
+
+    with get_session(session_factory) as session:
+        pubs = [
+            (p.custom_code, p.name)
+            for p in DownloadRepository(session).list_publications()
+        ]
+
+    total_new = 0
+    checked = 0
+    for code, name in pubs:
+        try:
+            editions = client.fetch_editions(code)
+        except PageSuiteError as exc:
+            logger.warning("Skipped %s: %s", name, exc)
+            continue
+        checked += 1
+        with get_session(session_factory) as session:
+            repo = DownloadRepository(session)
+            db_pub = repo.get_publication(code)
+            if db_pub is None:
+                continue
+            new_issues = repo.discover_editions(db_pub.id, editions)
+        if new_issues:
+            total_new += len(new_issues)
+            print(f"  {name}: {len(new_issues)} new editions")
+    print(
+        f"Edition discovery: {total_new} new editions across "
+        f"{checked} publications."
+    )
     return 0
 
 
@@ -402,6 +511,10 @@ def main(argv: list[str] | None = None) -> int:
         return _run_import_existing(args)
     if args.migrate_filenames:
         return _run_filename_migration(args)
+    if args.import_catalog is not None:
+        return _run_import_catalog(args)
+    if args.discover_editions:
+        return _run_discover_editions(args)
 
     # ------------------------------------------------------------------
     # Scheduler mode – hand off and block

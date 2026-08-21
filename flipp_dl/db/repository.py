@@ -1219,6 +1219,27 @@ class DownloadRepository:
             self._mark_missing_publications_delisted(seen_codes)
         return new_issues
 
+    def discover_editions(
+        self, publication_id: int, editions: list[DomainIssue]
+    ) -> list[DbIssue]:
+        """Add editions PageSuite lists that this publication lacks (TASK-1439).
+
+        Unlike :meth:`sync_publications` this NEVER marks anything
+        delisted. The PageSuite edition list is a *superset* of the Flipp
+        API's - it includes the editions the app hides - so an issue
+        absent from it carries no signal at all, and delisting on that
+        basis would wrongly bury issues the API still lists. It only
+        inserts what is missing (matched on ``custom_code`` == the
+        PageSuite ``@editionguid`` == the reader ``eid``) and returns the
+        newly created rows for the caller to queue.
+        """
+        new_issues: list[DbIssue] = []
+        for issue in editions:
+            db_issue, created = self.upsert_issue(issue, publication_id)
+            if created:
+                new_issues.append(db_issue)
+        return new_issues
+
     def _mark_missing_publications_delisted(self, seen_codes: set[str]) -> None:
         """Mark every publication absent from *seen_codes* as delisted.
 
