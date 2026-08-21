@@ -334,17 +334,20 @@ class DownloadRepository:
         pubs = list(self.session.scalars(q))
         counts = self._issue_counts_by_publication()
         for pub in pubs:
-            total, done, size_bytes, size_unknown = counts.get(pub.id, (0, 0, 0, 0))
+            total, done, size_bytes, size_unknown, delisted = counts.get(
+                pub.id, (0, 0, 0, 0, 0)
+            )
             pub.num_issues = total
             pub.num_downloaded = done
             pub.size_bytes = size_bytes
             pub.size_unknown_count = size_unknown
+            pub.num_delisted = delisted
         return pubs
 
     def _issue_counts_by_publication(
         self,
-    ) -> dict[int, tuple[int, int, int, int]]:
-        """Return ``{publication_id: (total, done, size_bytes, size_unknown)}``.
+    ) -> dict[int, tuple[int, int, int, int, int]]:
+        """Return ``{publication_id: (total, done, size, size_unknown, delisted)}``.
 
         One grouped query over the issues table instead of one row per
         issue - see :meth:`list_publications`. ``size_bytes`` sums only the
@@ -360,6 +363,9 @@ class DownloadRepository:
                 func.sum(case((is_done, 1), else_=0)),
                 func.sum(case((is_done, func.coalesce(DbIssue.file_size, 0)), else_=0)),
                 func.sum(case((is_done & DbIssue.file_size.is_(None), 1), else_=0)),
+                # Rides along in the same grouped query (TASK-1459) rather
+                # than a second round-trip - the list view needs it per row.
+                func.sum(case((DbIssue.delisted_at.is_not(None), 1), else_=0)),
             ).group_by(DbIssue.publication_id)
         ).all()
         return {
@@ -368,8 +374,16 @@ class DownloadRepository:
                 int(done or 0),
                 int(size_bytes or 0),
                 int(size_unknown or 0),
+                int(delisted or 0),
             )
-            for publication_id, total, done, size_bytes, size_unknown in rows
+            for (
+                publication_id,
+                total,
+                done,
+                size_bytes,
+                size_unknown,
+                delisted,
+            ) in rows
         }
 
     def set_watched(self, custom_code: str, enabled: bool) -> bool:

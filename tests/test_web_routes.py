@@ -2512,3 +2512,58 @@ def test_publication_page_renders_the_notification_toggle(client: TestClient):
     assert page.status_code == 200
     assert 'name="notify_enabled"' in page.text
     assert "/publications/KA/notify" in page.text
+
+
+# ---------------------------------------------------------------------------
+# Delisted counter in the Downloaded column (TASK-1459)
+# ---------------------------------------------------------------------------
+
+
+def test_publication_list_counts_issues_flipp_no_longer_lists(client: TestClient):
+    """The count is per publication and comes from the grouped query.
+
+    A publication with nothing delisted shows no parenthesis at all - an
+    always-visible "(0)" would be noise on every row.
+    """
+    from datetime import datetime, timezone
+
+    page = client.get("/publications")
+    assert page.status_code == 200
+    assert "(1)" not in page.text
+
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        pub = repo.get_publication("KA")
+        issues = repo.list_issues(publication_id=pub.id)
+        issues[0].delisted_at = datetime.now(timezone.utc)
+
+    page = client.get("/publications")
+    assert "(1)" in page.text
+    assert "no longer listed by Flipp" in page.text
+
+
+def test_the_delisted_count_comes_from_the_grouped_query(client: TestClient):
+    """The count must not load the issues relationship (TASK-1338).
+
+    The model has a fallback that counts by walking ``self.issues`` and
+    returns the same number, so asserting the number alone passes whether
+    or not the aggregate is wired up. Asserting that ``issues`` is still
+    unloaded is what distinguishes the two.
+    """
+    from datetime import datetime, timezone
+
+    from sqlalchemy import inspect as sa_inspect
+
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        pub = repo.get_publication("KA")
+        for issue in repo.list_issues(publication_id=pub.id):
+            issue.delisted_at = datetime.now(timezone.utc)
+
+    with get_session(client.app.state.session_factory) as session:
+        pubs = {
+            p.custom_code: p for p in DownloadRepository(session).list_publications()
+        }
+        assert pubs["KA"].num_delisted == 1
+        assert pubs["GH"].num_delisted == 0
+        assert "issues" in sa_inspect(pubs["KA"]).unloaded

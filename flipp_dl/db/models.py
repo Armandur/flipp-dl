@@ -249,6 +249,24 @@ class DbPublication(Base):
     def size_unknown_count(self, value: int) -> None:
         self._size_unknown_count_override = value
 
+    @property
+    def num_delisted(self) -> int:
+        """Issues Flipp has stopped listing (TASK-1459).
+
+        We still hold their eid, so they remain downloadable - nothing in
+        Flipp's catalogue points at them any more. Not the same as an
+        issue Flipp never listed at all: those were discovered through
+        PageSuite and carry no ``delisted_at``.
+        """
+        override = getattr(self, "_num_delisted_override", None)
+        if override is not None:
+            return override
+        return sum(1 for issue in self.issues if issue.delisted_at is not None)
+
+    @num_delisted.setter
+    def num_delisted(self, value: int) -> None:
+        self._num_delisted_override = value
+
     def __repr__(self) -> str:
         return f"<Publication {self.custom_code!r} watched={self.watched}>"
 

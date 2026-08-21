@@ -50,6 +50,14 @@
       <span class="{{ 'dim' if not publication.num_downloaded }}">
         {{ publication.num_downloaded }}<span class="dim">/{{ publication.num_issues }}</span>
       </span>
+      {% if publication.num_delisted %}
+      {# Issues we hold an eid for that Flipp no longer lists - still
+         downloadable, but nothing in the catalogue points at them. #}
+      <span
+        class="dim"
+        title="{{ _('%(count)s issue(s) are no longer listed by Flipp. We still have their codes, so they can still be downloaded.') % {'count': publication.num_delisted} }}"
+      >({{ publication.num_delisted }})</span>
+      {% endif %}
     {% else %}
       <span class="dim">—</span>
     {% endif %}

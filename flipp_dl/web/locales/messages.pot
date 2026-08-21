@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-08-21 21:16+0200\n"
+"POT-Creation-Date: 2026-08-22 00:26+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -448,7 +448,7 @@ msgid "Payload"
 msgstr ""
 
 #: flipp_dl/web/templates/jobs.html:104
-#: flipp_dl/web/templates/publication_row.html:83
+#: flipp_dl/web/templates/publication_row.html:91
 msgid "No"
 msgstr ""
 
@@ -699,41 +699,48 @@ msgstr ""
 msgid "Folder:"
 msgstr ""
 
-#: flipp_dl/web/templates/publication_row.html:63
+#: flipp_dl/web/templates/publication_row.html:58
+#, python-format
+msgid ""
+"%(count)s issue(s) are no longer listed by Flipp. We still have their "
+"codes, so they can still be downloaded."
+msgstr ""
+
+#: flipp_dl/web/templates/publication_row.html:71
 #, python-format
 msgid ""
 "%(count)s downloaded issues have no recorded size (downloaded before size"
 " tracking was added)."
 msgstr ""
 
-#: flipp_dl/web/templates/publication_row.html:63
+#: flipp_dl/web/templates/publication_row.html:71
 msgid "unknown"
 msgstr ""
 
-#: flipp_dl/web/templates/publication_row.html:67
+#: flipp_dl/web/templates/publication_row.html:75
 #, python-format
 msgid ""
 "%(count)s downloaded issues have no recorded size (downloaded before size"
 " tracking was added) and are not included in this total."
 msgstr ""
 
-#: flipp_dl/web/templates/publication_row.html:81
+#: flipp_dl/web/templates/publication_row.html:89
 msgid "Yes"
 msgstr ""
 
-#: flipp_dl/web/templates/publication_row.html:95
+#: flipp_dl/web/templates/publication_row.html:103
 msgid "Choose a unique folder name before watching"
 msgstr ""
 
-#: flipp_dl/web/templates/publication_row.html:108
+#: flipp_dl/web/templates/publication_row.html:116
 msgid "Save and watch"
 msgstr ""
 
-#: flipp_dl/web/templates/publication_row.html:117
+#: flipp_dl/web/templates/publication_row.html:125
 msgid "Unwatch"
 msgstr ""
 
-#: flipp_dl/web/templates/publication_row.html:125
+#: flipp_dl/web/templates/publication_row.html:133
 msgid "Watch"
 msgstr ""
 
