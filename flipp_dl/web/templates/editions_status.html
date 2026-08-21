@@ -11,6 +11,10 @@
   hx-swap="innerHTML"
   {% endif %}
 >
+  {% if error %}
+  <p class="error">{{ error }}</p>
+  {% endif %}
+
   {% if not job %}
   <p class="dim">{{ _("No edition run has been started yet.") }}</p>
   {% else %}

@@ -198,12 +198,18 @@ JOB_TYPES = (JOB_DISCOVER, JOB_IMPORT)
 # the run into a write loop.
 _PROGRESS_EVERY = 5
 
+# ...and never more than this many writes for one run. An import job carries
+# the whole uploaded file in its payload, which is re-serialized on every
+# write - without a ceiling a large file would cost O(entries^2).
+_PROGRESS_WRITES = 20
+
 
 def _progress_writer(session_factory, job_id: int) -> ProgressCallback:
     """Return a callback that writes progress into the job's payload."""
 
     def write(done: int, total: int, found: int) -> None:
-        if done % _PROGRESS_EVERY and done != total:
+        every = max(_PROGRESS_EVERY, total // _PROGRESS_WRITES)
+        if done % every and done != total:
             return
         with get_session(session_factory) as session:
             DownloadRepository(session).merge_job_payload(

@@ -293,3 +293,76 @@ def test_the_cli_and_the_web_share_one_editions_parser(tmp_path):
     assert parse_editions(b'{"found_unlisted_issues": [{"issue_code": "a"}]}') == [
         {"issue_code": "a"}
     ]
+
+
+def test_status_renders_progress_while_the_job_runs(client: TestClient, app):
+    """The line a user actually watches - counts rendered, poll still on."""
+    token = _csrf(client)
+    client.post("/settings/discover-editions", data={"_csrf_token": token})
+    job_id = _jobs(app, JOB_DISCOVER)[0]["id"]
+    with get_session(app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        repo.start_job(job_id)
+        repo.merge_job_payload(
+            job_id, {"progress": {"done": 5, "total": 40, "found": 2}}
+        )
+
+    response = client.get("/settings/editions-status")
+
+    assert "5 av 40 klara, 2 nya hittills." in _swedish(client)
+    assert "5 of 40 done, 2 new so far." in response.text
+    assert "hx-trigger" in response.text
+
+
+def _swedish(client: TestClient) -> str:
+    """The status partial rendered in Swedish."""
+    client.get("/language/sv?next=/settings")
+    text = client.get("/settings/editions-status").text
+    client.get("/language/en?next=/settings")
+    return text
+
+
+def test_a_bad_upload_does_not_stop_the_poll_of_a_running_job(client: TestClient, app):
+    token = _csrf(client)
+    client.post("/settings/discover-editions", data={"_csrf_token": token})
+
+    response = client.post(
+        "/settings/import-editions",
+        data={"_csrf_token": token},
+        files={"editions": ("trasig.json", b"inte json", "application/json")},
+    )
+
+    assert response.status_code == 200
+    assert "not valid JSON" in response.text
+    # The queued discovery is still shown, and still polling.
+    assert "hx-trigger" in response.text
+    assert _jobs(app, JOB_IMPORT) == []
+
+
+def test_progress_writes_are_capped_for_a_large_import(app):
+    """A big upload must not be re-serialized once per entry."""
+    factory = app.state.session_factory
+    entries = [{"issue_code": f"e{i}"} for i in range(400)]
+    with get_session(factory) as session:
+        DownloadRepository(session).create_job(
+            JOB_IMPORT, {"input": {"entries": entries}}
+        )
+
+    writes = 0
+    original = DownloadRepository.merge_job_payload
+
+    def counting(self, job_id, updates):
+        nonlocal writes
+        if "progress" in updates:
+            writes += 1
+        return original(self, job_id, updates)
+
+    DownloadRepository.merge_job_payload = counting
+    try:
+        assert run_editions_queue(factory, client=_FakeClient()) == 1
+    finally:
+        DownloadRepository.merge_job_payload = original
+
+    # 400 entries at one write per five would be 80; the ceiling holds it
+    # to ~20 regardless of how large the file is.
+    assert writes <= 21

@@ -184,8 +184,13 @@ def register(app: FastAPI) -> None:
     # Editions - queued as jobs, drained by the scheduler
     # ------------------------------------------------------------------
 
-    def _editions_status(request: Request) -> HTMLResponse:
-        """Render the latest editions job, with its progress or result."""
+    def _editions_status(request: Request, error: str | None = None) -> HTMLResponse:
+        """Render the latest editions job, with its progress or result.
+
+        An *error* is rendered alongside the job rather than in place of it:
+        a bad upload must not silently stop the poll of a run already in
+        flight.
+        """
         with get_session(request.app.state.session_factory) as session:
             job = DownloadRepository(session).latest_job_of_types(JOB_TYPES)
             view = None
@@ -204,8 +209,16 @@ def register(app: FastAPI) -> None:
                     "active": job.status in _ACTIVE_JOB_STATUSES,
                 }
         return _templates(request).TemplateResponse(
-            request, "editions_status.html", {"job": view}
+            request, "editions_status.html", {"job": view, "error": error}
         )
+
+    def _editions_error(request: Request, reason: str) -> HTMLResponse:
+        """Render a file error into the status box without stopping the poll."""
+        message = i18n.translate(
+            i18n.get_language(request),
+            _FILE_ERROR_MESSAGES.get(reason, _FILE_ERROR_MESSAGES["unreadable"]),
+        )
+        return _editions_status(request, message)
 
     def _queue_editions_job(request: Request, job_type: str, payload: dict):
         """Queue *job_type* unless a run is already waiting or working.
@@ -246,13 +259,13 @@ def register(app: FastAPI) -> None:
 
         data = await _read_upload(editions)
         if isinstance(data, str):
-            return _error(request, data)
+            return _editions_error(request, data)
         try:
             entries = parse_editions(data)
         except CodeFileError as exc:
-            return _error(request, exc.reason)
+            return _editions_error(request, exc.reason)
         if not entries:
-            return _error(request, "no_editions")
+            return _editions_error(request, "no_editions")
 
         busy = _queue_editions_job(request, JOB_IMPORT, {"input": {"entries": entries}})
         return busy or _editions_status(request)
