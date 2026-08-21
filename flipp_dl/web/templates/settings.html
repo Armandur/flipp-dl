@@ -318,6 +318,64 @@
   </div>
 
   <div class="settings-action">
+    <h3>{{ _("Codes: backup and catalogue") }}</h3>
+    <div class="note">
+      {{ _("The publication and issue codes are the irreplaceable part of the database - everything else can be downloaded again. Save them as a JSON file, and restore them into an empty database from that same file. The catalogue file (the full publication list, plus the optional list of publications Flipp does not list) adds publications without touching the ones you already have.") }}
+    </div>
+
+    <div class="form-card">
+      <h4>{{ _("Download a code backup") }}</h4>
+      <p>
+        <a class="btn btn-primary btn-download" href="/settings/export-codes" download>
+          {{ _("Download codes (JSON)") }}
+        </a>
+      </p>
+
+      <form
+        class="codes-upload"
+        hx-post="/settings/import-backup"
+        hx-target="#codes-output"
+        hx-swap="innerHTML"
+        hx-encoding="multipart/form-data"
+        hx-indicator="#codes-spinner"
+      >
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+        <h4>{{ _("Restore a code backup") }}</h4>
+        <div class="field">
+          <label for="codes-backup-file">{{ _("Backup file (JSON)") }}</label>
+          <input type="file" id="codes-backup-file" name="backup" accept=".json,application/json" required>
+        </div>
+        <button type="submit" class="btn btn-primary-soft">{{ _("Restore codes") }}</button>
+      </form>
+
+      <form
+        class="codes-upload"
+        hx-post="/settings/import-catalog"
+        hx-target="#codes-output"
+        hx-swap="innerHTML"
+        hx-encoding="multipart/form-data"
+        hx-indicator="#codes-spinner"
+      >
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+        <h4>{{ _("Import a catalogue") }}</h4>
+        <div class="field">
+          <label for="codes-catalog-file">{{ _("Catalogue file (JSON)") }}</label>
+          <input type="file" id="codes-catalog-file" name="catalog" accept=".json,application/json" required>
+        </div>
+        <div class="field">
+          <label for="codes-unlisted-file">{{ _("Unlisted publications (JSON, optional)") }}</label>
+          <input type="file" id="codes-unlisted-file" name="unlisted" accept=".json,application/json">
+          <div class="note">{{ _("Imported as delisted so they never look like part of the official catalogue.") }}</div>
+        </div>
+        <button type="submit" class="btn btn-primary-soft">{{ _("Import catalogue") }}</button>
+      </form>
+
+      <span id="codes-spinner" class="htmx-indicator dim">{{ _("Working…") }}</span>
+      <div id="codes-output" style="margin-top:18px;"></div>
+    </div>
+  </div>
+
+  <div class="settings-action">
     <h3>{{ _("Debug") }}</h3>
     <div class="note">
       {{ _("Run a manual poll against the Flipp API and inspect the raw") }}

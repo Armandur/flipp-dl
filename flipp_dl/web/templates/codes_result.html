@@ -1,0 +1,31 @@
+<div class="import-summary">
+  {% if error %}
+  <p class="error">{{ error }}</p>
+  {% elif kind == "catalog" %}
+  <p>
+    {{ _("Added %(added)s publication(s) - %(known)s were already known, %(skipped)s were skipped, and %(coded)s publication code(s) were set.") % {
+      "added": result.added, "known": result.known,
+      "skipped": result.skipped, "coded": result.codes_set} }}
+  </p>
+  {% if result.unlisted_total %}
+  <p>
+    {{ _("Unlisted publications: %(added)s added as delisted - %(known)s were already known, %(skipped)s were skipped.") % {
+      "added": result.unlisted_added, "known": result.unlisted_known,
+      "skipped": result.unlisted_skipped} }}
+  </p>
+  {% endif %}
+  {% elif kind == "backup" %}
+  <p>
+    {{ _("Restored %(publications)s publication(s) and %(issues)s issue code(s).") % {
+      "publications": result.publications, "issues": result.issues} }}
+  </p>
+  {% if result.missing_publications %}
+  <p>{{ _("These issue codes were skipped because their publication is not in the database:") }}</p>
+  <ul>
+    {% for code in result.missing_publications %}
+    <li>{{ code }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% endif %}
+</div>

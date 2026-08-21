@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-08-20 22:48+0200\n"
+"POT-Creation-Date: 2026-08-21 17:18+0200\n"
 "PO-Revision-Date: 2026-08-19 18:14+0200\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: sv\n"
@@ -18,52 +18,83 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.18.0\n"
 
-#: flipp_dl/web/templates/base.html:315 flipp_dl/web/templates/dashboard.html:2
+#: flipp_dl/web/templates/base.html:331 flipp_dl/web/templates/dashboard.html:2
 #: flipp_dl/web/templates/dashboard.html:5
 msgid "Dashboard"
 msgstr "Översikt"
 
-#: flipp_dl/web/templates/base.html:316
+#: flipp_dl/web/templates/base.html:332
 #: flipp_dl/web/templates/publications.html:2
 #: flipp_dl/web/templates/publications.html:5
 #: flipp_dl/web/templates/stats_cards.html:3
 msgid "Publications"
 msgstr "Publikationer"
 
-#: flipp_dl/web/templates/base.html:317 flipp_dl/web/templates/search.html:2
+#: flipp_dl/web/templates/base.html:333 flipp_dl/web/templates/search.html:2
 #: flipp_dl/web/templates/search.html:5 flipp_dl/web/templates/search.html:31
 msgid "Search"
 msgstr "Sök"
 
-#: flipp_dl/web/templates/base.html:318 flipp_dl/web/templates/library.html:2
+#: flipp_dl/web/templates/base.html:334 flipp_dl/web/templates/library.html:2
 #: flipp_dl/web/templates/library.html:5
 #: flipp_dl/web/templates/settings.html:167
 msgid "Library"
 msgstr "Bibliotek"
 
-#: flipp_dl/web/templates/base.html:319 flipp_dl/web/templates/jobs.html:2
+#: flipp_dl/web/templates/base.html:335 flipp_dl/web/templates/jobs.html:2
 #: flipp_dl/web/templates/jobs.html:5
 msgid "Jobs"
 msgstr "Jobb"
 
-#: flipp_dl/web/templates/base.html:320 flipp_dl/web/templates/settings.html:2
+#: flipp_dl/web/templates/base.html:336 flipp_dl/web/templates/settings.html:2
 #: flipp_dl/web/templates/settings.html:5
 msgid "Settings"
 msgstr "Inställningar"
 
-#: flipp_dl/web/templates/base.html:327
+#: flipp_dl/web/templates/base.html:343
 msgid "Sign out"
 msgstr "Logga ut"
 
-#: flipp_dl/web/templates/base.html:341
+#: flipp_dl/web/templates/base.html:357
 #: flipp_dl/web/templates/issue_row.html:88
 #: flipp_dl/web/templates/issue_row.html:100
 msgid "Cancel"
 msgstr "Avbryt"
 
-#: flipp_dl/web/templates/base.html:342
+#: flipp_dl/web/templates/base.html:358
 msgid "Confirm"
 msgstr "Bekräfta"
+
+#: flipp_dl/web/templates/codes_result.html:6
+#, python-format
+msgid ""
+"Added %(added)s publication(s) - %(known)s were already known, "
+"%(skipped)s were skipped, and %(coded)s publication code(s) were set."
+msgstr ""
+"Lade till %(added)s publikationer - %(known)s fanns redan, %(skipped)s "
+"hoppades över och %(coded)s publikationskoder sattes."
+
+#: flipp_dl/web/templates/codes_result.html:12
+#, python-format
+msgid ""
+"Unlisted publications: %(added)s added as delisted - %(known)s were "
+"already known, %(skipped)s were skipped."
+msgstr ""
+"Olistade publikationer: %(added)s tillagda som avlistade - %(known)s "
+"fanns redan, %(skipped)s hoppades över."
+
+#: flipp_dl/web/templates/codes_result.html:19
+#, python-format
+msgid "Restored %(publications)s publication(s) and %(issues)s issue code(s)."
+msgstr "Återställde %(publications)s publikationer och %(issues)s utgåvekoder."
+
+#: flipp_dl/web/templates/codes_result.html:23
+msgid ""
+"These issue codes were skipped because their publication is not in the "
+"database:"
+msgstr ""
+"De här utgåvekoderna hoppades över eftersom deras publikation saknas i "
+"databasen:"
 
 #: flipp_dl/web/templates/dashboard.html:11
 msgid "Recent Downloads"
@@ -181,7 +212,7 @@ msgid "Failed to parse response JSON:"
 msgstr "Kunde inte tolka svarets JSON:"
 
 #: flipp_dl/web/templates/debug_poll_result.html:137
-#: flipp_dl/web/templates/settings.html:374
+#: flipp_dl/web/templates/settings.html:432
 msgid "Copied"
 msgstr "Kopierat"
 
@@ -770,7 +801,7 @@ msgstr "Ingen token konfigurerad. Klistra in en ovan och spara."
 
 #: flipp_dl/web/templates/settings.html:42
 msgid "How do I find my token?"
-msgstr ""
+msgstr "Hur hittar jag min token?"
 
 #: flipp_dl/web/templates/settings.html:44
 #, fuzzy
@@ -779,7 +810,7 @@ msgstr "Logga in"
 
 #: flipp_dl/web/templates/settings.html:44
 msgid ", open the browser console with F12 and paste this:"
-msgstr ""
+msgstr ", öppna webbläsarkonsolen med F12 och klistra in det här:"
 
 #: flipp_dl/web/templates/settings.html:47
 #, fuzzy
@@ -966,14 +997,81 @@ msgid "Scanning…"
 msgstr "Skannar…"
 
 #: flipp_dl/web/templates/settings.html:321
+msgid "Codes: backup and catalogue"
+msgstr "Koder: säkerhetskopia och katalog"
+
+#: flipp_dl/web/templates/settings.html:323
+msgid ""
+"The publication and issue codes are the irreplaceable part of the "
+"database - everything else can be downloaded again. Save them as a JSON "
+"file, and restore them into an empty database from that same file. The "
+"catalogue file (the full publication list, plus the optional list of "
+"publications Flipp does not list) adds publications without touching the "
+"ones you already have."
+msgstr ""
+"Publikations- och utgåvekoderna är det oersättliga i databasen - allt "
+"annat går att hämta igen. Spara dem som en JSON-fil, och återställ dem "
+"till en tom databas från samma fil. Katalogfilen (hela "
+"publikationslistan, plus den valfria listan över publikationer som Flipp "
+"inte listar) lägger till publikationer utan att röra dem du redan har."
+
+#: flipp_dl/web/templates/settings.html:327
+msgid "Download a code backup"
+msgstr "Ladda ner en säkerhetskopia av koderna"
+
+#: flipp_dl/web/templates/settings.html:330
+msgid "Download codes (JSON)"
+msgstr "Ladda ner koder (JSON)"
+
+#: flipp_dl/web/templates/settings.html:343
+msgid "Restore a code backup"
+msgstr "Återställ från en säkerhetskopia"
+
+#: flipp_dl/web/templates/settings.html:345
+msgid "Backup file (JSON)"
+msgstr "Säkerhetskopia (JSON)"
+
+#: flipp_dl/web/templates/settings.html:348
+msgid "Restore codes"
+msgstr "Återställ koder"
+
+#: flipp_dl/web/templates/settings.html:360
+msgid "Import a catalogue"
+msgstr "Importera en katalog"
+
+#: flipp_dl/web/templates/settings.html:362
+msgid "Catalogue file (JSON)"
+msgstr "Katalogfil (JSON)"
+
+#: flipp_dl/web/templates/settings.html:366
+msgid "Unlisted publications (JSON, optional)"
+msgstr "Olistade publikationer (JSON, valfri)"
+
+#: flipp_dl/web/templates/settings.html:368
+msgid ""
+"Imported as delisted so they never look like part of the official "
+"catalogue."
+msgstr ""
+"Importeras som avlistade så att de aldrig ser ut att ingå i den "
+"officiella katalogen."
+
+#: flipp_dl/web/templates/settings.html:370
+msgid "Import catalogue"
+msgstr "Importera katalog"
+
+#: flipp_dl/web/templates/settings.html:373
+msgid "Working…"
+msgstr "Arbetar…"
+
+#: flipp_dl/web/templates/settings.html:379
 msgid "Debug"
 msgstr "Felsökning"
 
-#: flipp_dl/web/templates/settings.html:323
+#: flipp_dl/web/templates/settings.html:381
 msgid "Run a manual poll against the Flipp API and inspect the raw"
 msgstr "Kör en manuell pollning mot Flipp-API:et och inspektera det råa"
 
-#: flipp_dl/web/templates/settings.html:324
+#: flipp_dl/web/templates/settings.html:382
 msgid ""
 "response. Useful for verifying your token and spotting new fields. "
 "Sensitive fields"
@@ -981,22 +1079,22 @@ msgstr ""
 "svaret. Bra för att verifiera din token och upptäcka nya fält. Känsliga "
 "fält"
 
-#: flipp_dl/web/templates/settings.html:325
+#: flipp_dl/web/templates/settings.html:383
 msgid "are redacted before the response reaches your browser."
 msgstr "redigeras bort innan svaret når din webbläsare."
 
-#: flipp_dl/web/templates/settings.html:337
+#: flipp_dl/web/templates/settings.html:395
 msgid "Run manual poll"
 msgstr "Kör manuell pollning"
 
-#: flipp_dl/web/templates/settings.html:339
+#: flipp_dl/web/templates/settings.html:397
 msgid "Polling Flipp API…"
 msgstr "Pollar Flipp-API…"
 
-#: flipp_dl/web/templates/settings.html:370
-#: flipp_dl/web/templates/settings.html:375
+#: flipp_dl/web/templates/settings.html:428
+#: flipp_dl/web/templates/settings.html:433
 msgid "Selected - press Ctrl+C to copy"
-msgstr ""
+msgstr "Markerat - tryck Ctrl+C för att kopiera"
 
 #: flipp_dl/web/templates/stats_cards.html:11
 msgid "Total Issues"
@@ -1045,4 +1143,32 @@ msgstr "adressen svarade, men innehållet verkar inte komma från Komga."
 #: flipp_dl/web/routes.py:84
 msgid "something went wrong. Check the address and try again."
 msgstr "något gick fel. Kontrollera adressen och försök igen."
+
+#: flipp_dl/web/codes_routes.py:45
+msgid "The file could not be read - it is not valid JSON."
+msgstr "Filen gick inte att läsa - den innehåller inte giltig JSON."
+
+#: flipp_dl/web/codes_routes.py:47
+msgid ""
+"This does not look like a catalogue file (expected a list of "
+"publications)."
+msgstr ""
+"Det här ser inte ut som en katalogfil (en lista med publikationer "
+"förväntades)."
+
+#: flipp_dl/web/codes_routes.py:50
+msgid ""
+"This does not look like a backup file (expected an object with "
+"publications and issues)."
+msgstr ""
+"Det här ser inte ut som en säkerhetskopia (ett objekt med publikationer "
+"och utgåvor förväntades)."
+
+#: flipp_dl/web/codes_routes.py:53
+msgid "No file was selected."
+msgstr "Ingen fil valdes."
+
+#: flipp_dl/web/codes_routes.py:54
+msgid "The file is too large."
+msgstr "Filen är för stor."
 

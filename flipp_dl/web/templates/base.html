@@ -225,6 +225,8 @@
     .btn-danger  { background: #4a1e1e; color: #f38ba8; border: 1px solid #6e2b2b; }
     .btn-primary { background: #7c3aed; color: #fff; padding: 8px 20px; font-size: 13px; }
     .btn-primary-soft { background: #3a2a5a; color: #cba6f7; text-decoration: none; }
+    /* A link styled as a button - without this it keeps the link underline. */
+    a.btn-download { text-decoration: none; }
 
     /* forms */
     .form-card { background: #1e1e2e; border: 1px solid #313244; border-radius: 10px;
@@ -233,6 +235,22 @@
     .settings-page .settings-action h3 { font-size: 16px; font-weight: 600; color: #a6adc8;
                           margin-bottom: 10px; }
     .settings-page .settings-action + .settings-action { margin-top: 24px; }
+    .settings-page .form-card h4 { font-size: 13px; font-weight: 600; color: #cdd6f4;
+                                   margin: 0 0 10px; }
+    /* Each upload form is its own block inside the shared card, separated
+       by a rule so the file inputs don't read as one long form. */
+    .codes-upload { margin-top: 22px; padding-top: 18px;
+                    border-top: 1px solid #313244; }
+    .field input[type="file"] {
+      background: #181825; border: 1px solid #45475a; border-radius: 6px;
+      color: #cdd6f4; padding: 8px 10px; width: 100%; font-size: 13px;
+      font-family: inherit; box-sizing: border-box;
+    }
+    .field input[type="file"]::file-selector-button {
+      background: #313244; color: #cdd6f4; border: none; border-radius: 5px;
+      padding: 5px 10px; margin-right: 10px; font-family: inherit;
+      font-size: 12px; cursor: pointer;
+    }
     .field { margin-bottom: 18px; }
     label { display: block; font-size: 12px; font-weight: 600;
             color: #a6adc8; margin-bottom: 6px; }

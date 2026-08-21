@@ -192,7 +192,8 @@ Kompilerade `.mo`-filer är incheckade och används direkt i produktion -
 ```bash
 # 1. Extrahera alla _("...")-strängar ur templates till en .pot-mall
 pybabel extract -F flipp_dl/web/locales/babel.cfg \
-  -o flipp_dl/web/locales/messages.pot flipp_dl/web/templates flipp_dl/web/routes.py
+  -o flipp_dl/web/locales/messages.pot \
+  flipp_dl/web/templates flipp_dl/web/routes.py flipp_dl/web/codes_routes.py
 
 # 2. Slå ihop nya/ändrade strängar in i den befintliga svenska katalogen
 #    (behåller redan gjorda översättningar; nya strängar får tom msgstr)
