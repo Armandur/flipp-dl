@@ -66,10 +66,29 @@ def _editions_from_payload(data: dict) -> list[Issue]:
     return issues
 
 
+def _iso_from_ddmmyyyy(raw: str) -> str:
+    """replica serves editionName as ``D/M/YYYY``; store ISO ``YYYY-MM-DD``."""
+    parts = raw.strip().split("/")
+    if len(parts) == 3 and all(p.isdigit() for p in parts):
+        day, month, year = parts
+        return f"{int(year):04d}-{int(month):02d}-{int(day):02d}"
+    return raw.strip()
+
+
+class EditionMetadata:
+    """The bits of an edition the replica API exposes for a known eid."""
+
+    def __init__(self, publication_guid: str, edition_name: str, iso_date: str):
+        self.publication_guid = publication_guid
+        self.edition_name = edition_name
+        self.iso_date = iso_date
+
+
 class PageSuiteClient:
     """Reads the open PageSuite edition list. No authentication needed."""
 
     EDITIONS_URL = "https://reader.flipp.se/html5/editionshtml5_json.aspx"
+    REPLICA_URL = "https://api.replica.pagesuite.com/edition/{eid}/pages"
 
     def __init__(
         self,
@@ -111,3 +130,27 @@ class PageSuiteClient:
             "PageSuite listed %d editions for %s", len(issues), publication_guid
         )
         return issues
+
+    def fetch_edition_metadata(self, eid: str) -> EditionMetadata | None:
+        """Resolve a single eid via the replica API (no authentication).
+
+        Returns the edition's real ``publicationGuid`` (useful when an eid
+        was found without knowing its publication) plus its name/date, or
+        ``None`` if the eid is dead or the response is malformed. Used by the
+        edition importer to attach shadow eids - the ones editionshtml5_json
+        never lists - to the right publication (TASK-1437).
+        """
+        headers = {"User-Agent": DEFAULT_USER_AGENT}
+        try:
+            response = self.session.get(
+                self.REPLICA_URL.format(eid=eid), headers=headers, timeout=self.timeout
+            )
+            response.raise_for_status()
+            data = response.json()
+        except (requests.RequestException, ValueError):
+            return None
+        pub = data.get("publicationGuid")
+        if not pub:
+            return None
+        name = data.get("editionName", "") or ""
+        return EditionMetadata(pub, name, _iso_from_ddmmyyyy(name))

@@ -56,8 +56,15 @@ def test_import_catalog_without_companion_still_works(tmp_path, capsys):
     assert "delisted" not in out
 
 
-def test_real_docs_files_give_118_publications(tmp_path):
-    """The shipped docs files import to 91 listed + 27 delisted (TASK-1442)."""
+def test_real_docs_files_import_listed_plus_delisted(tmp_path):
+    """The shipped docs files import the listed catalogue + delisted companion.
+
+    91 listed (docs/alla-publikationer.json) plus the unlisted companion
+    (docs/olistade-publikationer.json) marked delisted (TASK-1442). The
+    companion grows as Wayback discovery finds more publications, so this
+    asserts the relationship, not a frozen count.
+    """
+    import json
     from pathlib import Path
 
     from flipp_dl.cli import main
@@ -69,6 +76,9 @@ def test_real_docs_files_give_118_publications(tmp_path):
         import pytest
 
         pytest.skip("docs catalogue files not present")
+    n_listed = len(json.loads(catalog.read_text(encoding="utf-8")))
+    n_unlisted = len(json.loads(companion.read_text(encoding="utf-8")))
+
     db = tmp_path / "flipp.db"
     rc = main(["--db", str(db), "--import-catalog", str(catalog)])
     assert rc == 0
@@ -77,5 +87,5 @@ def test_real_docs_files_give_118_publications(tmp_path):
         repo = DownloadRepository(s)
         all_pubs = repo.list_publications()
         delisted = [p for p in all_pubs if p.delisted_at is not None]
-        assert len(all_pubs) == 118
-        assert len(delisted) == 27
+        assert len(all_pubs) == n_listed + n_unlisted
+        assert len(delisted) == n_unlisted
