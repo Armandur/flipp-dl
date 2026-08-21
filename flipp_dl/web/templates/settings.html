@@ -96,6 +96,7 @@
         value="{{ settings.poll_interval | default(360) }}"
         required
       >
+      <div class="note">{{ _("How often flipp-dl asks the Flipp API for new issues. New issues in a watched publication are queued for download right away, so a shorter interval mainly means finding them sooner.") }}</div>
     </div>
 
     <div class="field">
@@ -109,6 +110,7 @@
         value="{{ settings.workers | default(4) }}"
         required
       >
+      <div class="note">{{ _("How many pages of the same issue are fetched at once. Higher is faster but puts more load on the Flipp servers; one issue is still downloaded at a time.") }}</div>
     </div>
 
     <div class="field">
@@ -133,7 +135,7 @@
           </svg>
         </button>
       </div>
-      <div class="note">{{ _("Leave blank to disable the secondary output root.") }}</div>
+      <div class="note">{{ _("A second folder to download into, for publications that do not belong with the rest - a magazine that belongs in an e-book library rather than a comic one. The folder must already exist. Which publications go here is chosen per publication, under Destination on the publication's own page. Leave blank to disable it.") }}</div>
     </div>
 
     <div class="field">
@@ -405,6 +407,7 @@
         <div class="field">
           <label for="codes-backup-file">{{ _("Backup file (JSON)") }}</label>
           <input type="file" id="codes-backup-file" name="backup" accept=".json,application/json" required>
+          <div class="note">{{ _("A file downloaded with the button above. Publications and issue codes in it are added back; nothing already in the database is removed.") }}</div>
         </div>
         <button type="submit" class="btn btn-primary-soft">{{ _("Restore codes") }}</button>
       </form>
@@ -422,11 +425,12 @@
         <div class="field">
           <label for="codes-catalog-file">{{ _("Catalogue file (JSON)") }}</label>
           <input type="file" id="codes-catalog-file" name="catalog" accept=".json,application/json" required>
+          <div class="note">{{ _("The list of every publication Flipp offers, shipped with flipp-dl as") }} <code>docs/alla-publikationer.json</code>. {{ _("Importing it adds the publications the database does not have yet, without any network calls, so they can be watched and their editions discovered. Publications you already have are left untouched.") }}</div>
         </div>
         <div class="field">
           <label for="codes-unlisted-file">{{ _("Unlisted publications (JSON, optional)") }}</label>
           <input type="file" id="codes-unlisted-file" name="unlisted" accept=".json,application/json">
-          <div class="note">{{ _("Imported as delisted so they never look like part of the official catalogue.") }}</div>
+          <div class="note">{{ _("Publications Flipp does not list, but whose code we know - shipped as") }} <code>docs/olistade-publikationer.json</code>. {{ _("Imported as delisted so they never look like part of the official catalogue.") }}</div>
         </div>
         <button type="submit" class="btn btn-primary-soft">{{ _("Import catalogue") }}</button>
       </form>
@@ -467,6 +471,7 @@
         <div class="field">
           <label for="editions-file">{{ _("Editions file (JSON)") }}</label>
           <input type="file" id="editions-file" name="editions" accept=".json,application/json" required>
+          <div class="note">{{ _("Edition codes that no listing returns at all, shipped as") }} <code>docs/olistade-utgavor.json</code>. {{ _("Each code is looked up to find which publication it belongs to. Codes whose publication is unknown, or that no longer resolve, are counted and skipped.") }}</div>
         </div>
         <button type="submit" class="btn btn-primary-soft">{{ _("Start import") }}</button>
       </form>
