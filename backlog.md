@@ -923,7 +923,7 @@ Vill du inte att ett visst fält skrivs över kan det stängas av för sig: KOMG
 
 ---
 
-## [P3][todo] [flipp] Montera flipp-dl:s output-katalog som bibliotek i Komga
+## [P3][done] [flipp] Montera flipp-dl:s output-katalog som bibliotek i Komga
 
 Förutsättning för att Komga-integrationen ska kunna slås på. Utan ett bibliotek som faktiskt pekar på flipp-dl:s filer har en scan-trigger inget att skanna, och metadata-pushen hittar ingen serie att skriva till.
 
