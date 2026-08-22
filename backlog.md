@@ -44,6 +44,68 @@ Verifiering: tester i tests/test_storage.py och tests/test_downloader.py för kr
 
 ---
 
+## [P2][done] [flipp] Notifiera vid ihållande fel, inte bara vid nedladdningar
+
+## Context
+
+Notiser skickas i dag BARA från nedladdningskön, via
+`_send_download_notifications` (scheduler.py:223, anropad på rad 682). Allt
+annat som går fel är tyst:
+
+- **Token går ut.** Pollningen svarar 401, `poll_publications` fångar
+  FlippError, markerar jobbet som error och returnerar (scheduler.py:428-431).
+  Sedan kommer inga nya utgåvor. Ingen får veta. Det här är det verkliga
+  scenariot - en Flipp-token håller inte för evigt.
+- **Komga-synk misslyckas.** 27 sådana låg i jobbloggen 2026-08-22.
+- **Utgåveupptäckt och import** kan falla utan att någon märker det.
+
+Kanalerna finns och är verifierade i drift (ntfy och webhook). Det som saknas
+är att fler ställen än nedladdningen använder dem.
+
+## Acceptance criteria
+
+- [ ] En pollning som misslyckas skickar en notis - men bara första gången
+      efter att den senast lyckats, inte vid varje tick.
+- [ ] När pollningen lyckas igen efter att ha misslyckats skickas en notis om
+      att det är löst.
+- [ ] Ett misslyckat komga_sync-jobb och en misslyckad utgåvekörning
+      notifieras enligt samma tillståndsregel.
+- [ ] Felnotiser går ut oavsett publikationernas notify_enabled - den flaggan
+      styr nedladdningsnotiser, och ett fel hör inte till en publikation.
+- [ ] Inga notiser alls när ingen kanal är konfigurerad, och ingen krasch.
+- [ ] En enstaka misslyckad nedladdning som köas om automatiskt notifieras
+      INTE - den är inte ett fel förrän omförsöken tagit slut.
+
+## Implementation hints
+
+- `build_notify_channels(resolve_notify_settings(session_factory))` ger
+  kanalerna; `send_all(channels, title, message)` skickar utan att kasta.
+- Tillståndet måste överleva omstart: lägg det i settings-tabellen via
+  `repo.get_setting`/`set_setting`, till exempel en nyckel per feltyp som
+  håller om senaste körningen misslyckades.
+- Se `~/workspace/infra/docs/ntfy-notifieringspolicy.md` för regeln om
+  tillståndsövergång vid pollande checkar - det är precis det här fallet.
+- Meddelandena ska vara begripliga på svenska för mottagaren, och gå genom
+  samma väg som nedladdningsnotiserna (som redan är svenska).
+
+## Verification
+
+- `.venv/bin/python -m pytest tests/test_scheduler.py -q` - lägg tester som
+  faller mot dagens kod: en misslyckad pollning notifierar en gång, en andra
+  misslyckad pollning notifierar inte igen, och en efterföljande lyckad
+  notifierar om att det är löst.
+- `grep -n "send_all" flipp_dl/scheduler.py` - ska visa anrop från fler
+  ställen än nedladdningskön.
+- Manuellt: sätt en ogiltig token i en dev-instans, kör en pollning via
+  knappen i Inställningar och kontrollera att en notis kommer fram i ntfy.
+  Kör pollningen igen och kontrollera att INGEN andra notis kommer.
+
+- ID: `01M0NEF2MGW7PEDZNBWACCWYGT`
+- Type: feature
+- Actor: ai:claude-code
+
+---
+
 ## [P2][done] [flipp] Utgåvor som bara har ett datum som namn får datumet två gånger i filnamnet
 
 Rasmus 2026-08-22: utgåvorna som PageSuite-upptäckten hittar heter bara ett datum, så filnamnet upprepar datumet i två format:
@@ -449,6 +511,121 @@ Rätt fix är troligen en riktig claim-fråga mot DB (SELECT ... WHERE status=qu
 - ID: `01M0BBXMEPZZWZVNYZR3SF7RWF`
 - Type: bug
 - Actor: ai:claude-opus-5
+
+---
+
+## [P3][todo] [flipp] Flytta filerna när en publikation byter mapp eller destination
+
+## Context
+
+flipp-dl kan inte flytta sina egna filer, och det blockerar tre saker som
+alla valdes bort med samma motivering - att lämna filer på fel ställe är
+värre än att vägra:
+
+- Byte av destination (sekundär utdatarot) vägras för en publikation som har
+  nedladdade utgåvor (TASK-1445, `set_publication_destination` i
+  repository.py:509).
+- Automatisk disambiguering av mappnamn körs bara när INGEN av de
+  kolliderande publikationerna har filer (TASK-1441).
+- Omdöpning efter ändrad namnkonvention kräver `--migrate-filenames` manuellt
+  inne i containern. Kördes 2026-08-22 på 121 filer.
+
+## Acceptance criteria
+
+- [ ] En publikation med nedladdade utgåvor kan byta mappnamn, och filerna
+      följer med. `file_path` i databasen pekar rätt efteråt.
+- [ ] Samma sak för byte av destination mellan primär och sekundär rot.
+- [ ] En avbruten flytt lämnar aldrig databasen pekande på en fil som inte
+      finns - varje fil är antingen flyttad och bokförd, eller orörd.
+- [ ] Flytten går att köra om efter ett avbrott och fortsätter där den var.
+- [ ] Mål på annan volym hanteras: kopiera, verifiera att kopian är komplett,
+      radera först då.
+- [ ] Inga nedladdningar skriver till den gamla katalogen under flytten -
+      antingen pausas kön eller vägras bytet medan jobb pågår.
+- [ ] Resultatet rapporteras: hur många som flyttades och vilka som inte gick.
+
+## Implementation hints
+
+- `--migrate-filenames` i cli.py har redan mönstret för en omstartbar
+  omdöpning med rapport (renamed/recovered/missing/conflicts/errors) och för
+  att uppdatera `file_path`. Bygg vidare på det i stället för att uppfinna om.
+- `storage.publication_folder` och `destination_root` avgör var en fil ska
+  ligga; skillnaden mot var den ligger är flyttens arbetslista.
+- Tiotals gigabyte: `shutil.move` klarar inte samma-filsystem-antagandet över
+  två Unraid-shares, då blir det kopiera och radera.
+
+## Verification
+
+- `.venv/bin/python -m pytest tests/test_cli.py tests/test_repository.py -q`
+- Testerna ska täcka: flytt inom samma rot, flytt mellan rötter, avbrott
+  mitt i (avbryt efter första filen och kontrollera att databasen är
+  konsistent), och en fil som inte går att flytta.
+- Manuellt: ett byte i gränssnittet på en publikation med några utgåvor, och
+  kontroll att filerna ligger på den nya platsen och att biblioteksvyn
+  fortfarande hittar dem.
+
+## Notes
+
+Komga matchar flyttade filer via filhash och tar med metadata och läsläge -
+men bara om papperskorgen inte tömts emellan. Verifierat 2026-08-21.
+
+- ID: `01M0NEF2N154B8SH51N8JT95AW`
+- Type: feature
+- Actor: ai:claude-code
+
+---
+
+## [P3][todo] [flipp] Köa om Komga-synkar som kom före indexeringen
+
+## Context
+
+Mätt i drift 2026-08-22: 27 komga_sync-jobb står som `error`, alla med
+"Book for issue ... not found in Komga series ... after waiting 10s".
+Följden är att 771 av 2018 nedladdade utgåvor fått metadata pushad till
+Komga - resten inte. Bara 16 av 23 publikationer har ett cachat
+`komga_series_id`.
+
+Komga scannar asynkront. TASK-1458 gav varje tömning en scan och lade till
+ett extra försök, vilket hjälpte, men tio sekunder räcker inte när Komga
+samtidigt hashar tusentals filer efter en bakkatalogshämtning.
+
+En bok som inte hunnit indexeras är inte ett permanent fel utan ett för
+tidigt försök.
+
+## Acceptance criteria
+
+- [ ] Ett komga_sync-jobb vars bok inte hittats köas om senare i stället för
+      att markeras error.
+- [ ] Omförsöken har ett tak; när det nås markeras jobbet error som i dag.
+- [ ] Riktiga fel (Komga nere, fel bibliotek, auth) köas INTE om utan
+      markeras error direkt.
+- [ ] En publikation vars serie ännu inte matchats fortsätter räknas som
+      "inte ett fel" - det beteendet finns redan och ska inte ändras.
+
+## Implementation hints
+
+- `_is_book_missing(message)` och konstanten `_BOOK_NOT_INDEXED` i
+  scheduler.py gör redan skillnaden mellan "inte indexerad än" och annat.
+- Mönstret för fördröjda omförsök finns för nedladdningar: `retry_pending`
+  som status, `next_retry_at`, `MAX_AUTO_RETRIES` och `RETRY_DELAYS_MINUTES`
+  i repository.py, plus `requeue_due_retries()` som körs i början av
+  nedladdningstömningen.
+- Jobbtabellen har ingen retry-kolumn; räknaren kan ligga i jobbets payload,
+  som redan används för progress och resultat i utgåvekön.
+
+## Verification
+
+- `.venv/bin/python -m pytest tests/test_scheduler.py -q` - testerna ska
+  falla mot dagens kod: ett jobb vars bok saknas köas om i stället för att bli
+  error, och ett jobb med ett riktigt Komga-fel blir error direkt.
+- Manuellt i drift efter utrullning: `select status, count(*) from jobs where
+  job_type='komga_sync' group by status` - andelen error ska sjunka, och
+  `select count(*) from issues where komga_book_id is not null` ska stiga mot
+  antalet nedladdade.
+
+- ID: `01M0NEF2MQT2BTDRYV51MT0M74`
+- Type: improvement
+- Actor: ai:claude-code
 
 ---
 
