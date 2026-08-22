@@ -2567,3 +2567,58 @@ def test_the_delisted_count_comes_from_the_grouped_query(client: TestClient):
         assert pubs["KA"].num_delisted == 1
         assert pubs["GH"].num_delisted == 0
         assert "issues" in sa_inspect(pubs["KA"]).unloaded
+
+
+# ---------------------------------------------------------------------------
+# Poll now (TASK-1465)
+# ---------------------------------------------------------------------------
+
+
+def test_poll_now_runs_a_poll_and_reports_what_is_left(client: TestClient, monkeypatch):
+    """The button has to actually poll - rendering it proves nothing."""
+    kallad = {}
+
+    def _fake_poll(client_, session_factory, output_root, workers):
+        kallad["ja"] = True
+
+    monkeypatch.setattr("flipp_dl.web.routes.poll_publications", _fake_poll)
+    with get_session(client.app.state.session_factory) as session:
+        DownloadRepository(session).set_setting("flipp_token", "dummy")
+
+    token = _csrf_for(client)
+    response = client.post("/settings/poll", data={"_csrf_token": token})
+
+    assert response.status_code == 200
+    assert kallad.get("ja") is True
+    assert "Poll finished" in response.text
+    assert "without a cover" in response.text
+
+
+def test_poll_now_says_so_when_there_is_no_token(client: TestClient, monkeypatch):
+    """Without a token a poll cannot do anything - say it, do not crash."""
+
+    def _explode(*_a, **_kw):
+        raise AssertionError("must not poll without a token")
+
+    monkeypatch.setattr("flipp_dl.web.routes.poll_publications", _explode)
+    monkeypatch.delenv("FLIPP_TOKEN", raising=False)
+
+    token = _csrf_for(client)
+    response = client.post("/settings/poll", data={"_csrf_token": token})
+
+    assert response.status_code == 200
+    assert "No Flipp token is configured" in response.text
+
+
+def test_poll_now_requires_a_csrf_token(client: TestClient, monkeypatch):
+    def _explode(*_a, **_kw):
+        raise AssertionError("must not poll without a valid CSRF token")
+
+    monkeypatch.setattr("flipp_dl.web.routes.poll_publications", _explode)
+    _csrf_for(client)
+    assert client.post("/settings/poll").status_code == 400
+
+
+def test_the_settings_page_renders_the_poll_button(client: TestClient):
+    page = client.get("/settings")
+    assert 'hx-post="/settings/poll"' in page.text

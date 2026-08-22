@@ -1,0 +1,20 @@
+<div class="import-summary">
+  {% if error %}
+  <p class="error">{{ error }}</p>
+  {% else %}
+  <p>
+    {{ _("Poll finished.") }}
+    {% if job %}
+    <a class="job-link dim" href="/jobs/{{ job.id }}">#{{ job.id }}</a>
+    <span class="badge badge-{{ job.status }}">{{ job.status }}</span>
+    {% endif %}
+  </p>
+  {% if job and job.error %}
+  <p class="error">{{ job.error }}</p>
+  {% endif %}
+  <p class="dim">
+    {{ _("%(queued)s issue(s) waiting in the download queue, %(missing)s still without a cover.") % {
+      "queued": counts.queued, "missing": counts.missing_covers} }}
+  </p>
+  {% endif %}
+</div>

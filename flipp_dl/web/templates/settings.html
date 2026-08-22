@@ -357,6 +357,30 @@
   <h2 id="settings-actions-heading">{{ _("Actions") }}</h2>
 
   <div class="settings-action">
+    <h3>{{ _("Poll now") }}</h3>
+    <div class="note">
+      {{ _("Ask the Flipp API for new issues right away instead of waiting for the next scheduled poll. New issues in a watched publication are queued for download, and the cover backfill runs at the end - which is what fills in missing covers after discovering editions. Takes a while when there is a lot to fetch.") }}
+    </div>
+
+    <div class="form-card">
+      <button
+        type="button"
+        class="btn btn-primary"
+        id="poll-now-btn"
+        hx-post="/settings/poll"
+        hx-target="#poll-now-output"
+        hx-swap="innerHTML"
+        hx-indicator="#poll-now-spinner"
+        hx-vals='{"_csrf_token": "{{ csrf_token }}"}'
+      >{{ _("Poll now") }}</button>
+      <span id="poll-now-spinner" class="htmx-indicator dim" style="margin-left:12px;">
+        {{ _("Polling…") }}
+      </span>
+      <div id="poll-now-output" style="margin-top:18px;"></div>
+    </div>
+  </div>
+
+  <div class="settings-action">
     <h3>{{ _("Import existing files") }}</h3>
     <div class="note">
       {{ _("Scan the output folder and reconcile it with the database: a file that already sits on disk marks its issue downloaded without fetching it again. Anything the scan can't explain - orphan files, a downloaded issue whose file has vanished, or two issues sharing one file - is reported below instead of being fixed silently.") }}

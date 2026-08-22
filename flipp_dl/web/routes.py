@@ -66,6 +66,7 @@ _ = _mark_for_translation
 _INVALID_FOLDER_NAME = _("Use only characters that are valid in a folder name.")
 _FOLDER_NAME_CONFLICT = _("That folder name is already used by another publication.")
 _FOLDER_MOVE_FAILED = _("The downloaded files could not be moved.")
+_POLL_NEEDS_TOKEN = _("No Flipp token is configured, so there is nothing to poll with.")
 _DESTINATION_CHANGE_BLOCKED = _(
     "Destination cannot be changed because this publication already has downloaded issues."
 )
@@ -1488,6 +1489,57 @@ def register(app: FastAPI) -> None:
             request,
             "komga_library_select.html",
             {"error": None, "libraries": libraries, "selected": selected},
+        )
+
+    @app.post("/settings/poll", response_class=HTMLResponse)
+    async def poll_now(request: Request):
+        """Run a poll right now instead of waiting for the next tick.
+
+        The scheduler polls every ``FLIPP_POLL_INTERVAL`` minutes (six
+        hours by default), and the cover backfill rides along at the end
+        of it - so after discovering editions there was no way to see
+        their covers without restarting the container (TASK-1465).
+
+        Synchronous, like "Import existing files" next to it: the answer
+        is what the poll did, so there is nothing useful to show until it
+        has finished. It can take a minute when the cover backlog is
+        large; the button shows a spinner meanwhile.
+        """
+        if not await check_csrf_form(request):
+            return HTMLResponse("CSRF validation failed", status_code=400)
+        token = resolve_current_token(request.app.state.session_factory)
+        if not token:
+            lang = i18n.get_language(request)
+            return _templates(request).TemplateResponse(
+                request,
+                "poll_result.html",
+                {"error": i18n.translate(lang, _POLL_NEEDS_TOKEN), "job": None},
+            )
+
+        workers = int(os.environ.get("FLIPP_WORKERS", "4"))
+        poll_publications(
+            FlippClient(token),
+            request.app.state.session_factory,
+            request.app.state.output_root,
+            workers,
+        )
+
+        with get_session(request.app.state.session_factory) as session:
+            repo = DownloadRepository(session)
+            jobs = repo.list_jobs(limit=1, job_type="poll")
+            job = None
+            if jobs:
+                job = {
+                    "id": jobs[0].id,
+                    "status": jobs[0].status,
+                    "error": jobs[0].error_message,
+                }
+            counts = {
+                "queued": repo.count_issues_with_status(IssueStatus.QUEUED),
+                "missing_covers": repo.count_issues_without_cover(),
+            }
+        return _templates(request).TemplateResponse(
+            request, "poll_result.html", {"error": None, "job": job, "counts": counts}
         )
 
     @app.post("/settings/import-existing", response_class=HTMLResponse)

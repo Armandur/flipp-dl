@@ -1103,6 +1103,28 @@ class DownloadRepository:
 
         return report
 
+    def count_issues_with_status(self, status: str) -> int:
+        """How many issues sit in *status*. A count, not a row load.
+
+        The queue can hold hundreds of rows; the poll result only needs
+        the number.
+        """
+        return int(
+            self.session.scalar(
+                select(func.count(DbIssue.id)).where(DbIssue.status == status)
+            )
+            or 0
+        )
+
+    def count_issues_without_cover(self) -> int:
+        """Issues with no cached cover yet - what the backfill has left."""
+        return int(
+            self.session.scalar(
+                select(func.count(DbIssue.id)).where(DbIssue.cover_cache_path.is_(None))
+            )
+            or 0
+        )
+
     def list_issues(
         self,
         publication_id: int | None = None,
