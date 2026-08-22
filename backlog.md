@@ -452,6 +452,25 @@ Rätt fix är troligen en riktig claim-fråga mot DB (SELECT ... WHERE status=qu
 
 ---
 
+## [P3][done] [flipp] Ingen knapp triggar en pollning - routen finns men är oåtkomlig
+
+POST /publications/{code}/poll finns och fungerar (verifierat 2026-08-22 genom att anropa den med fetch från en inloggad session: svarar 200 och "Polled ✓"), men INGEN mall anropar den. Det enda som nämner poll i publikationsvyn är formuläret för eget poll-intervall.
+
+Följden: en pollning sker bara var sjätte timme, eller när containern startar om. Det märks särskilt efter en utgåveupptäckt, eftersom omslagen hämtas i pollningen - nyupptäckta utgåvor står utan omslag tills nästa tick.
+
+Att göra:
+- En knapp på publikationssidan som postar till routen, i samma HTMX-mönster som "Importera befintliga filer" i inställningarna (hx-post, hx-target, csrf i dolt fält).
+- Fundera på om den ska polla ALLA publikationer eller bara den man står på. Routen tar en kod i sökvägen men anropar poll_publications, som pollar allt - det är förvirrande och bör antingen begränsas eller flyttas till en global knapp.
+- Pollningen kör synkront i requesten och tar tiotals sekunder när omslagsbackfillen har mycket att göra. Antingen köa den som ett jobb (mönstret finns i editions-kön) eller visa en spinner och räkna med att svaret dröjer.
+
+Klart när: en knapp i gränssnittet startar en pollning och man ser att den kört. Verifiera genom att klicka knappen, inte bara att den renderas.
+
+- ID: `01M0KCE31BTB2292YYD4DMRY34`
+- Type: bug
+- Actor: ai:claude-code
+
+---
+
 ## [P3][done] [flipp] Generera omslag ur PDF:en för utgåvor som saknar cover_url
 
 Rasmus 2026-08-22: de upptäckta utgåvorna visar inget omslag. Vi har ju filen - borde kunna rendera och cachea första sidan.
@@ -982,7 +1001,7 @@ Verifiering: riktade tester i tests/test_web_routes.py inklusive ett som verifie
 
 ---
 
-## [P3][todo] [flipp] Slå på Komga-integrationen i flipp-dl
+## [P3][done] [flipp] Slå på Komga-integrationen i flipp-dl
 
 BEROENDE: kräver att TASK-1358 (montera output-katalogen som bibliotek i Komga) är klar först. Utan bibliotek finns inget att välja i rullistan och inget att skanna.
 
