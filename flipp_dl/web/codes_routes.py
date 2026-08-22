@@ -65,8 +65,13 @@ _FILE_ERROR_MESSAGES = {
 }
 
 # A job in one of these states is still going to change, so the status
-# partial keeps polling; anything else is its final word.
-_ACTIVE_JOB_STATUSES = (JobStatus.QUEUED.value, JobStatus.RUNNING.value)
+# partial keeps polling; anything else is its final word. A job parked in
+# retry_pending counts as active - it is waiting out a backoff, not done.
+_ACTIVE_JOB_STATUSES = (
+    JobStatus.QUEUED.value,
+    JobStatus.RUNNING.value,
+    JobStatus.RETRY_PENDING.value,
+)
 
 
 def _error(request: Request, reason: str) -> HTMLResponse:

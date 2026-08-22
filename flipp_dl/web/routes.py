@@ -295,7 +295,13 @@ def register(app: FastAPI) -> None:
             "watched_pubs": watched_pubs,
             "total_issues": sum(issue_counts.values()),
             "downloaded_issues": issue_counts[IssueStatus.DONE.value],
-            "queued_jobs": job_counts[JobStatus.QUEUED.value],
+            # Jobs parked in retry_pending are pending work too, just
+            # waiting out a backoff - counting them as queued keeps the
+            # card from understating what is still coming.
+            "queued_jobs": (
+                job_counts[JobStatus.QUEUED.value]
+                + job_counts[JobStatus.RETRY_PENDING.value]
+            ),
             "running_jobs": job_counts[JobStatus.RUNNING.value],
         }
 
