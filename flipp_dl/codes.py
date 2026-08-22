@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 
@@ -114,7 +114,7 @@ def import_publications(repo, entries: list, *, delisted: bool) -> tuple[int, in
         existed = repo.get_publication(code) is not None
         db_pub = repo.upsert_publication(Publication(custom_code=code, name=name))
         if delisted:
-            db_pub.delisted_at = datetime.now(timezone.utc)
+            db_pub.delisted_at = datetime.now(UTC)
         if not existed:
             added += 1
     return added, skipped
@@ -206,7 +206,7 @@ def restore_backup(repo, payload: dict) -> RestoreResult:
             continue
         db_pub = repo.upsert_publication(Publication(custom_code=code, name=name))
         if entry.get("delisted"):
-            db_pub.delisted_at = datetime.now(timezone.utc)
+            db_pub.delisted_at = datetime.now(UTC)
         if entry.get("publicationCode"):
             code_map[code] = entry["publicationCode"]
         restored_pubs += 1

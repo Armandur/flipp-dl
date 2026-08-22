@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -54,7 +54,7 @@ def _localtime(value: datetime | None, fmt: str = "%Y-%m-%d %H:%M") -> str:
     if value is None:
         return "—"
     if value.tzinfo is None:
-        value = value.replace(tzinfo=timezone.utc)
+        value = value.replace(tzinfo=UTC)
     return value.astimezone(_display_timezone()).strftime(fmt)
 
 

@@ -1,6 +1,6 @@
 """Tests for DownloadRepository using an in-memory SQLite database."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy import inspect as sa_inspect
@@ -713,7 +713,7 @@ def test_schedule_issue_retry_grows_delay_each_attempt(repo):
 
     seen_delays = []
     for expected_attempt, expected_delay in enumerate(RETRY_DELAYS_MINUTES, start=1):
-        before = datetime.now(timezone.utc).replace(tzinfo=None)
+        before = datetime.now(UTC).replace(tzinfo=None)
         scheduled = repo.schedule_issue_retry(issue_id, "database is locked")
         repo.session.commit()
         assert scheduled is True
@@ -782,9 +782,7 @@ def test_requeue_due_retries_only_picks_up_elapsed_ones(repo):
     repo.session.commit()
     # Force it into the past so it's due right now.
     issue = repo.get_issue(due_id)
-    issue.next_retry_at = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(
-        minutes=1
-    )
+    issue.next_retry_at = datetime.now(UTC).replace(tzinfo=None) - timedelta(minutes=1)
     repo.session.commit()
 
     not_due_id = _seed_issue_for_retry(repo, custom_code="KA-02")

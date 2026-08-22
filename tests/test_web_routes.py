@@ -10,6 +10,7 @@ through :class:`fastapi.testclient.TestClient`.
 from __future__ import annotations
 
 import re
+from datetime import UTC
 from pathlib import Path
 
 import pytest
@@ -959,7 +960,6 @@ def test_localtime_renders_missing_timestamp_as_dash():
 
 def test_jobs_page_renders_timestamps_in_local_time(client: TestClient, monkeypatch):
     """End-to-end: a job created now shows the local hour, not the UTC hour."""
-    from datetime import timezone
     from zoneinfo import ZoneInfo
 
     monkeypatch.setenv("FLIPP_TZ", "Europe/Stockholm")
@@ -968,7 +968,7 @@ def test_jobs_page_renders_timestamps_in_local_time(client: TestClient, monkeypa
         created = DownloadRepository(session).get_job(job_id).created_at
 
     expected = (
-        created.replace(tzinfo=timezone.utc)
+        created.replace(tzinfo=UTC)
         .astimezone(ZoneInfo("Europe/Stockholm"))
         .strftime("%Y-%m-%d %H:%M")
     )
@@ -2525,7 +2525,7 @@ def test_publication_list_counts_issues_flipp_no_longer_lists(client: TestClient
     A publication with nothing delisted shows no parenthesis at all - an
     always-visible "(0)" would be noise on every row.
     """
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     page = client.get("/publications")
     assert page.status_code == 200
@@ -2535,7 +2535,7 @@ def test_publication_list_counts_issues_flipp_no_longer_lists(client: TestClient
         repo = DownloadRepository(session)
         pub = repo.get_publication("KA")
         issues = repo.list_issues(publication_id=pub.id)
-        issues[0].delisted_at = datetime.now(timezone.utc)
+        issues[0].delisted_at = datetime.now(UTC)
 
     page = client.get("/publications")
     assert "(1)" in page.text
@@ -2550,7 +2550,7 @@ def test_the_delisted_count_comes_from_the_grouped_query(client: TestClient):
     or not the aggregate is wired up. Asserting that ``issues`` is still
     unloaded is what distinguishes the two.
     """
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     from sqlalchemy import inspect as sa_inspect
 
@@ -2558,7 +2558,7 @@ def test_the_delisted_count_comes_from_the_grouped_query(client: TestClient):
         repo = DownloadRepository(session)
         pub = repo.get_publication("KA")
         for issue in repo.list_issues(publication_id=pub.id):
-            issue.delisted_at = datetime.now(timezone.utc)
+            issue.delisted_at = datetime.now(UTC)
 
     with get_session(client.app.state.session_factory) as session:
         pubs = {

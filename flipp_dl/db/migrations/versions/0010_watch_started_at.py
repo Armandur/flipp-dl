@@ -33,7 +33,7 @@ Create Date: 2026-08-20
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import sqlalchemy as sa
 from alembic import op
@@ -56,7 +56,7 @@ def upgrade() -> None:
     op.execute(
         publications.update()
         .where(publications.c.watched.is_(True))
-        .values(watch_started_at=datetime.now(timezone.utc).replace(tzinfo=None))
+        .values(watch_started_at=datetime.now(UTC).replace(tzinfo=None))
     )
 
 

@@ -24,7 +24,7 @@ import os
 import signal
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import requests
@@ -398,7 +398,7 @@ def poll_publications(
                 # row somehow lacks it anyway, "now" is the safe default:
                 # nothing pre-existing gets swept in by accident.
                 since = watch_started_by_pub_id.get(pub_id) or datetime.now(
-                    timezone.utc
+                    UTC
                 ).replace(tzinfo=None)
                 backfilled += repo.queue_missing_issues(
                     pub_id, include_failed=False, since=since
@@ -1002,7 +1002,7 @@ def run_komga_read_status_sync(
                 issue_id,
                 read=progress["read"],
                 page=progress["page"],
-                synced_at=datetime.now(timezone.utc).replace(tzinfo=None),
+                synced_at=datetime.now(UTC).replace(tzinfo=None),
             )
         synced += 1
 

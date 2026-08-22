@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import UTC
 
 from flipp_dl.db.repository import DownloadRepository
 from flipp_dl.db.session import make_session_factory
@@ -24,9 +25,9 @@ def _seed(db):
             Publication(custom_code="pub-2", name="Båtnytt")
         )
         repo.backfill_publication_codes({"pub-1": "SE-CAR"})
-        from datetime import datetime, timezone
+        from datetime import datetime
 
-        delisted.delisted_at = datetime.now(timezone.utc)
+        delisted.delisted_at = datetime.now(UTC)
         s.commit()
 
 

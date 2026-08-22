@@ -14,7 +14,7 @@ import os
 import statistics
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import requests
@@ -133,7 +133,7 @@ def find_cached_cover(cache_root: Path, filename_stem: str) -> Path | None:
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 # Default warning threshold for the "Queue missing issues" backfill button

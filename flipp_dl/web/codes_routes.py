@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import FastAPI, File, Request, UploadFile
@@ -106,7 +106,7 @@ def register(app: FastAPI) -> None:
         """
         with get_session(request.app.state.session_factory) as session:
             payload = build_backup_payload(session)
-        stamp = datetime.now(timezone.utc).strftime("%Y%m%d")
+        stamp = datetime.now(UTC).strftime("%Y%m%d")
         filename = f"flipp-koder-{stamp}.json"
         return Response(
             content=dump_backup_payload(payload),

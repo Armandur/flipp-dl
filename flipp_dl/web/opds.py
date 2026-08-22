@@ -35,7 +35,7 @@ from __future__ import annotations
 
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from fastapi import Request
@@ -106,7 +106,7 @@ def _base_url(request: Request) -> str:
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _cover_media_type(cache_path: str) -> str:
@@ -254,7 +254,7 @@ def build_publication_feed(
 
 def _iso(dt: datetime) -> str:
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
+        dt = dt.replace(tzinfo=UTC)
     return dt.isoformat().replace("+00:00", "Z")
 
 

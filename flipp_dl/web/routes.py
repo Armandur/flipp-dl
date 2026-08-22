@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from fastapi import FastAPI, Form, Request
@@ -1061,7 +1061,7 @@ def register(app: FastAPI) -> None:
                         "size": stat.st_size,
                         # Timezone-aware UTC: the localtime filter would otherwise
                         # read a naive local time as UTC and shift it twice.
-                        "mtime": datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc),
+                        "mtime": datetime.fromtimestamp(stat.st_mtime, tz=UTC),
                     }
                 )
                 total_bytes += stat.st_size
