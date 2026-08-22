@@ -837,6 +837,75 @@ def test_komga_sync_maps_series_and_pushes_metadata(repo, session_factory, monke
     assert book_fields["releaseDate"] == "2024-03-01"
 
 
+def test_komga_sync_maps_the_series_by_folder_name_not_publication_name(
+    repo, session_factory, monkeypatch
+):
+    """Two publications can share a Flipp name; the folder is what differs.
+
+    Komga names a series after the folder it was found in. Mapping by
+    publication name sent the second "Kalle Anka Skollov" to the first
+    one's series, where none of its books exist (27 issues stuck in
+    production, 2026-08-23).
+    """
+    monkeypatch.setattr("flipp_dl.scheduler.KomgaClient", _FakeKomgaClient)
+    monkeypatch.setenv("KOMGA_WAIT_SECONDS", "0")
+    _FakeKomgaClient.instances.clear()
+    _FakeKomgaClient.series_by_name = {
+        "Kalle Anka och Co": {"id": "fel-serie"},
+        "Kalle Anka och Co 2": {"id": "ratt-serie"},
+    }
+
+    issue_id, stem = _seed_mapped_issue(repo)
+    db_pub = repo.get_publication("KA")
+    db_pub.folder_name = "Kalle Anka och Co 2"
+    repo.session.commit()
+    _FakeKomgaClient.books_by_series = {"ratt-serie": [{"id": "book-1", "name": stem}]}
+
+    job_id = _queue_komga_sync_job(repo, issue_id)
+    run_komga_sync_queue(session_factory, max_jobs=1)
+
+    with get_session(session_factory) as session:
+        r = DownloadRepository(session)
+        assert r.get_publication("KA").komga_series_id == "ratt-serie"
+        assert r.get_job(job_id).status == JobStatus.DONE
+        assert r.get_issue(issue_id).komga_book_id == "book-1"
+
+
+def test_komga_sync_remaps_a_publication_cached_against_the_wrong_series(
+    repo, session_factory, monkeypatch
+):
+    """A series id cached by the old name-based lookup heals itself.
+
+    Without this the fix above helps only publications that had never
+    been synced - the ones already poisoned would keep asking a series
+    their books are not in, forever.
+    """
+    monkeypatch.setattr("flipp_dl.scheduler.KomgaClient", _FakeKomgaClient)
+    monkeypatch.setenv("KOMGA_WAIT_SECONDS", "0")
+    _FakeKomgaClient.instances.clear()
+    _FakeKomgaClient.series_by_name = {
+        "Kalle Anka och Co": {"id": "fel-serie"},
+        "Kalle Anka och Co 2": {"id": "ratt-serie"},
+    }
+
+    issue_id, stem = _seed_mapped_issue(repo)
+    db_pub = repo.get_publication("KA")
+    db_pub.folder_name = "Kalle Anka och Co 2"
+    repo.set_komga_series_id("KA", "fel-serie")
+    repo.session.commit()
+    _FakeKomgaClient.books_by_series = {"ratt-serie": [{"id": "book-1", "name": stem}]}
+
+    job_id = _queue_komga_sync_job(repo, issue_id)
+    run_komga_sync_queue(session_factory, max_jobs=1)
+
+    with get_session(session_factory) as session:
+        r = DownloadRepository(session)
+        # The job itself fails (its book is not in the series it asked),
+        # but the mapping is corrected so the retry lands.
+        assert r.get_publication("KA").komga_series_id == "ratt-serie"
+        assert r.get_job(job_id).status == JobStatus.RETRY_PENDING
+
+
 def test_komga_sync_caches_series_id_and_never_looks_up_again(
     repo, session_factory, monkeypatch
 ):

@@ -826,15 +826,23 @@ def _push_publication_and_issue_metadata(
             return f"Issue {issue_id} not found"
         db_pub = db_issue.publication
 
+        # Komga names a series after the folder it found it in, which is
+        # the publication's folder_name when one is set - not its Flipp
+        # name. Two publications can share a name ("Kalle Anka Skollov"),
+        # and the second one then lives in a folder of its own; looking
+        # the series up by name mapped it to the first one's series and
+        # cached that forever, so no book of the second was ever found
+        # (27 issues, measured 2026-08-23).
+        folder_name = storage.publication_folder(Path("."), db_pub).name
+
         series_id = db_pub.komga_series_id
         if series_id is None:
-            folder_name = storage.safe_name(db_pub.name)
             series = client.find_series_by_name(library_id, folder_name)
             if series is None:
                 logger.info(
-                    "Komga sync: no series matched for publication %r yet - "
+                    "Komga sync: no series matched for folder %r yet - "
                     "will retry next sync",
-                    db_pub.name,
+                    folder_name,
                 )
                 return None
             series_id = series["id"]
@@ -872,6 +880,8 @@ def _push_publication_and_issue_metadata(
                 )
                 cover_path = None
 
+        pub_name = db_pub.name
+        pub_code = db_pub.custom_code
         domain_pub = DomainPublication(custom_code=db_pub.custom_code, name=db_pub.name)
         domain_issue = DomainIssue(
             custom_code=db_issue.custom_code,
@@ -906,6 +916,23 @@ def _push_publication_and_issue_metadata(
 
     book = _wait_for_book(client, series_id, stems, wait_seconds)
     if book is None:
+        # A cached series id can be the wrong one - it was mapped by
+        # publication name before this looked at the folder. Re-resolve
+        # once so the retry this failure schedules asks the right series.
+        corrected = client.find_series_by_name(library_id, folder_name)
+        if corrected is not None and corrected["id"] != series_id:
+            logger.warning(
+                "Komga sync: publication %r was mapped to series %s but its "
+                "folder %r is series %s - remapping",
+                pub_name,
+                series_id,
+                folder_name,
+                corrected["id"],
+            )
+            with get_session(session_factory) as session:
+                DownloadRepository(session).set_komga_series_id(
+                    pub_code, corrected["id"]
+                )
         return (
             f"Book for issue {domain_issue.issue_name!r} {_BOOK_NOT_INDEXED} "
             f"series {series_id} after waiting {wait_seconds}s - run the "
