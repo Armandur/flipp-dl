@@ -71,6 +71,10 @@ class JobStatus(StrEnum):
     RUNNING = "running"
     DONE = "done"
     ERROR = "error"
+    # Failed with something that looks temporary and is waiting out a
+    # backoff before being promoted back to QUEUED (TASK-1481). Not a
+    # terminal state: purge_old_jobs leaves it alone on purpose.
+    RETRY_PENDING = "retry_pending"
 
 
 # ---------------------------------------------------------------------------

@@ -23,6 +23,7 @@ _JOB_STATUSES = (
     JobStatus.RUNNING,
     JobStatus.DONE,
     JobStatus.ERROR,
+    JobStatus.RETRY_PENDING,
 )
 
 

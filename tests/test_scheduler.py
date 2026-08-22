@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 
 from flipp_dl import storage
 from flipp_dl.db.models import DbJob, IssueStatus, JobStatus
-from flipp_dl.db.repository import DownloadRepository
+from flipp_dl.db.repository import MAX_JOB_RETRIES, DownloadRepository, _now
 from flipp_dl.db.session import get_session, make_session_factory
 from flipp_dl.komga import KomgaError
 from flipp_dl.models import Category, Issue, Publication
@@ -350,6 +350,7 @@ def test_poll_without_a_token_does_nothing(repo, session_factory):
             "running": 0,
             "done": 0,
             "error": 0,
+            "retry_pending": 0,
         }
 
 
@@ -887,9 +888,15 @@ def test_komga_sync_without_series_match_finishes_job_and_stays_unmapped(
         assert r.get_publication("KA").komga_series_id is None
 
 
-def test_komga_sync_book_not_found_times_out_with_job_error(
+def test_komga_sync_book_not_indexed_yet_is_requeued_not_failed(
     repo, session_factory, monkeypatch
 ):
+    """The book is on disk but Komga hasn't indexed it - try again later.
+
+    The job must not burn its attempt on a scan that simply hadn't
+    finished, which is what produced 27 dead ``error`` jobs after the
+    back-catalogue fetch (TASK-1481).
+    """
     monkeypatch.setattr("flipp_dl.scheduler.KomgaClient", _FakeKomgaClient)
     monkeypatch.setenv("KOMGA_WAIT_SECONDS", "0")
     _FakeKomgaClient.instances.clear()
@@ -907,11 +914,106 @@ def test_komga_sync_book_not_found_times_out_with_job_error(
     with get_session(session_factory) as session:
         r = DownloadRepository(session)
         job = r.get_job(job_id)
+        assert job.status == JobStatus.RETRY_PENDING
+        assert job.finished_at is None
+        payload = json.loads(job.payload)
+        assert payload["retry_count"] == 1
+        assert payload["next_retry_at"] > _now().isoformat()
+        # The series mapping itself must still have been cached, even
+        # though the book lookup afterwards found nothing.
+        assert r.get_publication("KA").komga_series_id == 55
+
+
+def test_komga_sync_requeued_job_runs_again_once_its_backoff_elapses(
+    repo, session_factory, monkeypatch
+):
+    monkeypatch.setattr("flipp_dl.scheduler.KomgaClient", _FakeKomgaClient)
+    monkeypatch.setenv("KOMGA_WAIT_SECONDS", "0")
+    _FakeKomgaClient.instances.clear()
+    _FakeKomgaClient.series_by_name = {
+        "Kalle Anka och Co": {"id": 55, "name": "Kalle Anka och Co"}
+    }
+    _FakeKomgaClient.books_by_series = {55: []}
+
+    issue_id, stem = _seed_mapped_issue(repo)
+    job_id = _queue_komga_sync_job(repo, issue_id)
+    run_komga_sync_queue(session_factory, max_jobs=1)
+
+    # A drain before the backoff elapses must leave the job parked.
+    assert run_komga_sync_queue(session_factory, max_jobs=1) == 0
+
+    # Komga has finished indexing, and the backoff window has passed.
+    _FakeKomgaClient.books_by_series = {55: [{"id": "book-1", "name": stem}]}
+    with get_session(session_factory) as session:
+        r = DownloadRepository(session)
+        job = r.get_job(job_id)
+        payload = json.loads(job.payload)
+        payload["next_retry_at"] = (_now() - timedelta(minutes=1)).isoformat()
+        job.payload = json.dumps(payload)
+        session.commit()
+
+    processed = run_komga_sync_queue(session_factory, max_jobs=1)
+    assert processed == 1
+
+    with get_session(session_factory) as session:
+        r = DownloadRepository(session)
+        job = r.get_job(job_id)
+        assert job.status == JobStatus.DONE
+        assert r.get_issue(issue_id).komga_book_id == "book-1"
+
+
+def test_komga_sync_book_not_indexed_errors_once_retries_run_out(
+    repo, session_factory, monkeypatch
+):
+    monkeypatch.setattr("flipp_dl.scheduler.KomgaClient", _FakeKomgaClient)
+    monkeypatch.setenv("KOMGA_WAIT_SECONDS", "0")
+    _FakeKomgaClient.instances.clear()
+    _FakeKomgaClient.series_by_name = {
+        "Kalle Anka och Co": {"id": 55, "name": "Kalle Anka och Co"}
+    }
+    _FakeKomgaClient.books_by_series = {55: []}
+
+    issue_id, _stem = _seed_mapped_issue(repo)
+    job_id = _queue_komga_sync_job(repo, issue_id)
+
+    # One drain per attempt, each with its backoff wound back so the
+    # next drain picks the job up again.
+    for _ in range(MAX_JOB_RETRIES + 1):
+        assert run_komga_sync_queue(session_factory, max_jobs=1) == 1
+        with get_session(session_factory) as session:
+            job = DownloadRepository(session).get_job(job_id)
+            if job.status != JobStatus.RETRY_PENDING:
+                break
+            payload = json.loads(job.payload)
+            payload["next_retry_at"] = (_now() - timedelta(minutes=1)).isoformat()
+            job.payload = json.dumps(payload)
+            session.commit()
+
+    with get_session(session_factory) as session:
+        job = DownloadRepository(session).get_job(job_id)
         assert job.status == JobStatus.ERROR
         assert "not found" in job.error_message.lower()
-        # The series mapping itself must still have been cached, even
-        # though the book lookup afterwards timed out.
-        assert r.get_publication("KA").komga_series_id == 55
+        assert json.loads(job.payload)["retry_count"] == MAX_JOB_RETRIES
+
+
+def test_komga_sync_real_failure_errors_immediately_without_retry(
+    repo, session_factory, monkeypatch
+):
+    """Komga being down is a real failure - no backoff, no second chance."""
+    monkeypatch.setattr("flipp_dl.scheduler.KomgaClient", _FailingKomgaClient)
+    _FakeKomgaClient.instances.clear()
+
+    issue_id, _stem = _seed_mapped_issue(repo)
+    job_id = _queue_komga_sync_job(repo, issue_id)
+
+    processed = run_komga_sync_queue(session_factory, max_jobs=1)
+    assert processed == 1
+
+    with get_session(session_factory) as session:
+        job = DownloadRepository(session).get_job(job_id)
+        assert job.status == JobStatus.ERROR
+        assert "Komga is down" in job.error_message
+        assert "retry_count" not in json.loads(job.payload)
 
 
 def test_komga_sync_uploads_cached_cover_as_thumbnail(
@@ -1654,65 +1756,6 @@ def test_two_libraries_in_one_drain_are_scanned_once_each(
 
     scans = [lib for i in _FakeKomgaClient.instances for lib in i.scanned]
     assert sorted(scans) == ["lib-1", "lib-2"]
-
-
-class _SlowIndexKomgaClient(_FakeKomgaClient):
-    """Komga that only reveals the book after a second scan.
-
-    Mirrors the real race: the scan is asynchronous, so the first job of a
-    drain can look for a book that is on disk but not indexed yet.
-    """
-
-    scans_before_book = 2
-
-    def list_series_books(self, series_id):
-        total = sum(len(i.scanned) for i in _FakeKomgaClient.instances)
-        if total < _SlowIndexKomgaClient.scans_before_book:
-            return []
-        return _FakeKomgaClient.books_by_series.get(series_id, [])
-
-
-def test_a_book_not_indexed_yet_gets_one_more_scan_before_failing(
-    repo, session_factory, monkeypatch, tmp_path
-):
-    monkeypatch.setattr("flipp_dl.scheduler.KomgaClient", _SlowIndexKomgaClient)
-    monkeypatch.setenv("KOMGA_WAIT_SECONDS", "0")
-    _FakeKomgaClient.instances.clear()
-    _FakeKomgaClient.series_by_name = {"Kalle Anka och Co": {"id": "s-1"}}
-
-    issue_id = _seed_issue(repo)
-    # Komga names the book after the file, and the file name comes from
-    # storage.issue_filename - not from the raw publication name (safe_name
-    # turns "&" into "och").
-    from flipp_dl import storage
-
-    stem = Path(
-        storage.issue_filename(
-            Publication(custom_code="KA", name="Kalle Anka & Co"),
-            Issue(custom_code="KA-01", issue_name="Nr 1", issue_date="2024-01-01"),
-        )
-    ).stem
-    with get_session(session_factory) as session:
-        pdf = tmp_path / f"{stem}.pdf"
-        pdf.write_bytes(b"%PDF-1.4\n")
-        DownloadRepository(session).mark_issue_done(issue_id, str(pdf))
-    _FakeKomgaClient.books_by_series = {"s-1": [{"id": "b-1", "name": stem}]}
-
-    repo.set_setting("komga_enabled", "true")
-    repo.set_setting("komga_url", "http://localhost:25600")
-    repo.set_setting("komga_library_id", "lib-1")
-    job = repo.create_job("komga_sync", {"library_id": "lib-1", "issue_id": issue_id})
-    repo.session.commit()
-    job_id = job.id
-
-    run_komga_sync_queue(session_factory)
-
-    scans = [lib for i in _FakeKomgaClient.instances for lib in i.scanned]
-    assert scans == ["lib-1", "lib-1"]  # first scan, then the retry
-    with get_session(session_factory) as session:
-        assert DownloadRepository(session).get_job(job_id).status == JobStatus.DONE
-    _FakeKomgaClient.series_by_name = {}
-    _FakeKomgaClient.books_by_series = {}
 
 
 def test_a_komga_drain_notifies_once_even_when_jobs_alternate(

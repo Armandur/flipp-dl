@@ -923,8 +923,10 @@ def run_komga_sync_queue(session_factory, *, max_jobs: int | None = None) -> int
     pushes series + book metadata and the cover.
 
     A book that has not been indexed yet - the scan runs asynchronously,
-    so the first jobs of a drain can outrun it - gets one more scan and
-    one more wait before the job counts as failed.
+    so the first jobs of a drain can outrun it - does not fail the job.
+    It parks it in ``retry_pending`` and a later drain picks it up again
+    (TASK-1481), up to ``MAX_JOB_RETRIES`` times; only then does it
+    count as an error.
 
     A no-op (returns 0 without touching the DB or the network) whenever
     ``KOMGA_ENABLED`` is off - an instance without Komga configured must
@@ -937,6 +939,17 @@ def run_komga_sync_queue(session_factory, *, max_jobs: int | None = None) -> int
         return 0
 
     wait_seconds = _komga_wait_seconds()
+
+    # Promote every job whose backoff has elapsed back to QUEUED before
+    # draining (TASK-1481), the same way the download drain starts with
+    # requeue_due_retries(). Runs once per drain, never inside the loop
+    # below - a job requeued mid-drain is the oldest queued job there
+    # is, so the loop would pick it straight back up and spin.
+    with get_session(session_factory) as session:
+        requeued = DownloadRepository(session).requeue_due_job_retries("komga_sync")
+    if requeued:
+        logger.info("Komga sync: requeued %d job(s) for another attempt", requeued)
+
     processed = 0
     # First failure seen in this drain, or None if everything worked.
     drain_error: str | None = None
@@ -992,18 +1005,30 @@ def run_komga_sync_queue(session_factory, *, max_jobs: int | None = None) -> int
                 sync_error = _push_publication_and_issue_metadata(
                     session_factory, client, library_id, int(issue_id), wait_seconds
                 )
-                if sync_error and _is_book_missing(sync_error):
-                    # The scan is asynchronous, so an early job can look
-                    # for a book Komga has not indexed yet. Scan once more
-                    # and give it one more wait before giving up.
-                    client.scan_library(library_id)
-                    sync_error = _push_publication_and_issue_metadata(
-                        session_factory, client, library_id, int(issue_id), wait_seconds
-                    )
             except KomgaError as exc:
                 sync_error = str(exc)
-            if sync_error:
-                logger.error("Komga sync job %d failed: %s", job_id, sync_error)
+
+        # A book Komga has not indexed yet is a job that ran too early,
+        # not a job that failed: park it and come back after the backoff
+        # instead of burning the attempt (TASK-1481). Only this one
+        # message qualifies - a real Komga failure (down, wrong library,
+        # auth) still errors immediately, and still counts as the drain
+        # error the failure notification keys on.
+        if sync_error and _is_book_missing(sync_error):
+            with get_session(session_factory) as s2:
+                scheduled = DownloadRepository(s2).schedule_job_retry(
+                    job_id, sync_error
+                )
+            if scheduled:
+                logger.info(
+                    "Komga sync job %d: book not indexed yet, retrying later",
+                    job_id,
+                )
+                processed += 1
+                continue
+
+        if sync_error:
+            logger.error("Komga sync job %d failed: %s", job_id, sync_error)
 
         with get_session(session_factory) as s2:
             DownloadRepository(s2).finish_job(job_id, error=sync_error)

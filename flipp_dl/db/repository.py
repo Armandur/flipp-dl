@@ -156,6 +156,13 @@ _QUEUE_WARN_THRESHOLD_ENV = "FLIPP_QUEUE_WARN_THRESHOLD_BYTES"
 RETRY_DELAYS_MINUTES: tuple[int, ...] = (5, 15, 45)
 MAX_AUTO_RETRIES = len(RETRY_DELAYS_MINUTES)
 
+# Backoff for a *job* that failed on something temporary (TASK-1481).
+# Longer tail than the download schedule above: the case this exists
+# for is Komga still hashing a freshly fetched back catalogue, which
+# takes far longer than a network blip.
+JOB_RETRY_DELAYS_MINUTES: tuple[int, ...] = (2, 10, 30, 60)
+MAX_JOB_RETRIES = len(JOB_RETRY_DELAYS_MINUTES)
+
 
 def _parse_positive_int(raw: str) -> int | None:
     raw = raw.strip()
@@ -1550,6 +1557,85 @@ class DownloadRepository:
             job.finished_at = _now()
             job.error_message = error
 
+    def schedule_job_retry(self, job_id: int, error: str) -> bool:
+        """Park *job_id* in RETRY_PENDING if it has attempts left.
+
+        For a failure the caller has classified as temporary - the job
+        is not wrong, it just ran too early. The attempt counter lives
+        in the job's payload (``retry_count``), together with the
+        timestamp :meth:`requeue_due_job_retries` waits for
+        (``next_retry_at``, ISO-8601); the jobs table has no columns of
+        its own for this. Once :data:`MAX_JOB_RETRIES` attempts are
+        used this does nothing and returns ``False``, leaving the caller
+        to fail the job the way it always did.
+        """
+        job = self.session.get(DbJob, job_id)
+        if job is None:
+            return False
+        try:
+            payload = json.loads(job.payload or "{}")
+        except (TypeError, ValueError):
+            payload = {}
+        if not isinstance(payload, dict):
+            payload = {}
+        try:
+            retry_count = int(payload.get("retry_count", 0))
+        except (TypeError, ValueError):
+            retry_count = 0
+        if retry_count >= MAX_JOB_RETRIES:
+            return False
+        delay_minutes = JOB_RETRY_DELAYS_MINUTES[retry_count]
+        payload["retry_count"] = retry_count + 1
+        payload["next_retry_at"] = (
+            _now() + timedelta(minutes=delay_minutes)
+        ).isoformat()
+        job.payload = json.dumps(payload, ensure_ascii=False)
+        job.status = JobStatus.RETRY_PENDING
+        job.error_message = error
+        job.finished_at = None
+        return True
+
+    def requeue_due_job_retries(self, job_type: str) -> int:
+        """Promote RETRY_PENDING jobs of *job_type* whose backoff elapsed.
+
+        The counterpart of :meth:`schedule_job_retry`, and the only path
+        that revives such a job. ``retry_count`` is deliberately left
+        alone - it is the budget the job has already spent, not
+        something being requeued should refund.
+
+        Returns the number of jobs requeued.
+        """
+        now = _now()
+        parked = self.session.scalars(
+            select(DbJob).where(
+                DbJob.job_type == job_type,
+                DbJob.status == JobStatus.RETRY_PENDING,
+            )
+        )
+        requeued = 0
+        for job in parked:
+            try:
+                payload = json.loads(job.payload or "{}")
+            except (TypeError, ValueError):
+                payload = {}
+            if not isinstance(payload, dict):
+                payload = {}
+            raw = payload.get("next_retry_at")
+            try:
+                due_at = datetime.fromisoformat(raw) if raw else None
+            except (TypeError, ValueError):
+                due_at = None
+            # A job with no readable timestamp is due now rather than
+            # parked forever - the payload is bookkeeping, not a lock.
+            if due_at is not None and due_at > now:
+                continue
+            payload.pop("next_retry_at", None)
+            job.payload = json.dumps(payload, ensure_ascii=False)
+            job.status = JobStatus.QUEUED
+            job.started_at = None
+            requeued += 1
+        return requeued
+
     def list_jobs(
         self,
         limit: int = 50,
@@ -1584,6 +1670,7 @@ class DownloadRepository:
             JobStatus.RUNNING.value: 0,
             JobStatus.DONE.value: 0,
             JobStatus.ERROR.value: 0,
+            JobStatus.RETRY_PENDING.value: 0,
         }
         for status, count in rows:
             counts[status] = int(count)

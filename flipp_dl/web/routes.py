@@ -1123,6 +1123,7 @@ def register(app: FastAPI) -> None:
         JobStatus.RUNNING,
         JobStatus.DONE,
         JobStatus.ERROR,
+        JobStatus.RETRY_PENDING,
     )
 
     def _job_issue_id(job) -> int | None:

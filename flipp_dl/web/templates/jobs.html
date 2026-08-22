@@ -59,7 +59,7 @@
           {% endif %}
         </td>
         <td>
-          {# status values: queued | running | done | error #}
+          {# status values: queued | running | done | error | retry_pending #}
           <span class="badge badge-{{ job.status }}">{{ job.status }}</span>
           {% set issue = targets.get(job.id) %}
           {% if issue and issue.status == "retry_pending" %}

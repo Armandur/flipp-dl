@@ -1001,8 +1001,19 @@ def test_count_jobs_by_status_covers_every_status(session):
     repo.finish_job(failed.id, error="boom")
     session.commit()
 
+    parked = repo.create_job("komga_sync", {"issue_id": 1})
+    assert repo.schedule_job_retry(parked.id, "not found in Komga")
+    session.commit()
+
     counts = repo.count_jobs_by_status()
-    assert counts == {"queued": 3, "running": 0, "done": 1, "error": 1}
+    # Asking the enum rather than listing the names by hand: a status
+    # added later must show up here instead of silently going uncounted.
+    assert set(counts) == {status.value for status in JobStatus}
+    assert counts["queued"] == 3
+    assert counts["running"] == 0
+    assert counts["done"] == 1
+    assert counts["error"] == 1
+    assert counts["retry_pending"] == 1
 
 
 def test_list_jobs_filters_by_status_and_type(session):
