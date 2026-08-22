@@ -22,11 +22,15 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from ..api import FlippClient
 from ..config import load_token
 from ..db.session import make_session_factory
-from ..editions import run_editions_queue
+
+# run_editions_queue comes from scheduler, not editions: scheduler wraps it
+# so a run whose outcome changed sends a notification (TASK-1480), and this
+# entrypoint is the one that runs in production.
 from ..scheduler import (
     poll_publications,
     recover_stuck_jobs,
     run_download_queue,
+    run_editions_queue,
     run_komga_read_status_sync,
     run_komga_sync_queue,
 )

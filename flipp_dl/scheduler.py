@@ -41,7 +41,9 @@ from .db.repository import (
 )
 from .db.session import get_session, make_session_factory
 from .downloader import DEFAULT_WORKERS, IssueDownloader, purge_old_previews
-from .editions import reset_stuck_editions_jobs, run_editions_queue
+from .editions import JOB_TYPES as EDITIONS_JOB_TYPES
+from .editions import reset_stuck_editions_jobs
+from .editions import run_editions_queue as _run_editions_queue
 from .komga import (
     DEFAULT_WAIT_SECONDS,
     ISSUE_METADATA_FIELDS,
@@ -206,6 +208,54 @@ def build_notify_channels(settings: dict) -> list[NotificationChannel]:
     return channels
 
 
+_FAILURE_NOTIFICATIONS = {
+    "poll": (
+        "Flipp-DL: Pollningen misslyckades",
+        "Nya utgåvor kan inte hämtas från Flipp",
+        "Flipp-DL: Pollningen fungerar igen",
+        "Flipp kan åter hämta nya utgåvor.",
+    ),
+    "komga_sync": (
+        "Flipp-DL: Komga-synkroniseringen misslyckades",
+        "En synkronisering med Komga misslyckades",
+        "Flipp-DL: Komga-synkroniseringen fungerar igen",
+        "Utgåvor kan åter synkroniseras med Komga.",
+    ),
+    "editions": (
+        "Flipp-DL: Utgåvekörningen misslyckades",
+        "En körning för att upptäcka eller importera utgåvor misslyckades",
+        "Flipp-DL: Utgåvekörningen fungerar igen",
+        "Utgåvor kan åter upptäckas och importeras.",
+    ),
+}
+
+
+def _notify_failure_transition(
+    session_factory, failure_type: str, error: str | None
+) -> None:
+    """Persist and notify only failure-state transitions for one subsystem."""
+    failed = error is not None
+    setting_key = f"notify_failure_{failure_type}"
+    with get_session(session_factory) as session:
+        repo = DownloadRepository(session)
+        was_failed = _parse_bool(repo.get_setting(setting_key, "false"))
+        if was_failed == failed:
+            return
+        repo.set_setting(setting_key, "true" if failed else "false")
+
+    channels = build_notify_channels(resolve_notify_settings(session_factory))
+    if not channels:
+        return
+
+    failure_title, failure_message, recovery_title, recovery_message = (
+        _FAILURE_NOTIFICATIONS[failure_type]
+    )
+    if failed:
+        send_all(channels, failure_title, f"{failure_message}: {error}")
+    else:
+        send_all(channels, recovery_title, recovery_message)
+
+
 # How many issue titles a bundled notification lists by name before
 # collapsing the rest into "... and N more" - keeps a normal few-issues
 # tick readable while a large catch-up run still produces one short
@@ -348,6 +398,7 @@ def poll_publications(
         logger.info("Poll: no token configured yet - skipping")
         return
     logger.info("Poll: fetching publications from Flipp API")
+    poll_error = None
     with get_session(session_factory) as session:
         repo = DownloadRepository(session)
         job = repo.create_job("poll")
@@ -428,7 +479,11 @@ def poll_publications(
         except FlippError as exc:
             repo.finish_job(job.id, error=str(exc))
             logger.error("Poll failed: %s", exc)
-            return
+            poll_error = str(exc)
+
+    _notify_failure_transition(session_factory, "poll", poll_error)
+    if poll_error is not None:
+        return
 
     # Outside the transaction above on purpose: fetching covers talks to
     # the network for every image, and doing that while holding the
@@ -876,6 +931,8 @@ def run_komga_sync_queue(session_factory, *, max_jobs: int | None = None) -> int
 
     wait_seconds = _komga_wait_seconds()
     processed = 0
+    # First failure seen in this drain, or None if everything worked.
+    drain_error: str | None = None
     # Libraries already scanned in this drain, so job number two and
     # onwards skip straight to their metadata push.
     scanned: set[str] = set()
@@ -900,6 +957,7 @@ def run_komga_sync_queue(session_factory, *, max_jobs: int | None = None) -> int
                     job_id, error="No Komga library configured"
                 )
             logger.error("Komga sync job %d failed: no library configured", job_id)
+            drain_error = drain_error or "No Komga library configured"
             processed += 1
             continue
 
@@ -916,6 +974,7 @@ def run_komga_sync_queue(session_factory, *, max_jobs: int | None = None) -> int
                 with get_session(session_factory) as s2:
                     DownloadRepository(s2).finish_job(job_id, error=str(exc))
                 logger.error("Komga sync job %d failed: %s", job_id, exc)
+                drain_error = drain_error or str(exc)
                 processed += 1
                 continue
             scanned.add(str(library_id))
@@ -941,8 +1000,14 @@ def run_komga_sync_queue(session_factory, *, max_jobs: int | None = None) -> int
 
         with get_session(session_factory) as s2:
             DownloadRepository(s2).finish_job(job_id, error=sync_error)
+        drain_error = drain_error or sync_error
         processed += 1
 
+    # Once per drain, not per job: a drain where some jobs fail and others
+    # succeed would otherwise flap between "broken" and "fixed" and send a
+    # notification for every flip.
+    if processed:
+        _notify_failure_transition(session_factory, "komga_sync", drain_error)
     return processed
 
 
@@ -1007,6 +1072,41 @@ def run_komga_read_status_sync(
         synced += 1
 
     return synced
+
+
+def run_editions_queue(session_factory, *, client=None, max_jobs: int = 1) -> int:
+    """Run editions jobs and notify when their persisted outcome changes."""
+    processed = 0
+    while processed < max_jobs:
+        with get_session(session_factory) as session:
+            repo = DownloadRepository(session)
+            queued_job = next(
+                (
+                    job
+                    for job_type in EDITIONS_JOB_TYPES
+                    if (job := repo.get_oldest_queued_job(job_type)) is not None
+                ),
+                None,
+            )
+            job_id = queued_job.id if queued_job is not None else None
+        if job_id is None:
+            break
+
+        ran = _run_editions_queue(session_factory, client=client, max_jobs=1)
+        if not ran:
+            break
+
+        with get_session(session_factory) as session:
+            finished_job = DownloadRepository(session).get_job(job_id)
+            error = (
+                finished_job.error_message
+                if finished_job is not None and finished_job.status == "error"
+                else None
+            )
+        _notify_failure_transition(session_factory, "editions", error)
+        processed += ran
+
+    return processed
 
 
 # ---------------------------------------------------------------------------

@@ -27,9 +27,11 @@ from flipp_dl.scheduler import (
     _is_permanent_download_error,
     build_notify_channels,
     cache_covers,
+    poll_publications,
     recover_stuck_jobs,
     resolve_notify_settings_from_repo,
     run_download_queue,
+    run_editions_queue,
     run_komga_sync_queue,
 )
 
@@ -582,6 +584,80 @@ def test_komga_failure_marks_job_error_but_issue_stays_done(
         assert komga_jobs[0].error_message == "Komga is down"
 
 
+def test_komga_failure_notifies_once_and_recovery_notifies(
+    repo, session_factory, monkeypatch
+):
+    channel = _RecordingChannel()
+    monkeypatch.setattr(
+        "flipp_dl.scheduler.build_notify_channels", lambda settings: [channel]
+    )
+    _enable_ntfy(repo)
+    repo.set_setting("komga_enabled", "true")
+    repo.set_setting("komga_url", "http://localhost:25600")
+    repo.set_setting("komga_library_id", "lib-1")
+    repo.session.commit()
+
+    def queue_job():
+        repo.create_job("komga_sync", {"library_id": "lib-1"})
+        repo.session.commit()
+
+    monkeypatch.setattr("flipp_dl.scheduler.KomgaClient", _FailingKomgaClient)
+    queue_job()
+    run_komga_sync_queue(session_factory, max_jobs=1)
+    assert len(channel.sent) == 1
+    assert "misslyckades" in channel.sent[0][0]
+
+    queue_job()
+    run_komga_sync_queue(session_factory, max_jobs=1)
+    assert len(channel.sent) == 1
+
+    monkeypatch.setattr("flipp_dl.scheduler.KomgaClient", _FakeKomgaClient)
+    _FakeKomgaClient.instances.clear()
+    queue_job()
+    run_komga_sync_queue(session_factory, max_jobs=1)
+    assert len(channel.sent) == 2
+    assert "fungerar igen" in channel.sent[1][0]
+
+
+class _FailingEditionsClient:
+    def fetch_editions(self, _code):
+        raise RuntimeError("PageSuite is down")
+
+
+class _SuccessfulEditionsClient:
+    def fetch_editions(self, _code):
+        return []
+
+
+def test_editions_failure_notifies_once_and_recovery_notifies(
+    repo, session_factory, monkeypatch
+):
+    channel = _RecordingChannel()
+    monkeypatch.setattr(
+        "flipp_dl.scheduler.build_notify_channels", lambda settings: [channel]
+    )
+    _enable_ntfy(repo)
+    _seed_issue(repo)
+
+    def queue_job():
+        repo.create_job("discover_editions")
+        repo.session.commit()
+
+    queue_job()
+    run_editions_queue(session_factory, client=_FailingEditionsClient())
+    assert len(channel.sent) == 1
+    assert "misslyckades" in channel.sent[0][0]
+
+    queue_job()
+    run_editions_queue(session_factory, client=_FailingEditionsClient())
+    assert len(channel.sent) == 1
+
+    queue_job()
+    run_editions_queue(session_factory, client=_SuccessfulEditionsClient())
+    assert len(channel.sent) == 2
+    assert "fungerar igen" in channel.sent[1][0]
+
+
 # ---------------------------------------------------------------------------
 # Issue cover backfill (TASK-1374)
 # ---------------------------------------------------------------------------
@@ -1071,6 +1147,58 @@ def _enable_ntfy(repo: DownloadRepository) -> None:
     repo.session.commit()
 
 
+class _FailingPollClient:
+    token = ""
+
+    def fetch_publications(self):
+        from flipp_dl.api import FlippError
+
+        raise FlippError("Token expired")
+
+
+class _SuccessfulPollClient:
+    token = ""
+
+    def fetch_publications(self):
+        return []
+
+
+def test_poll_failure_notifies_once_and_recovery_notifies(
+    repo, session_factory, tmp_path, monkeypatch
+):
+    channel = _RecordingChannel()
+    monkeypatch.setattr(
+        "flipp_dl.scheduler.build_notify_channels", lambda settings: [channel]
+    )
+    monkeypatch.setattr("flipp_dl.scheduler.cache_covers", lambda *_args: 0)
+    _enable_ntfy(repo)
+    repo.set_setting("flipp_token", "expired-token")
+    repo.session.commit()
+
+    poll_publications(_FailingPollClient(), session_factory, tmp_path)
+    assert len(channel.sent) == 1
+    assert "misslyckades" in channel.sent[0][0]
+
+    poll_publications(_FailingPollClient(), session_factory, tmp_path)
+    assert len(channel.sent) == 1
+
+    poll_publications(_SuccessfulPollClient(), session_factory, tmp_path)
+    assert len(channel.sent) == 2
+    assert "fungerar igen" in channel.sent[1][0]
+
+
+def test_poll_failure_without_channels_is_silent_and_does_not_crash(
+    repo, session_factory, tmp_path
+):
+    repo.set_setting("flipp_token", "expired-token")
+    repo.session.commit()
+
+    poll_publications(_FailingPollClient(), session_factory, tmp_path)
+
+    with get_session(session_factory) as session:
+        assert DownloadRepository(session).get_setting("notify_failure_poll") == "true"
+
+
 def test_run_download_queue_sends_one_bundled_notification_for_several_issues(
     repo, session_factory, tmp_path, monkeypatch
 ):
@@ -1239,6 +1367,31 @@ def test_run_download_queue_schedules_retry_for_transient_error(
     # No new download job exists yet - the retry is not eligible until
     # its own backoff window elapses.
     assert _claim_next_download_job(session_factory) is None
+
+
+def test_retryable_download_failure_sends_no_notification(
+    repo, session_factory, tmp_path, monkeypatch
+):
+    channel = _RecordingChannel()
+    monkeypatch.setattr(
+        "flipp_dl.scheduler.build_notify_channels", lambda settings: [channel]
+    )
+    _enable_ntfy(repo)
+    issue_id, _job_id = _queue_download_job(repo)
+    publication = repo.get_issue(issue_id).publication
+    repo.set_publication_notify(publication.custom_code, True)
+    repo.session.commit()
+
+    processed = run_download_queue(
+        _TransientFailingFlippClient(),
+        session_factory,
+        tmp_path / "out",
+        workers=1,
+        max_jobs=1,
+    )
+
+    assert processed == 1
+    assert channel.sent == []
 
 
 def test_run_download_queue_gives_up_after_max_auto_retries(
@@ -1555,3 +1708,51 @@ def test_a_book_not_indexed_yet_gets_one_more_scan_before_failing(
         assert DownloadRepository(session).get_job(job_id).status == JobStatus.DONE
     _FakeKomgaClient.series_by_name = {}
     _FakeKomgaClient.books_by_series = {}
+
+
+def test_a_komga_drain_notifies_once_even_when_jobs_alternate(
+    repo, session_factory, monkeypatch
+):
+    """Per-job notification would flap: fail, fix, fail, fix...
+
+    A drain that mixes successes and failures must send at most one
+    notification, not one per flip.
+    """
+    channel = _RecordingChannel()
+    monkeypatch.setattr(
+        "flipp_dl.scheduler.build_notify_channels", lambda settings: [channel]
+    )
+    _enable_ntfy(repo)
+
+    class _EveryOtherFails(_FakeKomgaClient):
+        calls = 0
+
+        def scan_library(self, library_id):
+            super().scan_library(library_id)
+            _EveryOtherFails.calls += 1
+            if _EveryOtherFails.calls % 2:
+                raise KomgaError("Komga hiccup")
+
+    _EveryOtherFails.calls = 0
+    _FakeKomgaClient.instances.clear()
+    monkeypatch.setattr("flipp_dl.scheduler.KomgaClient", _EveryOtherFails)
+
+    repo.set_setting("komga_enabled", "true")
+    repo.set_setting("komga_url", "http://localhost:25600")
+    repo.set_setting("komga_library_id", "lib-1")
+    for i in range(4):
+        repo.create_job("komga_sync", {"library_id": f"lib-{i}"})
+    repo.session.commit()
+
+    run_komga_sync_queue(session_factory)
+
+    assert len(channel.sent) <= 1, channel.sent
+
+
+def test_the_web_entrypoint_uses_the_notifying_editions_runner():
+    """web/main.py is what runs in production - it must not import the
+    unwrapped runner from editions, or a failed run stays silent there."""
+    import flipp_dl.scheduler as scheduler
+    import flipp_dl.web.main as web_main
+
+    assert web_main.run_editions_queue is scheduler.run_editions_queue
