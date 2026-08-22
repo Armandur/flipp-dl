@@ -10,3 +10,5 @@ venv/
 data/
 output/
 flipp-dl-covers/
+*.db-shm
+*.db-wal
