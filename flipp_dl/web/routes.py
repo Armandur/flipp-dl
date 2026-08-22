@@ -1116,13 +1116,13 @@ def register(app: FastAPI) -> None:
     # Jobs
     # ------------------------------------------------------------------
 
-    # Plain strings: these end up in URLs and in the template, where a
-    # `str, Enum` member would render as "JobStatus.QUEUED".
+    # These end up in URLs and in the template. JobStatus is a StrEnum, so
+    # a member renders as its own value ("queued") - no .value needed.
     _JOB_STATUSES = (
-        JobStatus.QUEUED.value,
-        JobStatus.RUNNING.value,
-        JobStatus.DONE.value,
-        JobStatus.ERROR.value,
+        JobStatus.QUEUED,
+        JobStatus.RUNNING,
+        JobStatus.DONE,
+        JobStatus.ERROR,
     )
 
     def _job_issue_id(job) -> int | None:

@@ -19,10 +19,10 @@ from ..db.models import JobStatus
 from ..db.repository import DownloadRepository
 
 _JOB_STATUSES = (
-    JobStatus.QUEUED.value,
-    JobStatus.RUNNING.value,
-    JobStatus.DONE.value,
-    JobStatus.ERROR.value,
+    JobStatus.QUEUED,
+    JobStatus.RUNNING,
+    JobStatus.DONE,
+    JobStatus.ERROR,
 )
 
 

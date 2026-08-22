@@ -17,12 +17,6 @@ select = [
 ]
 ignore = [
     "E501",  # line too long – handled by black
-    # UP042 wants StrEnum for IssueStatus/JobStatus. That is a behaviour
-    # change, not a style one: the members are compared against database
-    # strings and rendered straight into URLs and templates, and StrEnum
-    # changes what str() and format() give back. Worth doing deliberately,
-    # not as a side effect of raising the target version.
-    "UP042",
 ]
 
 [tool.ruff.lint.per-file-ignores]

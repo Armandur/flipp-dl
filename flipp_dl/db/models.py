@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from enum import Enum
+from enum import StrEnum
 
 from sqlalchemy import (
     Boolean,
@@ -49,7 +49,7 @@ class _PublicationName(str):
 # ---------------------------------------------------------------------------
 
 
-class IssueStatus(str, Enum):
+class IssueStatus(StrEnum):
     NEW = "new"
     QUEUED = "queued"
     DOWNLOADING = "downloading"
@@ -66,7 +66,7 @@ class IssueStatus(str, Enum):
     RETRY_PENDING = "retry_pending"
 
 
-class JobStatus(str, Enum):
+class JobStatus(StrEnum):
     QUEUED = "queued"
     RUNNING = "running"
     DONE = "done"
