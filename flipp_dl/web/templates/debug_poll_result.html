@@ -14,11 +14,14 @@
 </div>
 
 <div id="json-tree" class="json-viewer"></div>
+<pre id="json-copy-source" aria-hidden="true" style="position:fixed;left:-10000px;top:0;width:1px;height:1px;overflow:hidden;"></pre>
 
 <script type="application/json" id="poll-data">{{ data_json | safe }}</script>
 <script>
 (function () {
   const raw = document.getElementById("poll-data").textContent;
+  const copySource = document.getElementById("json-copy-source");
+  copySource.textContent = raw;
   let data;
   try { data = JSON.parse(raw); }
   catch (e) {
@@ -133,9 +136,21 @@
       status.textContent = msg;
       setTimeout(() => { status.textContent = ""; }, 3000);
     };
+    const selectJson = () => {
+      const range = document.createRange();
+      range.selectNodeContents(copySource);
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+    };
+    if (!navigator.clipboard) {
+      selectJson();
+      say("{{ _('Selected - press Ctrl+C to copy') }}");
+      return;
+    }
     navigator.clipboard.writeText(raw).then(
       () => say("{{ _('Copied') }}"),
-      () => say("{{ _('Copy failed - select the JSON and copy manually') }}")
+      () => { selectJson(); say("{{ _('Selected - press Ctrl+C to copy') }}"); }
     );
   });
   document.getElementById("json-expand-btn").addEventListener("click", () => {
