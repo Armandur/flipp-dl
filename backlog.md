@@ -1562,6 +1562,29 @@ Bygg vidare på befintliga byggstenar i stället för att uppfinna nya: `list_is
 
 ---
 
+## [P4][todo] [flipp] Överväg StrEnum för IssueStatus och JobStatus
+
+Ruff UP042 flaggar att IssueStatus och JobStatus ärver från både str och Enum, och föreslår StrEnum (3.11+). Regeln är undantagen i pyproject.toml med motivering, men bytet är värt ett eget beslut - därför den här tasken i stället för bara en kodkommentar.
+
+Upptäckt 2026-08-22 när verktygsmålet höjdes från py39 till py311 (commit ffb386d).
+
+Varför det inte gjordes direkt: StrEnum ändrar vad str() och format() ger tillbaka. Med (str, Enum) ger str(JobStatus.QUEUED) strängen "JobStatus.QUEUED"; med StrEnum ger den "queued". Koden har redan en kommentar om precis det i routes.py, där _JOB_STATUSES bygger på .value just för att undvika fällan i URL:er och mallar.
+
+Omfattning: medlemmarna används på ungefär 70 ställen - repository.py 49, routes.py 11, models.py 5, api_routes.py 4, plus opds.py och codes_routes.py. De jämförs dessutom mot strängar som redan ligger i databasen.
+
+Att göra:
+- Gå igenom varje jämförelse och varje ställe där en status renderas eller hamnar i en URL.
+- Kontrollera att lagrade värden fortsätter matcha (databasen har rader med "done", "queued" osv).
+- Ta bort UP042 ur ignore-listan i pyproject.toml när det är gjort.
+
+Klart när: ruff är grön utan UP042-undantaget och hela sviten passerar. Vinsten är främst att en status inte längre kan råka renderas som "JobStatus.QUEUED".
+
+- ID: `01M0N9VE422MA4YQ6QC9W1RKQ6`
+- Type: improvement
+- Actor: ai:claude-code
+
+---
+
 ## [P4][done] [flipp] Väljarna för destination och notiser är inte stylade
 
 Rasmus 2026-08-22: rullgardinerna "Primary output root" (destination) och "Notify on new issues" på publikationssidan ser inte ut som resten av gränssnittet.
