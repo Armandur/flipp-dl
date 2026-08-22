@@ -2622,3 +2622,92 @@ def test_poll_now_requires_a_csrf_token(client: TestClient, monkeypatch):
 def test_the_settings_page_renders_the_poll_button(client: TestClient):
     page = client.get("/settings")
     assert 'hx-post="/settings/poll"' in page.text
+
+
+# ---------------------------------------------------------------------------
+# Sign in to Flipp from the settings page (TASK-1454)
+# ---------------------------------------------------------------------------
+
+
+def test_signing_in_stores_the_token_and_never_the_password(
+    client: TestClient, monkeypatch
+):
+    """The password is used for one request; only the token is kept."""
+    sett = {}
+
+    def _fake_sign_in(email, password, **_kw):
+        sett["email"] = email
+        sett["password"] = password
+        return "token-fran-flipp"
+
+    monkeypatch.setattr("flipp_dl.web.routes.FlippClient.sign_in", _fake_sign_in)
+    token = _csrf_for(client)
+
+    response = client.post(
+        "/settings/flipp-login",
+        data={
+            "_csrf_token": token,
+            "email": "  rasmus@example.com  ",
+            "password": "hemligt",
+        },
+    )
+
+    assert response.status_code == 200
+    assert "Signed in" in response.text
+    assert sett["email"] == "rasmus@example.com"  # trimmad
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        assert repo.get_setting("flipp_token") == "token-fran-flipp"
+        # Lösenordet får inte finnas kvar någonstans i inställningarna.
+        from sqlalchemy import select as sa_select
+
+        from flipp_dl.db.models import DbSetting
+
+        varden = [s.value for s in session.scalars(sa_select(DbSetting))]
+        assert "hemligt" not in varden
+
+
+def test_wrong_credentials_are_reported_without_storing_anything(
+    client: TestClient, monkeypatch
+):
+    from flipp_dl.api import WRONG_CREDENTIALS, FlippError
+
+    def _fake_sign_in(*_a, **_kw):
+        raise FlippError(WRONG_CREDENTIALS)
+
+    monkeypatch.setattr("flipp_dl.web.routes.FlippClient.sign_in", _fake_sign_in)
+    token = _csrf_for(client)
+
+    response = client.post(
+        "/settings/flipp-login",
+        data={"_csrf_token": token, "email": "fel@example.com", "password": "fel"},
+    )
+
+    assert response.status_code == 200
+    assert "Wrong email address or password" in response.text
+    with get_session(client.app.state.session_factory) as session:
+        assert DownloadRepository(session).get_setting("flipp_token", "") == ""
+
+
+def test_signing_in_requires_a_csrf_token(client: TestClient, monkeypatch):
+    def _explode(*_a, **_kw):
+        raise AssertionError("must not sign in without a valid CSRF token")
+
+    monkeypatch.setattr("flipp_dl.web.routes.FlippClient.sign_in", _explode)
+    _csrf_for(client)
+    assert client.post("/settings/flipp-login").status_code == 400
+
+
+def test_an_empty_field_does_not_reach_the_api(client: TestClient, monkeypatch):
+    def _explode(*_a, **_kw):
+        raise AssertionError("must not call the API without both fields")
+
+    monkeypatch.setattr("flipp_dl.web.routes.FlippClient.sign_in", _explode)
+    token = _csrf_for(client)
+
+    response = client.post(
+        "/settings/flipp-login",
+        data={"_csrf_token": token, "email": "", "password": "hemligt"},
+    )
+    assert response.status_code == 200
+    assert "Wrong email address or password" in response.text

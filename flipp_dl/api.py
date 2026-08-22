@@ -14,6 +14,10 @@ from .models import Publication
 
 logger = logging.getLogger(__name__)
 
+# Marker the web layer matches on to show a translated message instead of
+# the raw API text - see routes.flipp_login.
+WRONG_CREDENTIALS = "wrong email address or password"
+
 DEFAULT_USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) "
     "Gecko/20100101 Firefox/123.0"
@@ -70,6 +74,81 @@ class FlippClient:
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
+
+    SIGN_IN_URL = "https://flippapi.egmontservice.com/api/signin"
+
+    @classmethod
+    def sign_in(
+        cls,
+        email: str,
+        password: str,
+        *,
+        user_uuid: str = "dummy",
+        timeout: int = DEFAULT_TIMEOUT,
+        session: requests.Session | None = None,
+    ) -> str:
+        """Exchange an email and password for a Flipp token.
+
+        The web app posts the same payload to two endpoints and picks by
+        whether a token is present: with one it refreshes against
+        ``refreshsignintoken``, without one it signs in against
+        ``signin``. ``refreshsignintoken`` ignores the credentials
+        entirely and answers ``InvalidToken``, so signing in has to go to
+        the other URL.
+
+        Returns the token from the response. The credentials are used for
+        this one request and never stored - the token is the only thing
+        worth keeping, and it can be replaced by signing in again.
+        """
+        payload = {
+            "email": email,
+            "password": password,
+            "token": "",
+            "languageCulture": "sv-SE",
+            "appId": "se.egmontmagasiner.flipp",
+            "appVersion": "Landing Page",
+            "uuid": user_uuid,
+            "os": "Firefox / Windows",
+        }
+        headers = {
+            "User-Agent": DEFAULT_USER_AGENT,
+            "Accept": "application/json, text/plain, */*",
+            "Accept-Language": "sv-SE,sv;q=0.9,en;q=0.8",
+            "Content-Type": "application/json",
+            "Origin": "https://tidningar.flipp.se",
+            "Referer": "https://tidningar.flipp.se/",
+        }
+        http = session or build_session()
+        # Deliberately no logging of the payload: it carries the password.
+        logger.info("Signing in to Flipp as %s", email)
+        try:
+            response = http.post(
+                cls.SIGN_IN_URL, json=payload, headers=headers, timeout=timeout
+            )
+        except requests.RequestException as exc:
+            raise FlippError(f"Could not reach the Flipp API: {exc}") from exc
+
+        if response.status_code == 401:
+            # The API answers 401 both for wrong credentials and for an
+            # unknown user; the caller cannot act differently on the two,
+            # so they get one message.
+            raise FlippError(WRONG_CREDENTIALS)
+        try:
+            response.raise_for_status()
+        except requests.HTTPError as exc:
+            raise FlippError(f"Flipp API HTTP error: {exc}") from exc
+
+        try:
+            data = response.json()
+        except ValueError as exc:
+            raise FlippError("The Flipp API did not answer with JSON.") from exc
+        token = data.get("token")
+        if not token:
+            raise FlippError(
+                "The Flipp API signed in but returned no token. Got keys: "
+                + ", ".join(data.keys())
+            )
+        return str(token)
 
     def fetch_raw_sign_in(self) -> dict:
         """Return the raw ``refreshsignintoken`` response as a dict.

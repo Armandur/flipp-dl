@@ -260,6 +260,7 @@
     .field input[type="number"],
     .field input[type="text"],
     .field input[type="password"],
+    .field input[type="email"],
     .field input[type="url"],
     .field input[type="search"],
     .field select {
@@ -270,6 +271,7 @@
     .field input[type="number"]:focus,
     .field input[type="text"]:focus,
     .field input[type="password"]:focus,
+    .field input[type="email"]:focus,
     .field input[type="url"]:focus,
     .field input[type="search"]:focus,
     .field select:focus { border-color: #7c3aed; }
@@ -285,6 +287,10 @@
     input.inline-input:focus,
     select.inline-input:focus { border-color: #7c3aed; }
     select.inline-input { color-scheme: dark; cursor: pointer; }
+    /* The sign-in block sits inside the token field's block, so it needs
+       its own separation to not read as part of the field above. */
+    .token-login { margin-top: 14px; padding-top: 14px;
+                   border-top: 1px solid #313244; }
     .token-help { margin-top: 10px; }
     .token-help summary { cursor: pointer; font-size: 13px; color: #a6adc8; }
     .token-help summary:hover { color: #cdd6f4; }

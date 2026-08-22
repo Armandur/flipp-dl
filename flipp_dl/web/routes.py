@@ -19,7 +19,7 @@ from fastapi.responses import (
 )
 
 from .. import storage
-from ..api import FlippClient, FlippError
+from ..api import WRONG_CREDENTIALS, FlippClient, FlippError
 from ..config import load_token
 from ..db.models import IssueStatus, JobStatus
 from ..db.repository import (
@@ -66,6 +66,9 @@ _ = _mark_for_translation
 _INVALID_FOLDER_NAME = _("Use only characters that are valid in a folder name.")
 _FOLDER_NAME_CONFLICT = _("That folder name is already used by another publication.")
 _FOLDER_MOVE_FAILED = _("The downloaded files could not be moved.")
+_LOGIN_WRONG_CREDENTIALS = _("Wrong email address or password.")
+_LOGIN_FAILED = _("Could not sign in to Flipp.")
+_LOGIN_SAVED = _("Signed in. The token is saved and in use.")
 _POLL_NEEDS_TOKEN = _("No Flipp token is configured, so there is nothing to poll with.")
 _DESTINATION_CHANGE_BLOCKED = _(
     "Destination cannot be changed because this publication already has downloaded issues."
@@ -1489,6 +1492,52 @@ def register(app: FastAPI) -> None:
             request,
             "komga_library_select.html",
             {"error": None, "libraries": libraries, "selected": selected},
+        )
+
+    @app.post("/settings/flipp-login", response_class=HTMLResponse)
+    async def flipp_login(
+        request: Request, email: str = Form(""), password: str = Form("")
+    ):
+        """Sign in to Flipp and store the token it hands back (TASK-1454).
+
+        The alternative was the console snippet next to the token field,
+        which needs devtools and a browser already logged in. The web app
+        signs in against ``/api/signin`` with the same payload it later
+        refreshes with, so flipp-dl can do the same.
+
+        The credentials are used for this one request and never stored -
+        only the token is, exactly as if it had been pasted in by hand.
+        """
+        if not await check_csrf_form(request):
+            return HTMLResponse("CSRF validation failed", status_code=400)
+        lang = i18n.get_language(request)
+        if not email.strip() or not password:
+            return _templates(request).TemplateResponse(
+                request,
+                "flipp_login_result.html",
+                {"error": i18n.translate(lang, _LOGIN_WRONG_CREDENTIALS), "ok": False},
+            )
+        try:
+            token = FlippClient.sign_in(email.strip(), password)
+        except FlippError as exc:
+            message = (
+                _LOGIN_WRONG_CREDENTIALS
+                if str(exc) == WRONG_CREDENTIALS
+                else _LOGIN_FAILED
+            )
+            logger.warning("Flipp sign-in failed for %s: %s", email.strip(), exc)
+            return _templates(request).TemplateResponse(
+                request,
+                "flipp_login_result.html",
+                {"error": i18n.translate(lang, message), "ok": False},
+            )
+
+        with get_session(request.app.state.session_factory) as session:
+            DownloadRepository(session).set_setting("flipp_token", token)
+        return _templates(request).TemplateResponse(
+            request,
+            "flipp_login_result.html",
+            {"error": None, "ok": True, "message": i18n.translate(lang, _LOGIN_SAVED)},
         )
 
     @app.post("/settings/poll", response_class=HTMLResponse)

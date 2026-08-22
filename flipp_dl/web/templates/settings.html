@@ -71,6 +71,38 @@
       <div class="note">{{ _("No token configured. Paste one above and save.") }}</div>
       {% endif %}
 
+      {# Signing in fetches a token without leaving flipp-dl. The
+         credentials go to Flipp for that one request and are never
+         stored - only the token it hands back is (TASK-1454). This form
+         posts on its own, outside the settings form around it, which is
+         why it is a div and not a nested form. #}
+      <div class="token-login" id="flipp-login">
+        <div class="note">{{ _("Or sign in with your Flipp account and let flipp-dl fetch the token. Your password is used for that one request and never saved.") }}</div>
+        <div class="field">
+          <label for="flipp_email">{{ _("Flipp email") }}</label>
+          <input type="email" id="flipp_email" name="email" autocomplete="username">
+        </div>
+        <div class="field">
+          <label for="flipp_password">{{ _("Flipp password") }}</label>
+          <input type="password" id="flipp_password" name="password" autocomplete="current-password">
+        </div>
+        <button
+          type="button"
+          class="btn btn-primary-soft"
+          id="flipp-login-btn"
+          hx-post="/settings/flipp-login"
+          hx-include="#flipp_email, #flipp_password"
+          hx-target="#flipp-login-output"
+          hx-swap="innerHTML"
+          hx-indicator="#flipp-login-spinner"
+          hx-vals='{"_csrf_token": "{{ csrf_token }}"}'
+        >{{ _("Sign in and fetch token") }}</button>
+        <span id="flipp-login-spinner" class="htmx-indicator dim" style="margin-left:12px;">
+          {{ _("Signing in…") }}
+        </span>
+        <div id="flipp-login-output" style="margin-top:12px;"></div>
+      </div>
+
       {# Flipp stores the token in a cookie named flipp_token - the site's
          own code reads it exactly this way. The snippet saves a trip
          through the network tab. #}
