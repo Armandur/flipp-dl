@@ -37,6 +37,10 @@
 </dialog>
 <h1>{{ _("Settings") }}</h1>
 
+{# The first fields had no heading of their own and read as loose fields
+   under the page title until "Komga" appeared. #}
+<h2 class="settings-group-heading">{{ _("General") }}</h2>
+
 <div class="settings-page">
 {% if settings_error %}
 <div class="flash flash-error">{{ settings_error }}</div>
@@ -413,31 +417,7 @@
   </div>
 
   <div class="settings-action">
-    <h3>{{ _("Import existing files") }}</h3>
-    <div class="note">
-      {{ _("Scan the output folder and reconcile it with the database: a file that already sits on disk marks its issue downloaded without fetching it again. Anything the scan can't explain - orphan files, a downloaded issue whose file has vanished, or two issues sharing one file - is reported below instead of being fixed silently.") }}
-    </div>
-
-    <div class="form-card">
-      <button
-        type="button"
-        class="btn btn-primary"
-        id="import-existing-btn"
-        hx-post="/settings/import-existing"
-        hx-target="#import-existing-output"
-        hx-swap="innerHTML"
-        hx-indicator="#import-existing-spinner"
-        hx-vals='{"_csrf_token": "{{ csrf_token }}"}'
-      >{{ _("Import existing files") }}</button>
-      <span id="import-existing-spinner" class="htmx-indicator dim" style="margin-left:12px;">
-        {{ _("Scanning…") }}
-      </span>
-      <div id="import-existing-output" style="margin-top:18px;"></div>
-    </div>
-  </div>
-
-  <div class="settings-action">
-    <h3>{{ _("Codes: backup and catalogue") }}</h3>
+    <h3>{{ _("Catalogue and codes") }}</h3>
     <div class="note">
       {{ _("The publication and issue codes are the irreplaceable part of the database - everything else can be downloaded again. Save them as a JSON file, and restore them into an empty database from that same file. The catalogue file (the full publication list, plus the optional list of publications Flipp does not list) adds publications without touching the ones you already have.") }}
     </div>
@@ -494,10 +474,7 @@
       <span id="codes-spinner" class="htmx-indicator dim">{{ _("Working…") }}</span>
       <div id="codes-output" style="margin-top:18px;"></div>
     </div>
-  </div>
 
-  <div class="settings-action">
-    <h3>{{ _("Editions") }}</h3>
     <div class="note">
       {{ _("Ask PageSuite for the full edition list of every publication - including the older editions the Flipp app hides - and store the codes for the ones we do not have. This makes one request per publication and runs in the background; follow it below or under Jobs. The import takes a file of edition codes that no listing returns at all, and looks each one up to find its publication.") }}
     </div>
@@ -543,7 +520,7 @@
   </div>
 
   <div class="settings-action">
-    <h3>{{ _("Debug") }}</h3>
+    <h3>{{ _("Troubleshooting") }}</h3>
     <div class="note">
       {{ _("Run a manual poll against the Flipp API and inspect the raw") }}
       <code>refreshsignintoken</code> {{ _("response. Useful for verifying your token and spotting new fields. Sensitive fields") }}

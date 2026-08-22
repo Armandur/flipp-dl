@@ -70,6 +70,28 @@
 </div>
 {% endif %}
 
+  <h2>{{ _("Import existing files") }}</h2>
+  <div class="note">
+    {{ _("Scan the output folder and reconcile it with the database: a file that already sits on disk marks its issue downloaded without fetching it again. Anything the scan can't explain - orphan files, a downloaded issue whose file has vanished, or two issues sharing one file - is reported below instead of being fixed silently.") }}
+  </div>
+
+  <div class="form-card">
+    <button
+      type="button"
+      class="btn btn-primary"
+      id="import-existing-btn"
+      hx-post="/library/import-existing"
+      hx-target="#import-existing-output"
+      hx-swap="innerHTML"
+      hx-indicator="#import-existing-spinner"
+      hx-vals='{"_csrf_token": "{{ csrf_token }}"}'
+    >{{ _("Import existing files") }}</button>
+    <span id="import-existing-spinner" class="htmx-indicator dim" style="margin-left:12px;">
+      {{ _("Scanning…") }}
+    </span>
+    <div id="import-existing-output" style="margin-top:18px;"></div>
+  </div>
+
 <script>
 (function () {
   const search = document.getElementById("lib-search");

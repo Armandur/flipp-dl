@@ -1073,6 +1073,9 @@ def register(app: FastAPI) -> None:
                 "total_files": total_files,
                 "total_bytes": total_bytes,
                 "output_root": str(output_root),
+                # The reconcile-with-disk action moved here from the
+                # settings page (TASK-1398) and posts with CSRF.
+                "csrf_token": generate_csrf_token(request),
             },
         )
 
@@ -1591,7 +1594,7 @@ def register(app: FastAPI) -> None:
             request, "poll_result.html", {"error": None, "job": job, "counts": counts}
         )
 
-    @app.post("/settings/import-existing", response_class=HTMLResponse)
+    @app.post("/library/import-existing", response_class=HTMLResponse)
     async def import_existing(request: Request):
         """Reconcile the DB against what's actually on disk (TASK-1283).
 

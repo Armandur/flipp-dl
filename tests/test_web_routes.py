@@ -1939,7 +1939,7 @@ def test_komga_test_connection_requires_csrf(client: TestClient):
 
 
 def test_import_existing_requires_csrf(client: TestClient):
-    resp = client.post("/settings/import-existing")
+    resp = client.post("/library/import-existing")
     assert resp.status_code == 400
 
 
@@ -1972,7 +1972,7 @@ def test_import_existing_backfills_a_queued_issue_found_on_disk(
     target.write_bytes(b"%PDF-1.4\n%dummy\n")
 
     csrf = _csrf_for(client)
-    resp = client.post("/settings/import-existing", data={"_csrf_token": csrf})
+    resp = client.post("/library/import-existing", data={"_csrf_token": csrf})
     assert resp.status_code == 200
     assert "Backfilled" in resp.text
     assert "1" in resp.text
@@ -1985,7 +1985,7 @@ def test_import_existing_backfills_a_queued_issue_found_on_disk(
 def test_import_existing_reports_orphan_files(client: TestClient, output_tree: Path):
     """The ``ka02.pdf`` file seeded by ``output_tree`` matches no issue."""
     csrf = _csrf_for(client)
-    resp = client.post("/settings/import-existing", data={"_csrf_token": csrf})
+    resp = client.post("/library/import-existing", data={"_csrf_token": csrf})
     assert resp.status_code == 200
     assert "orphans" in resp.text
     assert "ka02.pdf" in resp.text
@@ -1995,7 +1995,7 @@ def test_import_existing_reports_a_missing_file(client: TestClient):
     """The ``client`` fixture already seeds a ``done`` Ghost issue whose
     file was never written to disk."""
     csrf = _csrf_for(client)
-    resp = client.post("/settings/import-existing", data={"_csrf_token": csrf})
+    resp = client.post("/library/import-existing", data={"_csrf_token": csrf})
     assert resp.status_code == 200
     assert "missing on disk" in resp.text
     assert "Ghost" in resp.text
@@ -2711,3 +2711,23 @@ def test_an_empty_field_does_not_reach_the_api(client: TestClient, monkeypatch):
     )
     assert response.status_code == 200
     assert "Wrong email address or password" in response.text
+
+
+def test_the_library_page_carries_the_import_button_and_its_csrf_token(
+    client: TestClient,
+):
+    """The reconcile action moved here from settings (TASK-1398).
+
+    It posts with CSRF, so the page has to render a token - the settings
+    page did that for it before.
+    """
+    page = client.get("/library")
+
+    assert page.status_code == 200
+    assert 'hx-post="/library/import-existing"' in page.text
+    assert re.search(r'_csrf_token["\s:]+[A-Za-z0-9_-]{16,}', page.text)
+
+
+def test_the_settings_page_no_longer_offers_the_disk_reconcile(client: TestClient):
+    page = client.get("/settings")
+    assert "import-existing" not in page.text
