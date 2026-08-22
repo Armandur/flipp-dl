@@ -2731,3 +2731,122 @@ def test_the_library_page_carries_the_import_button_and_its_csrf_token(
 def test_the_settings_page_no_longer_offers_the_disk_reconcile(client: TestClient):
     page = client.get("/settings")
     assert "import-existing" not in page.text
+
+
+# ---------------------------------------------------------------------------
+# Test notification button (ntfy)
+# ---------------------------------------------------------------------------
+
+
+def test_the_test_button_sends_through_the_form_values(client: TestClient, monkeypatch):
+    """Testing before saving has to work, so the form wins over the DB."""
+    skickat = {}
+
+    class _FakeChannel:
+        def __init__(self, url, topic, token="", **_kw):
+            skickat["url"] = url
+            skickat["topic"] = topic
+            skickat["token"] = token
+
+        def send(self, title, message):
+            skickat["title"] = title
+            skickat["message"] = message
+
+    monkeypatch.setattr("flipp_dl.web.routes.NtfyChannel", _FakeChannel)
+    token = _csrf_for(client)
+
+    response = client.post(
+        "/settings/notify/test",
+        data={
+            "_csrf_token": token,
+            "notify_ntfy_url": "https://ntfy.example/",
+            "notify_ntfy_topic": "svc_flipp-dl",
+            "notify_ntfy_token": "tk_abc",
+        },
+    )
+
+    assert response.status_code == 200
+    assert "Test notification sent" in response.text
+    assert skickat["url"] == "https://ntfy.example/"
+    assert skickat["topic"] == "svc_flipp-dl"
+    assert skickat["token"] == "tk_abc"
+    assert skickat["title"] == "Flipp-DL"
+
+
+def test_a_blank_field_falls_back_to_what_is_saved(client: TestClient, monkeypatch):
+    """The token field is never pre-filled, so blank must mean "the saved one"."""
+    skickat = {}
+
+    class _FakeChannel:
+        def __init__(self, url, topic, token="", **_kw):
+            skickat.update(url=url, topic=topic, token=token)
+
+        def send(self, *_a):
+            pass
+
+    monkeypatch.setattr("flipp_dl.web.routes.NtfyChannel", _FakeChannel)
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        repo.set_setting("notify_ntfy_url", "https://sparad.example")
+        repo.set_setting("notify_ntfy_topic", "sparat_topic")
+        repo.set_setting("notify_ntfy_token", "tk_sparad")
+
+    token = _csrf_for(client)
+    client.post("/settings/notify/test", data={"_csrf_token": token})
+
+    assert skickat == {
+        "url": "https://sparad.example",
+        "topic": "sparat_topic",
+        "token": "tk_sparad",
+    }
+
+
+def test_a_failed_delivery_is_reported_with_the_reason(client: TestClient, monkeypatch):
+    from flipp_dl.notify import NotifyError
+
+    class _FailingChannel:
+        def __init__(self, *_a, **_kw):
+            pass
+
+        def send(self, *_a):
+            raise NotifyError("ntfy: HTTP 403")
+
+    monkeypatch.setattr("flipp_dl.web.routes.NtfyChannel", _FailingChannel)
+    token = _csrf_for(client)
+
+    response = client.post(
+        "/settings/notify/test",
+        data={
+            "_csrf_token": token,
+            "notify_ntfy_url": "https://ntfy.example",
+            "notify_ntfy_topic": "t",
+        },
+    )
+
+    assert response.status_code == 200
+    assert "could not be delivered" in response.text
+    assert "HTTP 403" in response.text
+
+
+def test_testing_without_a_topic_says_so_instead_of_calling_out(
+    client: TestClient, monkeypatch
+):
+    def _explode(*_a, **_kw):
+        raise AssertionError("must not build a channel without url and topic")
+
+    monkeypatch.setattr("flipp_dl.web.routes.NtfyChannel", _explode)
+    token = _csrf_for(client)
+
+    response = client.post("/settings/notify/test", data={"_csrf_token": token})
+
+    assert response.status_code == 200
+    assert "Fill in the ntfy server URL and topic" in response.text
+
+
+def test_the_test_button_requires_a_csrf_token(client: TestClient, monkeypatch):
+    def _explode(*_a, **_kw):
+        raise AssertionError("must not send without a valid CSRF token")
+
+    monkeypatch.setattr("flipp_dl.web.routes.NtfyChannel", _explode)
+    _csrf_for(client)
+    assert client.post("/settings/notify/test").status_code == 400

@@ -37,6 +37,7 @@ from ..downloader import IssueDownloader
 from ..komga import KomgaClient, KomgaError
 from ..models import Issue as DomainIssue
 from ..models import Publication as DomainPublication
+from ..notify import NotifyError, NtfyChannel
 from ..scheduler import (
     poll_publications,
     resolve_current_token,
@@ -66,6 +67,9 @@ _ = _mark_for_translation
 _INVALID_FOLDER_NAME = _("Use only characters that are valid in a folder name.")
 _FOLDER_NAME_CONFLICT = _("That folder name is already used by another publication.")
 _FOLDER_MOVE_FAILED = _("The downloaded files could not be moved.")
+_NTFY_TEST_SENT = _("Test notification sent. Check your ntfy app.")
+_NTFY_TEST_NO_TOPIC = _("Fill in the ntfy server URL and topic first.")
+_NTFY_TEST_FAILED = _("The notification could not be delivered.")
 _LOGIN_WRONG_CREDENTIALS = _("Wrong email address or password.")
 _LOGIN_FAILED = _("Could not sign in to Flipp.")
 _LOGIN_SAVED = _("Signed in. The token is saved and in use.")
@@ -1495,6 +1499,70 @@ def register(app: FastAPI) -> None:
             request,
             "komga_library_select.html",
             {"error": None, "libraries": libraries, "selected": selected},
+        )
+
+    @app.post("/settings/notify/test", response_class=HTMLResponse)
+    async def notify_test(
+        request: Request,
+        notify_ntfy_url: str = Form(""),
+        notify_ntfy_topic: str = Form(""),
+        notify_ntfy_token: str = Form(""),
+    ):
+        """Send one test notification through ntfy.
+
+        Uses whatever is in the form right now, falling back to what is
+        saved for any blank field - the same rule the save form and the
+        Komga test button follow, so testing before saving works and a
+        blank token field still means "keep the saved one".
+        """
+        if not await check_csrf_form(request):
+            return HTMLResponse("CSRF validation failed", status_code=400)
+
+        lang = i18n.get_language(request)
+        repo = _repo(request)
+        try:
+            url = notify_ntfy_url.strip() or repo.get_setting("notify_ntfy_url", "")
+            topic = notify_ntfy_topic.strip() or repo.get_setting(
+                "notify_ntfy_topic", ""
+            )
+            token = notify_ntfy_token.strip() or repo.get_setting(
+                "notify_ntfy_token", ""
+            )
+        finally:
+            repo.session.close()
+
+        if not url.strip() or not topic.strip():
+            return _templates(request).TemplateResponse(
+                request,
+                "notify_test_result.html",
+                {"error": i18n.translate(lang, _NTFY_TEST_NO_TOPIC), "message": None},
+            )
+
+        channel = NtfyChannel(url.strip(), topic.strip(), token.strip())
+        try:
+            channel.send(
+                "Flipp-DL",
+                i18n.translate(
+                    lang,
+                    _("This is a test notification from flipp-dl. Nothing is wrong."),
+                ),
+            )
+        except NotifyError as exc:
+            logger.warning("ntfy test failed: %s", exc)
+            return _templates(request).TemplateResponse(
+                request,
+                "notify_test_result.html",
+                {
+                    "error": i18n.translate(lang, _NTFY_TEST_FAILED),
+                    "detail": str(exc),
+                    "message": None,
+                },
+            )
+
+        return _templates(request).TemplateResponse(
+            request,
+            "notify_test_result.html",
+            {"error": None, "message": i18n.translate(lang, _NTFY_TEST_SENT)},
         )
 
     @app.post("/settings/flipp-login", response_class=HTMLResponse)

@@ -1,0 +1,10 @@
+<div class="import-summary">
+  {% if error %}
+  <p class="error">{{ error }}</p>
+  {% if detail %}
+  <p class="dim">{{ detail }}</p>
+  {% endif %}
+  {% else %}
+  <p>{{ message }}</p>
+  {% endif %}
+</div>

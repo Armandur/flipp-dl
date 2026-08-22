@@ -348,6 +348,26 @@
       {% endif %}
     </div>
 
+    {# Sends through the values in the form right now, falling back to
+       what is saved for a blank field - so it can be tried before saving. #}
+    <div class="field">
+      <button
+        type="button"
+        class="btn btn-primary-soft"
+        id="ntfy-test-btn"
+        hx-post="/settings/notify/test"
+        hx-include="#notify_ntfy_url, #notify_ntfy_topic, #notify_ntfy_token"
+        hx-target="#ntfy-test-output"
+        hx-swap="innerHTML"
+        hx-indicator="#ntfy-test-spinner"
+        hx-vals='{"_csrf_token": "{{ csrf_token }}"}'
+      >{{ _("Send a test notification") }}</button>
+      <span id="ntfy-test-spinner" class="htmx-indicator dim" style="margin-left:12px;">
+        {{ _("Sending…") }}
+      </span>
+      <div id="ntfy-test-output" style="margin-top:12px;"></div>
+    </div>
+
     <div class="field checkbox-field">
       <label>
         <input
