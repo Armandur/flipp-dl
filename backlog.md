@@ -232,7 +232,7 @@ Utgåvan går alltså att ladda ner i sin helhet. Premissen håller.
 
 ---
 
-## [P2][doing] [flipp] Låt användaren särskilja publikationer som delar katalognamn
+## [P2][done] [flipp] Låt användaren särskilja publikationer som delar katalognamn
 
 Två publikationer kan heta exakt samma sak och får då samma katalog på disk. Det finns i drift i dag: "Hjemmet" är två skilda publikationer, en norsk och en dansk. Filerna hamnar i samma mapp och ägarskapet blir tvetydigt - importen kan inte avgöra vilken publikation en fil hör till, och sedan TASK-1404 vägrar den därför backfilla dem, vilket är rätt men inte en lösning.
 
@@ -556,7 +556,7 @@ Beroende: TASK-1358 (Komga-biblioteket) bör vara på plats först, annars finns
 
 ---
 
-## [P3][doing] [flipp] Exponera katalog-/utgave-/backup-kommandon i webb-UI:t
+## [P3][done] [flipp] Exponera katalog-/utgave-/backup-kommandon i webb-UI:t
 
 
 
@@ -749,7 +749,7 @@ En publikation kan saknas i en poll av tillfälliga skäl - ett API-fel eller en
 
 ---
 
-## [P3][doing] [flipp] En publikations katalog får inte kunna kopplas till en annan publikation
+## [P3][done] [flipp] En publikations katalog får inte kunna kopplas till en annan publikation
 
 ## Context
 Varje publikation äger sin katalog under utdatakatalogen, men ingenting upprätthåller det. En fil som hamnar i fel publikations katalog - genom en namnkrock, en handflyttad fil eller en framtida sökvägsändring - kan tolkas som tillhörande fel publikation.
@@ -778,7 +778,7 @@ Motsvarande fråga finns i prenly-dl (TASK-1405), men där kompliceras den av at
 
 ---
 
-## [P3][doing] [flipp] Gör filnamnen OS-säkra, inte bara tecken-filtrerade
+## [P3][done] [flipp] Gör filnamnen OS-säkra, inte bara tecken-filtrerade
 
 safe_name filtrerar bort allt utom en whitelist av tecken: bokstäver, siffror, bindestreck, understreck, punkt, parenteser, mellanslag och åäö. Det räcker för att undvika snedstreck, men täcker inte allt som gör en sökväg problematisk på andra filsystem än ext4.
 
@@ -857,7 +857,7 @@ Motsvarande todo lagd i prenly-dl.
 
 ---
 
-## [P3][doing] [flipp] Kodsnutt för konsolen som hämtar ut Flipp-token
+## [P3][done] [flipp] Kodsnutt för konsolen som hämtar ut Flipp-token
 
 Token går numera att spara i gränssnittet (TASK-1342), men att få tag på den kräver fortfarande att man öppnar utvecklarverktygen, hittar rätt anrop och kopierar ur en payload - som README beskriver i fyra steg.
 
