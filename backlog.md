@@ -514,50 +514,115 @@ Rätt fix är troligen en riktig claim-fråga mot DB (SELECT ... WHERE status=qu
 
 ---
 
-## [P3][todo] [flipp] Backfilla Komga-metadata för utgåvor som aldrig fick ett synkjobb
+## [P3][done] [flipp] Köa Komga-synk på nytt för nedladdade utgåvor som saknar metadata
 
 ## Context
 
-TASK-1481 gjorde att ett komga_sync-jobb vars bok inte hunnit indexeras
-köas om i stället för att dö som error. Det löser framtida jobb - men inte
+TASK-1481 gör att ett `komga_sync`-jobb vars bok inte hunnit indexeras köas
+om i stället för att dö som `error`. Det räddar framtida jobb men rör inte
 det som redan finns i drift:
 
 - 1247 nedladdade utgåvor saknar metadata i Komga för att de aldrig fick
-  ett komga_sync-jobb alls. Jobb skapas bara när ett download-jobb blir
-  klart (scheduler.py:735), och bakkatalogen hämtades innan Komga var
-  påslaget.
-- De 27 jobb som redan står som error är terminala. schedule_job_retry
+  ett `komga_sync`-jobb alls. Jobb skapas bara när ett download-jobb blir
+  klart (`flipp_dl/scheduler.py:735`), och bakkatalogen hämtades innan
+  Komga slogs på.
+- De 27 jobb som står som `error` är terminala. `schedule_job_retry`
   triggar bara på ett fel som inträffar nu, så ingenting väcker dem.
 
-Utan den här tasken sjunker inte error-siffran och komga_book_id-antalet
+Utan den här tasken sjunker inte error-siffran och `komga_book_id`-antalet
 stiger inte, oavsett hur bra omköandet fungerar.
 
-## Fallgrop som måste lösas i designen
+## Beslutat upplägg (bygg detta, designa inte om)
 
-En naiv backfill ("köa alla done-utgåvor med komga_book_id is null varje
-tick") churnar för evigt: en publikation som aldrig matchar en Komga-serie
-får ett nytt jobb var 30:e sekund. Att i stället fråga jobbtabellen
-"har den här utgåvan någonsin haft ett komga_sync-jobb" håller inte heller
-- purge_old_jobs raderar klara jobb efter 30 dagar.
+En **explicit engångsåtgärd**, inte en automatisk backfill: en knapp i
+Komga-avsnittet på Inställningar som köar `komga_sync`-jobb för de utgåvor
+som saknar metadata. Anledningen till att det inte får bli automatiskt: en
+publikation som aldrig matchar en Komga-serie skulle annars få ett nytt
+jobb var 30:e sekund för evigt. Att fråga jobbtabellen "har utgåvan
+någonsin haft ett synkjobb" håller inte heller, eftersom `purge_old_jobs`
+raderar klara jobb efter 30 dagar.
 
-Rimliga vägar: en explicit engångsåtgärd (CLI-flagga eller knapp i
-Inställningar) i stället för en automatisk backfill, eller en kolumn på
-issues som minns senaste synkförsöket.
+Urvalet: utgåvor med `status = done`, `file_path` satt och
+`komga_book_id is null`. Hoppa över en utgåva som redan har ett
+`komga_sync`-jobb i `queued`, `running` eller `retry_pending` - det är den
+dubblettspärr som krävs. Ett gammalt `error`- eller `done`-jobb för samma
+utgåva ska INTE spärra: hela poängen är att ge de 27 döda jobben en ny
+chans, och ett nytt jobb är den vägen (försök inte återuppliva de gamla
+raderna).
+
+Tak per körning: `KOMGA_BACKFILL_LIMIT = 500` jobb, så en knapptryckning
+aldrig lägger tiotusen rader på en gång. Returnera hur många som köades
+och hur många som återstår, och skriv ut det i svaret så Rasmus vet om han
+ska trycka igen.
+
+Ingen ny kolumn, ingen migration.
+
+## Icke-mål
+
+- Ingen automatisk/schemalagd backfill.
+- Ingen CLI-flagga (knappen räcker; appen körs i Docker och Rasmus använder
+  webb-UI:t).
+- Rör inte `run_komga_sync_queue` eller retry-logiken från TASK-1481.
+- Ingen omdesign av `komga_series_id`-matchningen.
 
 ## Acceptance criteria
 
-- [ ] Utgåvor som är nedladdade men saknar komga_book_id kan få metadata
-      pushad utan att laddas ned igen.
-- [ ] Åtgärden kan köras om utan att skapa dubbletter eller köa om samma
-      utgåva i all oändlighet.
-- [ ] De befintliga error-jobben går att återuppliva (eller ersätts av nya
-      jobb) så error-siffran faktiskt sjunker.
+- [ ] Nytt repo-metod `queue_komga_backfill(library_id, limit)` i
+      `flipp_dl/db/repository.py` (Jobs-sektionen, nära `create_job`) som
+      köar `komga_sync`-jobb med payload `{"library_id": ..., "issue_id": ...}`
+      för utgåvor som är `done`, har `file_path` och saknar `komga_book_id`,
+      och returnerar `(antal_köade, antal_återstående)`.
+- [ ] Utgåvor som redan har ett `komga_sync`-jobb i `queued`, `running`
+      eller `retry_pending` hoppas över. Ett tidigare `error`/`done`-jobb
+      spärrar inte.
+- [ ] Högst `limit` jobb per anrop.
+- [ ] Ny POST-route `/settings/komga/backfill` i `flipp_dl/web/routes.py`
+      (bredvid `komga_test_connection`, ca rad 1447) med samma
+      CSRF-kontroll (`check_csrf_form`) som grannrouterna, som anropar
+      metoden och renderar ett svar med antalet köade och återstående.
+      Utan sparat `komga_library_id` ska den svara med ett begripligt
+      besked på svenska/engelska i stället för att köa något.
+- [ ] Knapp i `flipp_dl/web/templates/settings.html` i Komga-avsnittet
+      (efter `komga-test-btn`, ca rad 278-291), samma htmx-mönster:
+      `hx-post`, `hx-target` mot en egen resultat-div, `hx-indicator`,
+      `hx-vals` med `_csrf_token`.
+- [ ] Nya UI-strängar finns översatta i den svenska katalogen och den
+      kompilerade `.mo`-filen är uppdaterad.
+
+## Implementation hints
+
+- Jobbstatusar: `JobStatus` i `flipp_dl/db/models.py:69` (inkl. den nya
+  `RETRY_PENDING`). Utgåvestatus: `IssueStatus`, `DONE`.
+- `DbJob.payload` är en JSON-sträng; issue-id plockas ut som i
+  `reset_stuck_download_jobs` (`repository.py:1614`) och
+  `cancel_issue`. Läs payloads för aktiva `komga_sync`-jobb EN gång och
+  bygg ett set, inte en fråga per utgåva.
+- CSRF: se `komga_test_connection` (`routes.py:1447`) för mönstret, och
+  `_repo(request)` + `repo.session.close()`.
+- Renderingen kan återanvända ett litet partial i
+  `flipp_dl/web/templates/` (t.ex. `komga_backfill_result.html`) - kolla
+  hur `komga_library_select.html` är byggd.
+- Översättning: kommandona står i README.md under "Webbgränssnitt -
+  Översättningar" (`pybabel extract` / `update` / redigera `.po` /
+  `compile`). `.venv/bin/pybabel` finns installerad. Glöm inte
+  `pybabel compile`.
 
 ## Verification
 
-- Test som visar att en andra körning inte köar samma utgåva igen.
-- I drift: select count(*) from issues where komga_book_id is not null
-  stiger mot antalet nedladdade.
+- `.venv/bin/python -m pytest tests/test_repository.py tests/test_web_routes.py -q`
+  ska vara grön, med nya tester som täcker:
+  - en utgåva utan `komga_book_id` får ett jobb, en med hoppas över
+  - en andra körning direkt efter den första köar 0 (dubblettspärren)
+  - en utgåva vars enda tidigare jobb är `error` FÅR ett nytt jobb
+  - `limit` respekteras och återstående-siffran stämmer
+  - routen: POST utan giltig CSRF ger 400, POST utan sparat bibliotek köar
+    inget
+- `.venv/bin/ruff check flipp_dl tests` utan nya fel.
+- `grep -c "msgstr \"\"" flipp_dl/web/locales/sv/LC_MESSAGES/messages.po`
+  ska inte ha ökat för de nya strängarna (tomma msgstr = oöversatt).
+- Manuellt/browser (görs av föräldern): starta appen, öppna
+  `/settings`, klicka knappen vid 1280px och 390px och se att svaret
+  visar antalet köade jobb.
 
 - ID: `01M0NJ7G7SBSYJMQR0NGPGWWXA`
 - Type: improvement
