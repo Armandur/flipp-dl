@@ -514,6 +514,57 @@ Rätt fix är troligen en riktig claim-fråga mot DB (SELECT ... WHERE status=qu
 
 ---
 
+## [P3][todo] [flipp] Backfilla Komga-metadata för utgåvor som aldrig fick ett synkjobb
+
+## Context
+
+TASK-1481 gjorde att ett komga_sync-jobb vars bok inte hunnit indexeras
+köas om i stället för att dö som error. Det löser framtida jobb - men inte
+det som redan finns i drift:
+
+- 1247 nedladdade utgåvor saknar metadata i Komga för att de aldrig fick
+  ett komga_sync-jobb alls. Jobb skapas bara när ett download-jobb blir
+  klart (scheduler.py:735), och bakkatalogen hämtades innan Komga var
+  påslaget.
+- De 27 jobb som redan står som error är terminala. schedule_job_retry
+  triggar bara på ett fel som inträffar nu, så ingenting väcker dem.
+
+Utan den här tasken sjunker inte error-siffran och komga_book_id-antalet
+stiger inte, oavsett hur bra omköandet fungerar.
+
+## Fallgrop som måste lösas i designen
+
+En naiv backfill ("köa alla done-utgåvor med komga_book_id is null varje
+tick") churnar för evigt: en publikation som aldrig matchar en Komga-serie
+får ett nytt jobb var 30:e sekund. Att i stället fråga jobbtabellen
+"har den här utgåvan någonsin haft ett komga_sync-jobb" håller inte heller
+- purge_old_jobs raderar klara jobb efter 30 dagar.
+
+Rimliga vägar: en explicit engångsåtgärd (CLI-flagga eller knapp i
+Inställningar) i stället för en automatisk backfill, eller en kolumn på
+issues som minns senaste synkförsöket.
+
+## Acceptance criteria
+
+- [ ] Utgåvor som är nedladdade men saknar komga_book_id kan få metadata
+      pushad utan att laddas ned igen.
+- [ ] Åtgärden kan köras om utan att skapa dubbletter eller köa om samma
+      utgåva i all oändlighet.
+- [ ] De befintliga error-jobben går att återuppliva (eller ersätts av nya
+      jobb) så error-siffran faktiskt sjunker.
+
+## Verification
+
+- Test som visar att en andra körning inte köar samma utgåva igen.
+- I drift: select count(*) from issues where komga_book_id is not null
+  stiger mot antalet nedladdade.
+
+- ID: `01M0NJ7G7SBSYJMQR0NGPGWWXA`
+- Type: improvement
+- Actor: ai:claude-code
+
+---
+
 ## [P3][todo] [flipp] Flytta filerna när en publikation byter mapp eller destination
 
 ## Context
@@ -575,7 +626,7 @@ men bara om papperskorgen inte tömts emellan. Verifierat 2026-08-21.
 
 ---
 
-## [P3][todo] [flipp] Köa om Komga-synkar som kom före indexeringen
+## [P3][done] [flipp] Köa om Komga-synkar som kom före indexeringen
 
 ## Context
 
@@ -1736,6 +1787,26 @@ Bygg vidare på befintliga byggstenar i stället för att uppfinna nya: `list_is
 - ID: `01M0BBY3X4VKXXTRYY9T2EGDP4`
 - Type: feature
 - Actor: ai:claude-opus-5
+
+---
+
+## [P4][todo] [flipp] Städa efter kvällens omflyttning: papperskorg, dubbletter, testtokens
+
+Praktiska steg som väntar på Rasmus efter omflyttningen 2026-08-21/22. Ingen kodändring.
+
+1. Töm Komgas papperskorg i BÅDA biblioteken (Skannade och Flipp). Där ligger poster för de 121 filer som döptes om, plus de 560 dubbletterna vars filer flyttats till ws. Komga matchar via filhash, så kontrollera först att de nya posterna finns i Flipp-biblioteket - efter tömning går ingen återställning.
+
+2. Radera /mnt/user/media/Serier/ws/_dubbletter, 30 GB. Det är 560 PDF:er som är äldre kopior av det som finns i Manuella/Flipp-dl. Verifierat fil för fil.
+
+3. Ta bort två engångstokens i ntfy som mintades under verifiering: svc-flipp-dl-test och svc-flipp-dl-felnotis. RÖR INTE svc-flipp-dl - den används i drift.
+   docker exec Ntfy ntfy token list svcpub
+   docker exec Ntfy ntfy token remove svcpub <id>
+
+4. Containern flipp-dl-dev ligger fyra commits efter branchen (felnotiserna, StrEnum, README). Uppdatera via Unraid GraphQL updateContainer när kön är tom.
+
+- ID: `01M0NH9HGSCX8XQ4WG3S49VG5M`
+- Type: chore
+- Actor: ai:claude-code
 
 ---
 
