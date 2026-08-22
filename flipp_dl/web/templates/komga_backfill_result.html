@@ -1,5 +1,5 @@
-{% if library_missing %}
-<div class="error">{{ _("No Komga library is saved. Select a library and save settings first.") }}</div>
+{% if not_configured %}
+<div class="error">{{ _("Komga is not fully configured. Enable it, enter the URL and select a library, then save settings first.") }}</div>
 {% else %}
 <div class="note">
   {{ _("Queued %(queued)s Komga metadata job(s). %(remaining)s issue(s) remain.") % {

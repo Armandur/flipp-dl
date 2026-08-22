@@ -1516,12 +1516,18 @@ def register(app: FastAPI) -> None:
 
         repo = _repo(request)
         try:
-            library_id = repo.get_setting("komga_library_id", "").strip()
-            if not library_id:
+            # The same three-part guard the download path uses before it
+            # queues a sync (TASK-1326): an incomplete configuration must
+            # not produce jobs. Without it, jobs queued here would sit
+            # forever - run_komga_sync_queue returns without draining
+            # anything when Komga is off.
+            settings = resolve_komga_settings_from_repo(repo)
+            library_id = settings["library_id"]
+            if not (settings["enabled"] and settings["url"] and library_id):
                 return _templates(request).TemplateResponse(
                     request,
                     "komga_backfill_result.html",
-                    {"library_missing": True, "queued": 0, "remaining": 0},
+                    {"not_configured": True, "queued": 0, "remaining": 0},
                 )
 
             queued, remaining = repo.queue_komga_backfill(

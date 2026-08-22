@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-08-22 22:39+0200\n"
+"POT-Creation-Date: 2026-08-22 22:53+0200\n"
 "PO-Revision-Date: 2026-08-19 18:14+0200\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: sv\n"
@@ -483,8 +483,12 @@ msgid "No jobs yet."
 msgstr "Inga jobb än."
 
 #: flipp_dl/web/templates/komga_backfill_result.html:2
-msgid "No Komga library is saved. Select a library and save settings first."
-msgstr "Inget Komga-bibliotek är sparat. Välj ett bibliotek och spara inställningarna först."
+msgid ""
+"Komga is not fully configured. Enable it, enter the URL and select a "
+"library, then save settings first."
+msgstr ""
+"Komga är inte färdigkonfigurerat. Slå på det, fyll i adressen och välj ett "
+"bibliotek, och spara inställningarna först."
 
 #: flipp_dl/web/templates/komga_backfill_result.html:5
 #, python-format
@@ -1527,7 +1531,7 @@ msgstr "adressen svarade, men innehållet verkar inte komma från Komga."
 msgid "something went wrong. Check the address and try again."
 msgstr "något gick fel. Kontrollera adressen och försök igen."
 
-#: flipp_dl/web/routes.py:1586
+#: flipp_dl/web/routes.py:1592
 msgid "This is a test notification from flipp-dl. Nothing is wrong."
 msgstr "Det här är en testnotis från flipp-dl. Inget är fel."
 

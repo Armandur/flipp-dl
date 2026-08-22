@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-08-22 22:39+0200\n"
+"POT-Creation-Date: 2026-08-22 22:53+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -464,7 +464,9 @@ msgid "No jobs yet."
 msgstr ""
 
 #: flipp_dl/web/templates/komga_backfill_result.html:2
-msgid "No Komga library is saved. Select a library and save settings first."
+msgid ""
+"Komga is not fully configured. Enable it, enter the URL and select a "
+"library, then save settings first."
 msgstr ""
 
 #: flipp_dl/web/templates/komga_backfill_result.html:5
@@ -1421,7 +1423,7 @@ msgstr ""
 msgid "something went wrong. Check the address and try again."
 msgstr ""
 
-#: flipp_dl/web/routes.py:1586
+#: flipp_dl/web/routes.py:1592
 msgid "This is a test notification from flipp-dl. Nothing is wrong."
 msgstr ""
 

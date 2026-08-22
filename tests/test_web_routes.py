@@ -1946,7 +1946,30 @@ def test_komga_backfill_without_saved_library_queues_nothing(client: TestClient)
     resp = client.post("/settings/komga/backfill", data={"_csrf_token": csrf})
 
     assert resp.status_code == 200
-    assert "No Komga library is saved" in resp.text
+    assert "Komga is not fully configured" in resp.text
+    with get_session(client.app.state.session_factory) as session:
+        assert session.query(DbJob).count() == 0
+
+
+def test_komga_backfill_queues_nothing_when_komga_is_disabled(client: TestClient):
+    """A saved library with the integration switched off must not queue.
+
+    run_komga_sync_queue returns without draining anything when Komga is
+    off, so jobs queued here would sit as queued forever.
+    """
+    from flipp_dl.db.models import DbJob
+
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        repo.set_setting("komga_library_id", "library-1")
+        repo.set_setting("komga_url", "http://localhost:25600")
+        repo.set_setting("komga_enabled", "false")
+
+    csrf = _csrf_for(client)
+    resp = client.post("/settings/komga/backfill", data={"_csrf_token": csrf})
+
+    assert resp.status_code == 200
+    assert "Komga is not fully configured" in resp.text
     with get_session(client.app.state.session_factory) as session:
         assert session.query(DbJob).count() == 0
 
@@ -1957,6 +1980,8 @@ def test_komga_backfill_queues_jobs_for_the_saved_library(client: TestClient):
     with get_session(client.app.state.session_factory) as session:
         repo = DownloadRepository(session)
         repo.set_setting("komga_library_id", "library-1")
+        repo.set_setting("komga_url", "http://localhost:25600")
+        repo.set_setting("komga_enabled", "true")
 
     csrf = _csrf_for(client)
     resp = client.post("/settings/komga/backfill", data={"_csrf_token": csrf})
