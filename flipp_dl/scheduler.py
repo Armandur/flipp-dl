@@ -233,7 +233,18 @@ _FAILURE_NOTIFICATIONS = {
 def _notify_failure_transition(
     session_factory, failure_type: str, error: str | None
 ) -> None:
-    """Persist and notify only failure-state transitions for one subsystem."""
+    """Persist and notify only failure-state transitions for one subsystem.
+
+    The channels are resolved BEFORE the state is written. With no channel
+    configured there is nobody to tell, so the transition must not be
+    recorded either - otherwise an outage that starts before notifications
+    are set up is remembered as "already reported" and never announced,
+    not even once a channel exists.
+    """
+    channels = build_notify_channels(resolve_notify_settings(session_factory))
+    if not channels:
+        return
+
     failed = error is not None
     setting_key = f"notify_failure_{failure_type}"
     with get_session(session_factory) as session:
@@ -242,10 +253,6 @@ def _notify_failure_transition(
         if was_failed == failed:
             return
         repo.set_setting(setting_key, "true" if failed else "false")
-
-    channels = build_notify_channels(resolve_notify_settings(session_factory))
-    if not channels:
-        return
 
     failure_title, failure_message, recovery_title, recovery_message = (
         _FAILURE_NOTIFICATIONS[failure_type]

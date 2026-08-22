@@ -1187,16 +1187,21 @@ def test_poll_failure_notifies_once_and_recovery_notifies(
     assert "fungerar igen" in channel.sent[1][0]
 
 
-def test_poll_failure_without_channels_is_silent_and_does_not_crash(
+def test_poll_failure_without_channels_is_silent_and_leaves_no_state(
     repo, session_factory, tmp_path
 ):
+    """No channel means nobody to tell - and nothing to remember.
+
+    Recording the failure here would mark the outage as reported, so the
+    first notification after ntfy is configured would never arrive.
+    """
     repo.set_setting("flipp_token", "expired-token")
     repo.session.commit()
 
     poll_publications(_FailingPollClient(), session_factory, tmp_path)
 
     with get_session(session_factory) as session:
-        assert DownloadRepository(session).get_setting("notify_failure_poll") == "true"
+        assert DownloadRepository(session).get_setting("notify_failure_poll", "") == ""
 
 
 def test_run_download_queue_sends_one_bundled_notification_for_several_issues(
@@ -1756,3 +1761,36 @@ def test_the_web_entrypoint_uses_the_notifying_editions_runner():
     import flipp_dl.web.main as web_main
 
     assert web_main.run_editions_queue is scheduler.run_editions_queue
+
+
+def test_a_failure_before_notifications_exist_is_still_announced_later(
+    repo, session_factory, monkeypatch
+):
+    """A channel configured after the outage started must still hear about it.
+
+    Writing the failure state before checking for channels made the first
+    failure consume the transition silently - the outage was then remembered
+    as reported and never announced, not even once ntfy was set up.
+    """
+    channel = _RecordingChannel()
+    ingen_kanal = {"aktiv": False}
+    monkeypatch.setattr(
+        "flipp_dl.scheduler.build_notify_channels",
+        lambda settings: [channel] if ingen_kanal["aktiv"] else [],
+    )
+
+    from flipp_dl.scheduler import _notify_failure_transition
+
+    # Felet inträffar innan någon kanal finns.
+    _notify_failure_transition(session_factory, "poll", "401 Unauthorized")
+    assert channel.sent == []
+
+    # Kanalen konfigureras, felet står kvar - nu ska det höras.
+    ingen_kanal["aktiv"] = True
+    _notify_failure_transition(session_factory, "poll", "401 Unauthorized")
+    assert len(channel.sent) == 1
+    assert "misslyckades" in channel.sent[0][0]
+
+    # Och fortfarande bara en gång.
+    _notify_failure_transition(session_factory, "poll", "401 Unauthorized")
+    assert len(channel.sent) == 1
