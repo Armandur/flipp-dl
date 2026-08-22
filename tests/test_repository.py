@@ -1,5 +1,6 @@
 """Tests for DownloadRepository using an in-memory SQLite database."""
 
+import json
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -8,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from flipp_dl import storage
-from flipp_dl.db.models import DbIssue, IssueStatus, JobStatus
+from flipp_dl.db.models import DbIssue, DbJob, IssueStatus, JobStatus
 from flipp_dl.db.repository import (
     MAX_AUTO_RETRIES,
     RETRY_DELAYS_MINUTES,
@@ -892,6 +893,80 @@ def test_job_error(repo):
     db = repo.session.get(type(job), job.id)
     assert db.status == JobStatus.ERROR
     assert db.error_message == "Timeout"
+
+
+def _downloaded_issues_for_komga(repo, count=2):
+    pub = repo.upsert_publication(Publication(custom_code="KG", name="Komga"))
+    issues = []
+    for index in range(count):
+        issue = Issue(
+            custom_code=f"kg-{index}",
+            issue_name=f"Nr {index}",
+            issue_date="2024-01-01",
+        )
+        db_issue, _ = repo.upsert_issue(issue, pub.id)
+        db_issue.status = IssueStatus.DONE
+        db_issue.file_path = f"/downloads/kg-{index}.pdf"
+        issues.append(db_issue)
+    repo.session.flush()
+    return issues
+
+
+def test_queue_komga_backfill_queues_only_unmapped_downloaded_issues(repo):
+    unmapped, mapped = _downloaded_issues_for_komga(repo)
+    mapped.komga_book_id = 42
+    repo.session.commit()
+
+    queued, remaining = repo.queue_komga_backfill("library-1", 500)
+    repo.session.commit()
+
+    jobs = list(repo.session.scalars(select(DbJob)))
+    assert (queued, remaining) == (1, 0)
+    assert len(jobs) == 1
+    assert jobs[0].job_type == "komga_sync"
+    assert jobs[0].status == JobStatus.QUEUED
+    assert jobs[0].payload == json.dumps(
+        {"library_id": "library-1", "issue_id": unmapped.id}
+    )
+
+
+def test_queue_komga_backfill_skips_an_existing_active_job(repo):
+    (issue,) = _downloaded_issues_for_komga(repo, count=1)
+    repo.session.commit()
+
+    assert repo.queue_komga_backfill("library-1", 500) == (1, 0)
+    assert repo.queue_komga_backfill("library-1", 500) == (0, 0)
+    repo.session.commit()
+
+    assert repo.session.query(DbJob).count() == 1
+    assert (
+        json.loads(repo.session.scalar(select(DbJob.payload)))["issue_id"] == issue.id
+    )
+
+
+def test_queue_komga_backfill_retries_an_issue_with_only_an_error_job(repo):
+    (issue,) = _downloaded_issues_for_komga(repo, count=1)
+    old_job = repo.create_job(
+        "komga_sync", {"library_id": "library-1", "issue_id": issue.id}
+    )
+    repo.finish_job(old_job.id, error="not found")
+    repo.session.commit()
+
+    assert repo.queue_komga_backfill("library-1", 500) == (1, 0)
+    repo.session.commit()
+
+    jobs = list(repo.session.scalars(select(DbJob).order_by(DbJob.id)))
+    assert [job.status for job in jobs] == [JobStatus.ERROR, JobStatus.QUEUED]
+
+
+def test_queue_komga_backfill_respects_limit_and_reports_remaining(repo):
+    _downloaded_issues_for_komga(repo, count=4)
+    repo.session.commit()
+
+    assert repo.queue_komga_backfill("library-1", 2) == (2, 2)
+    repo.session.commit()
+
+    assert repo.session.query(DbJob).count() == 2
 
 
 def test_list_jobs_ordered_newest_first(repo):

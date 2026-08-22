@@ -291,6 +291,23 @@
       </span>
     </div>
 
+    <div class="field">
+      <button
+        type="button"
+        class="btn btn-primary-soft"
+        id="komga-backfill-btn"
+        hx-post="/settings/komga/backfill"
+        hx-target="#komga-backfill-result"
+        hx-swap="innerHTML"
+        hx-indicator="#komga-backfill-spinner"
+        hx-vals='{"_csrf_token": "{{ csrf_token }}"}'
+      >{{ _("Queue missing Komga metadata") }}</button>
+      <span id="komga-backfill-spinner" class="htmx-indicator dim" style="margin-left:12px;">
+        {{ _("Queuing…") }}
+      </span>
+      <div id="komga-backfill-result" aria-live="polite"></div>
+    </div>
+
     <h2>{{ _("Notifications") }}</h2>
     <div class="note">
       {{ _("Get a push notification when a new issue finishes downloading, or when a download fails. Two channels are supported and can be enabled independently - use one, both, or neither.") }}

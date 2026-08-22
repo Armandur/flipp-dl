@@ -162,6 +162,7 @@ MAX_AUTO_RETRIES = len(RETRY_DELAYS_MINUTES)
 # takes far longer than a network blip.
 JOB_RETRY_DELAYS_MINUTES: tuple[int, ...] = (2, 10, 30, 60)
 MAX_JOB_RETRIES = len(JOB_RETRY_DELAYS_MINUTES)
+KOMGA_BACKFILL_LIMIT = 500
 
 
 def _parse_positive_int(raw: str) -> int | None:
@@ -1543,6 +1544,62 @@ class DownloadRepository:
         self.session.add(job)
         self.session.flush()
         return job
+
+    def queue_komga_backfill(self, library_id: str, limit: int) -> tuple[int, int]:
+        """Queue Komga metadata syncs for downloaded, unmapped issues.
+
+        Active sync jobs are the only duplicate guard. Finished and failed
+        jobs deliberately remain eligible so an explicit backfill can retry
+        issues whose earlier sync did not succeed.
+        """
+        active_issue_ids: set[int] = set()
+        active_payloads = self.session.scalars(
+            select(DbJob.payload).where(
+                DbJob.job_type == "komga_sync",
+                DbJob.status.in_(
+                    (
+                        JobStatus.QUEUED,
+                        JobStatus.RUNNING,
+                        JobStatus.RETRY_PENDING,
+                    )
+                ),
+            )
+        )
+        for raw_payload in active_payloads:
+            try:
+                payload = json.loads(raw_payload or "{}")
+            except (TypeError, ValueError):
+                continue
+            if not isinstance(payload, dict):
+                continue
+            try:
+                active_issue_ids.add(int(payload["issue_id"]))
+            except (KeyError, TypeError, ValueError):
+                continue
+
+        eligible_issue_ids = list(
+            self.session.scalars(
+                select(DbIssue.id)
+                .where(
+                    DbIssue.status == IssueStatus.DONE,
+                    DbIssue.file_path.is_not(None),
+                    DbIssue.komga_book_id.is_(None),
+                )
+                .order_by(DbIssue.id)
+            )
+        )
+        available_issue_ids = [
+            issue_id
+            for issue_id in eligible_issue_ids
+            if issue_id not in active_issue_ids
+        ]
+        queued_issue_ids = available_issue_ids[: max(limit, 0)]
+        for issue_id in queued_issue_ids:
+            self.create_job(
+                "komga_sync", {"library_id": library_id, "issue_id": issue_id}
+            )
+
+        return len(queued_issue_ids), len(available_issue_ids) - len(queued_issue_ids)
 
     def start_job(self, job_id: int) -> None:
         job = self.session.get(DbJob, job_id)

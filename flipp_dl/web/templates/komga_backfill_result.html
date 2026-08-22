@@ -1,0 +1,10 @@
+{% if library_missing %}
+<div class="error">{{ _("No Komga library is saved. Select a library and save settings first.") }}</div>
+{% else %}
+<div class="note">
+  {{ _("Queued %(queued)s Komga metadata job(s). %(remaining)s issue(s) remain.") % {
+    "queued": queued,
+    "remaining": remaining
+  } }}
+</div>
+{% endif %}

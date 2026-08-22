@@ -9,6 +9,7 @@ through :class:`fastapi.testclient.TestClient`.
 
 from __future__ import annotations
 
+import json
 import re
 from datetime import UTC
 from pathlib import Path
@@ -1931,6 +1932,41 @@ def test_komga_test_connection_requires_csrf(client: TestClient):
         },
     )
     assert resp.status_code == 400
+
+
+def test_komga_backfill_requires_csrf(client: TestClient):
+    resp = client.post("/settings/komga/backfill")
+    assert resp.status_code == 400
+
+
+def test_komga_backfill_without_saved_library_queues_nothing(client: TestClient):
+    from flipp_dl.db.models import DbJob
+
+    csrf = _csrf_for(client)
+    resp = client.post("/settings/komga/backfill", data={"_csrf_token": csrf})
+
+    assert resp.status_code == 200
+    assert "No Komga library is saved" in resp.text
+    with get_session(client.app.state.session_factory) as session:
+        assert session.query(DbJob).count() == 0
+
+
+def test_komga_backfill_queues_jobs_for_the_saved_library(client: TestClient):
+    from flipp_dl.db.models import DbJob
+
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        repo.set_setting("komga_library_id", "library-1")
+
+    csrf = _csrf_for(client)
+    resp = client.post("/settings/komga/backfill", data={"_csrf_token": csrf})
+
+    assert resp.status_code == 200
+    assert "Queued 2 Komga metadata job(s). 0 issue(s) remain." in resp.text
+    with get_session(client.app.state.session_factory) as session:
+        jobs = list(session.query(DbJob).all())
+        assert len(jobs) == 2
+        assert all(json.loads(job.payload)["library_id"] == "library-1" for job in jobs)
 
 
 # ---------------------------------------------------------------------------

@@ -23,6 +23,7 @@ from ..api import WRONG_CREDENTIALS, FlippClient, FlippError
 from ..config import load_token
 from ..db.models import IssueStatus, JobStatus
 from ..db.repository import (
+    KOMGA_BACKFILL_LIMIT,
     DownloadRepository,
     PublicationDestinationError,
     PublicationFolderConflict,
@@ -1507,6 +1508,37 @@ def register(app: FastAPI) -> None:
             "komga_library_select.html",
             {"error": None, "libraries": libraries, "selected": selected},
         )
+
+    @app.post("/settings/komga/backfill", response_class=HTMLResponse)
+    async def komga_backfill(request: Request):
+        if not await check_csrf_form(request):
+            return HTMLResponse("CSRF validation failed", status_code=400)
+
+        repo = _repo(request)
+        try:
+            library_id = repo.get_setting("komga_library_id", "").strip()
+            if not library_id:
+                return _templates(request).TemplateResponse(
+                    request,
+                    "komga_backfill_result.html",
+                    {"library_missing": True, "queued": 0, "remaining": 0},
+                )
+
+            queued, remaining = repo.queue_komga_backfill(
+                library_id, KOMGA_BACKFILL_LIMIT
+            )
+            repo.session.commit()
+            return _templates(request).TemplateResponse(
+                request,
+                "komga_backfill_result.html",
+                {
+                    "library_missing": False,
+                    "queued": queued,
+                    "remaining": remaining,
+                },
+            )
+        finally:
+            repo.session.close()
 
     @app.post("/settings/notify/test", response_class=HTMLResponse)
     async def notify_test(

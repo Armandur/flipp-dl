@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-08-22 18:02+0200\n"
+"POT-Creation-Date: 2026-08-22 22:39+0200\n"
 "PO-Revision-Date: 2026-08-19 18:14+0200\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: sv\n"
@@ -18,51 +18,51 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.18.0\n"
 
-#: flipp_dl/web/templates/base.html:405 flipp_dl/web/templates/dashboard.html:2
+#: flipp_dl/web/templates/base.html:406 flipp_dl/web/templates/dashboard.html:2
 #: flipp_dl/web/templates/dashboard.html:5
 msgid "Dashboard"
 msgstr "Översikt"
 
-#: flipp_dl/web/templates/base.html:406
+#: flipp_dl/web/templates/base.html:407
 #: flipp_dl/web/templates/publications.html:2
 #: flipp_dl/web/templates/publications.html:5
 #: flipp_dl/web/templates/stats_cards.html:3
 msgid "Publications"
 msgstr "Publikationer"
 
-#: flipp_dl/web/templates/base.html:407 flipp_dl/web/templates/search.html:2
+#: flipp_dl/web/templates/base.html:408 flipp_dl/web/templates/search.html:2
 #: flipp_dl/web/templates/search.html:5 flipp_dl/web/templates/search.html:31
 msgid "Search"
 msgstr "Sök"
 
-#: flipp_dl/web/templates/base.html:408 flipp_dl/web/templates/library.html:2
+#: flipp_dl/web/templates/base.html:409 flipp_dl/web/templates/library.html:2
 #: flipp_dl/web/templates/library.html:5
 #: flipp_dl/web/templates/settings.html:266
 msgid "Library"
 msgstr "Bibliotek"
 
-#: flipp_dl/web/templates/base.html:409 flipp_dl/web/templates/jobs.html:2
+#: flipp_dl/web/templates/base.html:410 flipp_dl/web/templates/jobs.html:2
 #: flipp_dl/web/templates/jobs.html:5
 msgid "Jobs"
 msgstr "Jobb"
 
-#: flipp_dl/web/templates/base.html:410 flipp_dl/web/templates/settings.html:2
+#: flipp_dl/web/templates/base.html:411 flipp_dl/web/templates/settings.html:2
 #: flipp_dl/web/templates/settings.html:38
 msgid "Settings"
 msgstr "Inställningar"
 
-#: flipp_dl/web/templates/base.html:417
+#: flipp_dl/web/templates/base.html:418
 msgid "Sign out"
 msgstr "Logga ut"
 
-#: flipp_dl/web/templates/base.html:431
+#: flipp_dl/web/templates/base.html:432
 #: flipp_dl/web/templates/issue_row.html:88
 #: flipp_dl/web/templates/issue_row.html:100
 #: flipp_dl/web/templates/settings.html:33
 msgid "Cancel"
 msgstr "Avbryt"
 
-#: flipp_dl/web/templates/base.html:432
+#: flipp_dl/web/templates/base.html:433
 msgid "Confirm"
 msgstr "Bekräfta"
 
@@ -208,18 +208,21 @@ msgstr "Expandera alla"
 msgid "Collapse all"
 msgstr "Fäll ihop alla"
 
-#: flipp_dl/web/templates/debug_poll_result.html:26
+#: flipp_dl/web/templates/debug_poll_result.html:29
 msgid "Failed to parse response JSON:"
 msgstr "Kunde inte tolka svarets JSON:"
 
-#: flipp_dl/web/templates/debug_poll_result.html:137
-#: flipp_dl/web/templates/settings.html:737
+#: flipp_dl/web/templates/debug_poll_result.html:148
+#: flipp_dl/web/templates/debug_poll_result.html:153
+#: flipp_dl/web/templates/settings.html:750
+#: flipp_dl/web/templates/settings.html:755
+msgid "Selected - press Ctrl+C to copy"
+msgstr "Markerat - tryck Ctrl+C för att kopiera"
+
+#: flipp_dl/web/templates/debug_poll_result.html:152
+#: flipp_dl/web/templates/settings.html:754
 msgid "Copied"
 msgstr "Kopierat"
-
-#: flipp_dl/web/templates/debug_poll_result.html:138
-msgid "Copy failed - select the JSON and copy manually"
-msgstr "Kopiering misslyckades - markera JSON:en och kopiera manuellt"
 
 #: flipp_dl/web/templates/editions_status.html:19
 msgid "No edition run has been started yet."
@@ -479,6 +482,15 @@ msgstr "jobb."
 msgid "No jobs yet."
 msgstr "Inga jobb än."
 
+#: flipp_dl/web/templates/komga_backfill_result.html:2
+msgid "No Komga library is saved. Select a library and save settings first."
+msgstr "Inget Komga-bibliotek är sparat. Välj ett bibliotek och spara inställningarna först."
+
+#: flipp_dl/web/templates/komga_backfill_result.html:5
+#, python-format
+msgid "Queued %(queued)s Komga metadata job(s). %(remaining)s issue(s) remain."
+msgstr "Köade %(queued)s Komga-metadatajobb. %(remaining)s utgåvor återstår."
+
 #: flipp_dl/web/templates/komga_library_select.html:2
 msgid "Could not connect to Komga:"
 msgstr "Kunde inte ansluta till Komga:"
@@ -692,7 +704,7 @@ msgid "Secondary output root"
 msgstr "Sekundär utdatarot"
 
 #: flipp_dl/web/templates/publication_detail.html:164
-#: flipp_dl/web/templates/settings.html:294
+#: flipp_dl/web/templates/settings.html:311
 msgid "Notifications"
 msgstr "Notiser"
 
@@ -839,7 +851,7 @@ msgid "Next issue"
 msgstr "Nästa utgåva"
 
 #: flipp_dl/web/templates/publications.html:43
-#: flipp_dl/web/templates/settings.html:413
+#: flipp_dl/web/templates/settings.html:430
 msgid "Actions"
 msgstr "Åtgärder"
 
@@ -1145,7 +1157,15 @@ msgstr "Testa anslutning"
 msgid "Testing…"
 msgstr "Testar…"
 
-#: flipp_dl/web/templates/settings.html:296
+#: flipp_dl/web/templates/settings.html:304
+msgid "Queue missing Komga metadata"
+msgstr "Köa saknad Komga-metadata"
+
+#: flipp_dl/web/templates/settings.html:306
+msgid "Queuing…"
+msgstr "Köar…"
+
+#: flipp_dl/web/templates/settings.html:313
 msgid ""
 "Get a push notification when a new issue finishes downloading, or when a "
 "download fails. Two channels are supported and can be enabled "
@@ -1155,51 +1175,51 @@ msgstr ""
 "nedladdning misslyckas. Två kanaler stöds och kan aktiveras oberoende av "
 "varandra - använd en, båda eller ingen."
 
-#: flipp_dl/web/templates/settings.html:307
+#: flipp_dl/web/templates/settings.html:324
 msgid "Enable ntfy notifications"
 msgstr "Aktivera ntfy-notiser"
 
-#: flipp_dl/web/templates/settings.html:312
+#: flipp_dl/web/templates/settings.html:329
 msgid "ntfy server URL"
 msgstr "ntfy-server-URL"
 
-#: flipp_dl/web/templates/settings.html:323
+#: flipp_dl/web/templates/settings.html:340
 msgid "ntfy topic"
 msgstr "ntfy-ämne"
 
-#: flipp_dl/web/templates/settings.html:334
+#: flipp_dl/web/templates/settings.html:351
 msgid "ntfy access token"
 msgstr "ntfy-åtkomsttoken"
 
-#: flipp_dl/web/templates/settings.html:343
+#: flipp_dl/web/templates/settings.html:360
 msgid "No token saved (only needed for a protected topic)"
 msgstr "Ingen token sparad (behövs bara för ett skyddat ämne)"
 
-#: flipp_dl/web/templates/settings.html:347
+#: flipp_dl/web/templates/settings.html:364
 msgid "Leave blank to keep the saved token."
 msgstr "Lämna tomt för att behålla den sparade token."
 
-#: flipp_dl/web/templates/settings.html:364
+#: flipp_dl/web/templates/settings.html:381
 msgid "Send a test notification"
 msgstr "Skicka en testnotis"
 
-#: flipp_dl/web/templates/settings.html:366
+#: flipp_dl/web/templates/settings.html:383
 msgid "Sending…"
 msgstr "Skickar…"
 
-#: flipp_dl/web/templates/settings.html:379
+#: flipp_dl/web/templates/settings.html:396
 msgid "Enable webhook notifications"
 msgstr "Aktivera webhook-notiser"
 
-#: flipp_dl/web/templates/settings.html:384
+#: flipp_dl/web/templates/settings.html:401
 msgid "Webhook URL"
 msgstr "Webhook-URL"
 
-#: flipp_dl/web/templates/settings.html:393
+#: flipp_dl/web/templates/settings.html:410
 msgid "No webhook URL saved"
 msgstr "Ingen webhook-URL sparad"
 
-#: flipp_dl/web/templates/settings.html:398
+#: flipp_dl/web/templates/settings.html:415
 msgid ""
 "A URL is saved and in use. Leave blank to keep it unchanged. Every new "
 "issue (or failure) is POSTed here as"
@@ -1207,24 +1227,24 @@ msgstr ""
 "En URL är sparad och används. Lämna tomt för att behålla den. Varje ny "
 "utgåva (eller misslyckande) POSTas hit som"
 
-#: flipp_dl/web/templates/settings.html:403
+#: flipp_dl/web/templates/settings.html:420
 msgid "POSTs"
 msgstr "POSTar"
 
-#: flipp_dl/web/templates/settings.html:403
+#: flipp_dl/web/templates/settings.html:420
 msgid "to this URL for every new issue (or failure)."
 msgstr "till den här URL:en för varje ny utgåva (eller misslyckande)."
 
-#: flipp_dl/web/templates/settings.html:408
+#: flipp_dl/web/templates/settings.html:425
 msgid "Save Settings"
 msgstr "Spara inställningar"
 
-#: flipp_dl/web/templates/settings.html:416
-#: flipp_dl/web/templates/settings.html:431
+#: flipp_dl/web/templates/settings.html:433
+#: flipp_dl/web/templates/settings.html:448
 msgid "Poll now"
 msgstr "Kör pollning nu"
 
-#: flipp_dl/web/templates/settings.html:418
+#: flipp_dl/web/templates/settings.html:435
 msgid ""
 "Ask the Flipp API for new issues right away instead of waiting for the "
 "next scheduled poll. New issues in a watched publication are queued for "
@@ -1238,15 +1258,15 @@ msgstr ""
 "saknade omslag efter en utgåveupptäckt. Tar en stund när det finns mycket"
 " att hämta."
 
-#: flipp_dl/web/templates/settings.html:433
+#: flipp_dl/web/templates/settings.html:450
 msgid "Polling…"
 msgstr "Pollar…"
 
-#: flipp_dl/web/templates/settings.html:440
+#: flipp_dl/web/templates/settings.html:457
 msgid "Catalogue and codes"
 msgstr "Katalog och koder"
 
-#: flipp_dl/web/templates/settings.html:442
+#: flipp_dl/web/templates/settings.html:459
 msgid ""
 "The publication and issue codes are the irreplaceable part of the "
 "database - everything else can be downloaded again. Save them as a JSON "
@@ -1261,23 +1281,23 @@ msgstr ""
 "publikationslistan, plus den valfria listan över publikationer som Flipp "
 "inte listar) lägger till publikationer utan att röra dem du redan har."
 
-#: flipp_dl/web/templates/settings.html:446
+#: flipp_dl/web/templates/settings.html:463
 msgid "Download a code backup"
 msgstr "Ladda ner en säkerhetskopia av koderna"
 
-#: flipp_dl/web/templates/settings.html:449
+#: flipp_dl/web/templates/settings.html:466
 msgid "Download codes (JSON)"
 msgstr "Ladda ner koder (JSON)"
 
-#: flipp_dl/web/templates/settings.html:462
+#: flipp_dl/web/templates/settings.html:479
 msgid "Restore a code backup"
 msgstr "Återställ från en säkerhetskopia"
 
-#: flipp_dl/web/templates/settings.html:464
+#: flipp_dl/web/templates/settings.html:481
 msgid "Backup file (JSON)"
 msgstr "Säkerhetskopia (JSON)"
 
-#: flipp_dl/web/templates/settings.html:466
+#: flipp_dl/web/templates/settings.html:483
 msgid ""
 "A file downloaded with the button above. Publications and issue codes in "
 "it are added back; nothing already in the database is removed."
@@ -1285,25 +1305,25 @@ msgstr ""
 "En fil som hämtats med knappen ovanför. Publikationer och utgåvekoder i "
 "den läggs tillbaka; ingenting som redan finns i databasen tas bort."
 
-#: flipp_dl/web/templates/settings.html:468
+#: flipp_dl/web/templates/settings.html:485
 msgid "Restore codes"
 msgstr "Återställ koder"
 
-#: flipp_dl/web/templates/settings.html:480
+#: flipp_dl/web/templates/settings.html:497
 msgid "Import a catalogue"
 msgstr "Importera en katalog"
 
-#: flipp_dl/web/templates/settings.html:482
+#: flipp_dl/web/templates/settings.html:499
 msgid "Catalogue file (JSON)"
 msgstr "Katalogfil (JSON)"
 
-#: flipp_dl/web/templates/settings.html:484
+#: flipp_dl/web/templates/settings.html:501
 msgid "The list of every publication Flipp offers, shipped with flipp-dl as"
 msgstr ""
 "Listan över varje publikation som Flipp erbjuder, som följer med flipp-dl"
 " som"
 
-#: flipp_dl/web/templates/settings.html:484
+#: flipp_dl/web/templates/settings.html:501
 msgid ""
 "Importing it adds the publications the database does not have yet, "
 "without any network calls, so they can be watched and their editions "
@@ -1313,17 +1333,17 @@ msgstr ""
 "utan några nätverksanrop, så att de går att bevaka och hämta utgåvor för."
 " Publikationer du redan har lämnas orörda."
 
-#: flipp_dl/web/templates/settings.html:487
+#: flipp_dl/web/templates/settings.html:504
 msgid "Unlisted publications (JSON, optional)"
 msgstr "Olistade publikationer (JSON, valfri)"
 
-#: flipp_dl/web/templates/settings.html:489
+#: flipp_dl/web/templates/settings.html:506
 msgid "Publications Flipp does not list, but whose code we know - shipped as"
 msgstr ""
 "Publikationer som Flipp inte listar, men vars kod vi känner till - följer"
 " med som"
 
-#: flipp_dl/web/templates/settings.html:489
+#: flipp_dl/web/templates/settings.html:506
 msgid ""
 "Imported as delisted so they never look like part of the official "
 "catalogue."
@@ -1331,15 +1351,15 @@ msgstr ""
 "Importeras som avlistade så att de aldrig ser ut att ingå i den "
 "officiella katalogen."
 
-#: flipp_dl/web/templates/settings.html:491
+#: flipp_dl/web/templates/settings.html:508
 msgid "Import catalogue"
 msgstr "Importera katalog"
 
-#: flipp_dl/web/templates/settings.html:494
+#: flipp_dl/web/templates/settings.html:511
 msgid "Working…"
 msgstr "Arbetar…"
 
-#: flipp_dl/web/templates/settings.html:499
+#: flipp_dl/web/templates/settings.html:516
 msgid ""
 "Ask PageSuite for the full edition list of every publication - including "
 "the older editions the Flipp app hides - and store the codes for the ones"
@@ -1355,27 +1375,27 @@ msgstr ""
 " listning returnerar alls, och slår upp var och en för att hitta dess "
 "publikation."
 
-#: flipp_dl/web/templates/settings.html:509
+#: flipp_dl/web/templates/settings.html:526
 msgid "Discover editions"
 msgstr "Upptäck utgåvor"
 
-#: flipp_dl/web/templates/settings.html:511
+#: flipp_dl/web/templates/settings.html:528
 msgid "Start discovery"
 msgstr "Starta upptäckt"
 
-#: flipp_dl/web/templates/settings.html:523
+#: flipp_dl/web/templates/settings.html:540
 msgid "Import unlisted editions"
 msgstr "Importera olistade utgåvor"
 
-#: flipp_dl/web/templates/settings.html:525
+#: flipp_dl/web/templates/settings.html:542
 msgid "Editions file (JSON)"
 msgstr "Utgåvefil (JSON)"
 
-#: flipp_dl/web/templates/settings.html:527
+#: flipp_dl/web/templates/settings.html:544
 msgid "Edition codes that no listing returns at all, shipped as"
 msgstr "Utgåvekoder som ingen listning returnerar alls, följer med som"
 
-#: flipp_dl/web/templates/settings.html:527
+#: flipp_dl/web/templates/settings.html:544
 msgid ""
 "Each code is looked up to find which publication it belongs to. Codes "
 "whose publication is unknown, or that no longer resolve, are counted and "
@@ -1385,19 +1405,19 @@ msgstr ""
 "vars publikation är okänd, eller som inte längre går att slå upp, räknas "
 "och hoppas över."
 
-#: flipp_dl/web/templates/settings.html:529
+#: flipp_dl/web/templates/settings.html:546
 msgid "Start import"
 msgstr "Starta import"
 
-#: flipp_dl/web/templates/settings.html:543
+#: flipp_dl/web/templates/settings.html:560
 msgid "Troubleshooting"
 msgstr "Felsökning"
 
-#: flipp_dl/web/templates/settings.html:545
+#: flipp_dl/web/templates/settings.html:562
 msgid "Run a manual poll against the Flipp API and inspect the raw"
 msgstr "Kör en manuell pollning mot Flipp-API:et och inspektera det råa"
 
-#: flipp_dl/web/templates/settings.html:546
+#: flipp_dl/web/templates/settings.html:563
 msgid ""
 "response. Useful for verifying your token and spotting new fields. "
 "Sensitive fields"
@@ -1405,22 +1425,17 @@ msgstr ""
 "svaret. Bra för att verifiera din token och upptäcka nya fält. Känsliga "
 "fält"
 
-#: flipp_dl/web/templates/settings.html:547
+#: flipp_dl/web/templates/settings.html:564
 msgid "are redacted before the response reaches your browser."
 msgstr "redigeras bort innan svaret når din webbläsare."
 
-#: flipp_dl/web/templates/settings.html:559
+#: flipp_dl/web/templates/settings.html:576
 msgid "Run manual poll"
 msgstr "Kör manuell pollning"
 
-#: flipp_dl/web/templates/settings.html:561
+#: flipp_dl/web/templates/settings.html:578
 msgid "Polling Flipp API…"
 msgstr "Pollar Flipp-API…"
-
-#: flipp_dl/web/templates/settings.html:733
-#: flipp_dl/web/templates/settings.html:738
-msgid "Selected - press Ctrl+C to copy"
-msgstr "Markerat - tryck Ctrl+C för att kopiera"
 
 #: flipp_dl/web/templates/stats_cards.html:11
 msgid "Total Issues"
@@ -1438,47 +1453,47 @@ msgstr "körs"
 msgid "idle"
 msgstr "vilar"
 
-#: flipp_dl/web/routes.py:67
+#: flipp_dl/web/routes.py:68
 msgid "Use only characters that are valid in a folder name."
 msgstr "Använd bara tecken som är giltiga i ett katalognamn."
 
-#: flipp_dl/web/routes.py:68
+#: flipp_dl/web/routes.py:69
 msgid "That folder name is already used by another publication."
 msgstr "Det katalognamnet används redan av en annan publikation."
 
-#: flipp_dl/web/routes.py:69
+#: flipp_dl/web/routes.py:70
 msgid "The downloaded files could not be moved."
 msgstr "De nedladdade filerna kunde inte flyttas."
 
-#: flipp_dl/web/routes.py:70
+#: flipp_dl/web/routes.py:71
 msgid "Test notification sent. Check your ntfy app."
 msgstr "Testnotisen är skickad. Kolla ntfy-appen."
 
-#: flipp_dl/web/routes.py:71
+#: flipp_dl/web/routes.py:72
 msgid "Fill in the ntfy server URL and topic first."
 msgstr "Fyll i ntfy-serverns URL och topic först."
 
-#: flipp_dl/web/routes.py:72
+#: flipp_dl/web/routes.py:73
 msgid "The notification could not be delivered."
 msgstr "Notisen kunde inte levereras."
 
-#: flipp_dl/web/routes.py:73
+#: flipp_dl/web/routes.py:74
 msgid "Wrong email address or password."
 msgstr "Fel e-postadress eller lösenord."
 
-#: flipp_dl/web/routes.py:74
+#: flipp_dl/web/routes.py:75
 msgid "Could not sign in to Flipp."
 msgstr "Kunde inte logga in mot Flipp."
 
-#: flipp_dl/web/routes.py:75
+#: flipp_dl/web/routes.py:76
 msgid "Signed in. The token is saved and in use."
 msgstr "Inloggad. Token är sparad och i bruk."
 
-#: flipp_dl/web/routes.py:76
+#: flipp_dl/web/routes.py:77
 msgid "No Flipp token is configured, so there is nothing to poll with."
 msgstr "Ingen Flipp-token är konfigurerad, så det finns inget att polla med."
 
-#: flipp_dl/web/routes.py:78
+#: flipp_dl/web/routes.py:79
 msgid ""
 "Destination cannot be changed because this publication already has "
 "downloaded issues."
@@ -1486,33 +1501,33 @@ msgstr ""
 "Destinationen kan inte ändras eftersom publikationen redan har nedladdade"
 " utgåvor."
 
-#: flipp_dl/web/routes.py:81
+#: flipp_dl/web/routes.py:82
 msgid ""
 "That folder does not exist. Create it first, or pick one with the browse "
 "button."
 msgstr "Den mappen finns inte. Skapa den först, eller välj en med bläddra-knappen."
 
-#: flipp_dl/web/routes.py:91
+#: flipp_dl/web/routes.py:92
 msgid ""
 "the address did not respond. Check that the URL is correct and that Komga"
 " is running."
 msgstr "adressen svarade inte. Kontrollera att URL:en stämmer och att Komga körs."
 
-#: flipp_dl/web/routes.py:94
+#: flipp_dl/web/routes.py:95
 msgid "the login was rejected. Check the username, password or API key."
 msgstr "inloggningen nekades. Kontrollera användarnamn, lösenord eller API-nyckel."
 
-#: flipp_dl/web/routes.py:96
+#: flipp_dl/web/routes.py:97
 msgid ""
 "the address responded, but the content doesn't look like it came from "
 "Komga."
 msgstr "adressen svarade, men innehållet verkar inte komma från Komga."
 
-#: flipp_dl/web/routes.py:99
+#: flipp_dl/web/routes.py:100
 msgid "something went wrong. Check the address and try again."
 msgstr "något gick fel. Kontrollera adressen och försök igen."
 
-#: flipp_dl/web/routes.py:1547
+#: flipp_dl/web/routes.py:1586
 msgid "This is a test notification from flipp-dl. Nothing is wrong."
 msgstr "Det här är en testnotis från flipp-dl. Inget är fel."
 
@@ -1559,4 +1574,7 @@ msgstr "Filen innehåller inga utgåvor."
 
 #~ msgid "Debug"
 #~ msgstr "Felsökning"
+
+#~ msgid "Copy failed - select the JSON and copy manually"
+#~ msgstr "Kopiering misslyckades - markera JSON:en och kopiera manuellt"
 
