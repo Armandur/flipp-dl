@@ -1562,7 +1562,7 @@ Bygg vidare på befintliga byggstenar i stället för att uppfinna nya: `list_is
 
 ---
 
-## [P4][todo] [flipp] Överväg StrEnum för IssueStatus och JobStatus
+## [P4][done] [flipp] Överväg StrEnum för IssueStatus och JobStatus
 
 Ruff UP042 flaggar att IssueStatus och JobStatus ärver från både str och Enum, och föreslår StrEnum (3.11+). Regeln är undantagen i pyproject.toml med motivering, men bytet är värt ett eget beslut - därför den här tasken i stället för bara en kodkommentar.
 
