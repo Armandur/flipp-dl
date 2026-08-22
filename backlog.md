@@ -452,6 +452,32 @@ Rätt fix är troligen en riktig claim-fråga mot DB (SELECT ... WHERE status=qu
 
 ---
 
+## [P3][todo] [flipp] README speglar inte vad branchen faktiskt kan
+
+Rasmus 2026-08-22: README ska uppdateras för allt som byggts på claude/review-project-improvements-qdoid.
+
+Tillkommet sedan README skrevs, i grova drag:
+- Webb-UI för katalogimport, kodsäkerhetskopia (ner- och uppladdning), utgåveupptäckt och import av olistade utgåvor, allt under Inställningar.
+- CLI: --import-catalog, --discover-editions, --import-editions, --export-codes, --import-backup, --migrate-filenames.
+- Destination per publikation (sekundär utdatarot) och katalogväljare för sökvägsfältet.
+- Notiser per publikation (opt-in), utöver den globala ntfy/webhook-inställningen.
+- Kör pollning nu-knapp.
+- Inloggning mot Flipp direkt från inställningarna (api/signin), konsolsnutten kvar som alternativ.
+- Räknare för utgåvor Flipp slutat lista.
+- docs/-filerna (alla-publikationer.json, olistade-publikationer.json, olistade-utgavor.json) och vad de används till.
+
+Att kontrollera samtidigt:
+- Miljövariabeltabellen: stämmer den fortfarande? FLIPP_POLL_INTERVAL, FLIPP_WORKERS, KOMGA_*, NTFY_*.
+- Unraid-avsnittet säger Path 2 /mnt/user/Downloads/Flipp - i drift är det numera /mnt/user/media/Serier/Manuella/Flipp-dl.
+- i18n-avsnittet: extract-kommandot måste lista codes_routes.py, vilket det numera gör.
+- Att inget i README beskriver funktioner som inte finns.
+
+- ID: `01M0N2BB28ZB8077ZSRVG5CERJ`
+- Type: chore
+- Actor: ai:claude-code
+
+---
+
 ## [P3][done] [flipp] Ingen knapp triggar en pollning - routen finns men är oåtkomlig
 
 POST /publications/{code}/poll finns och fungerar (verifierat 2026-08-22 genom att anropa den med fetch från en inloggad session: svarar 200 och "Polled ✓"), men INGEN mall anropar den. Det enda som nämner poll i publikationsvyn är formuläret för eget poll-intervall.
@@ -493,7 +519,7 @@ Klart när: en nedladdad utgåva utan cover_url får ett cachat omslag som syns 
 
 ---
 
-## [P3][todo] [flipp] Logga in mot Flipp direkt från flipp-dl i stället för konsolsnutten
+## [P3][done] [flipp] Logga in mot Flipp direkt från flipp-dl i stället för konsolsnutten
 
 Rasmus 2026-08-21: i stället för att visa en JS-snutt att klistra i webbläsarkonsolen borde flipp-dl kunna logga in mot Flipp självt och hämta token.
 
@@ -809,7 +835,7 @@ Här FINNS redan nedladdade filer i drift - 1094 stycken. Namnregeln får därf�
 
 ---
 
-## [P3][doing] [flipp] Settings: ojämna bredder och grupper som inte hänger ihop
+## [P3][done] [flipp] Settings: ojämna bredder och grupper som inte hänger ihop
 
 Fälten under Import existing files är breda medan grupperna ovanför (Komga, Notifications) är smala, utan att skillnaden betyder något. Ta reda på varifrån bredden kommer - troligen en .form-card med max-width som bara vissa block ligger i - och gör den enhetlig.
 
