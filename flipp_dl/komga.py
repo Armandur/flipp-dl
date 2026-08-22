@@ -61,6 +61,13 @@ ISSUE_METADATA_FIELDS: dict[str, str] = {
 # per-field flags above but not tied to a metadata dict entry.
 PUSH_COVER_FLAG = "KOMGA_PUSH_COVER"
 
+# Komga runs on Spring Boot, whose multipart default caps an uploaded file
+# at 1 MB - a larger cover comes back as 413 (measured in production
+# 2026-08-22: one 1.29 MB cover failed 72 jobs). Checking the size here
+# turns a guaranteed round trip into a skipped one. Raise it alongside
+# Komga's own SPRING_SERVLET_MULTIPART_MAXFILESIZE if that is raised.
+DEFAULT_MAX_COVER_BYTES = 1_000_000
+
 _NUMBER_RE = re.compile(r"(?:nr\.?\s*)?(\d+)", re.IGNORECASE)
 
 
@@ -100,6 +107,21 @@ def filter_pushed_fields(fields: dict, field_map: dict[str, str]) -> dict:
 def cover_push_enabled() -> bool:
     """Whether the series-thumbnail push is enabled (``KOMGA_PUSH_COVER``)."""
     return _flag_enabled(PUSH_COVER_FLAG)
+
+
+def max_cover_bytes() -> int:
+    """Largest cover we will try to upload (``KOMGA_MAX_COVER_BYTES``).
+
+    Zero or a negative value disables the check, for a Komga configured
+    with no practical limit.
+    """
+    raw = os.environ.get("KOMGA_MAX_COVER_BYTES", "").strip()
+    if not raw:
+        return DEFAULT_MAX_COVER_BYTES
+    try:
+        return int(raw)
+    except ValueError:
+        return DEFAULT_MAX_COVER_BYTES
 
 
 _TAG_RE = re.compile(r"<[^>]+>")

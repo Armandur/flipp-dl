@@ -53,6 +53,7 @@ from .komga import (
     cover_push_enabled,
     filter_pushed_fields,
     html_to_plain_text,
+    max_cover_bytes,
     parse_issue_number,
 )
 from .models import Issue as DomainIssue
@@ -857,6 +858,19 @@ def _push_publication_and_issue_metadata(
             cache_file = default_cover_cache_root() / db_pub.cover_cache_path
             cover_path = cache_file if cache_file.is_file() else None
             cover_filename = db_pub.cover_cache_path
+            # Komga rejects an upload over its multipart limit with a 413,
+            # so a cover we already know is too big is a round trip whose
+            # only outcome is a failure. Skip it instead of asking.
+            limit = max_cover_bytes()
+            if cover_path is not None and 0 < limit < cover_path.stat().st_size:
+                logger.warning(
+                    "Komga sync: cover for %r is %d bytes, over the %d-byte "
+                    "upload limit - skipping the thumbnail",
+                    db_pub.name,
+                    cover_path.stat().st_size,
+                    limit,
+                )
+                cover_path = None
 
         domain_pub = DomainPublication(custom_code=db_pub.custom_code, name=db_pub.name)
         domain_issue = DomainIssue(
@@ -871,12 +885,24 @@ def _push_publication_and_issue_metadata(
 
     try:
         client.patch_series_metadata(series_id, **pub_fields)
-        if cover_path is not None:
+    except KomgaError as exc:
+        return f"Failed to push series metadata for series {series_id}: {exc}"
+
+    # The cover is cosmetic; the book metadata below is the point of the
+    # job. A failing thumbnail used to share this try and returned early,
+    # so one oversized image cost a whole publication its metadata (72
+    # issues, measured 2026-08-22). Log it and carry on.
+    if cover_path is not None:
+        try:
             client.upload_series_thumbnail(
                 series_id, cover_path.read_bytes(), cover_filename
             )
-    except (KomgaError, OSError) as exc:
-        return f"Failed to push series metadata/cover for series {series_id}: {exc}"
+        except (KomgaError, OSError) as exc:
+            logger.warning(
+                "Komga sync: could not upload the cover for series %s: %s",
+                series_id,
+                exc,
+            )
 
     book = _wait_for_book(client, series_id, stems, wait_seconds)
     if book is None:

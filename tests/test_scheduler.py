@@ -1042,6 +1042,87 @@ def test_komga_sync_uploads_cached_cover_as_thumbnail(
     assert filename == "pub-KA.jpg"
 
 
+class _ThumbnailRejectingKomgaClient(_FakeKomgaClient):
+    """Komga that accepts metadata but rejects the thumbnail with a 413."""
+
+    def upload_series_thumbnail(self, series_id, content, filename):
+        raise KomgaError(f"Failed to upload thumbnail for series {series_id}: 413")
+
+
+def test_komga_sync_pushes_book_metadata_even_when_the_cover_is_rejected(
+    repo, session_factory, monkeypatch, tmp_path
+):
+    """A 413 on the cover must not cost the issue its metadata.
+
+    Measured in production 2026-08-22: one 1.29 MB cover failed 72 jobs
+    for the same publication, because the thumbnail upload shared a try
+    with the series metadata push and returned early.
+    """
+    monkeypatch.setattr(
+        "flipp_dl.scheduler.KomgaClient", _ThumbnailRejectingKomgaClient
+    )
+    monkeypatch.setenv("KOMGA_WAIT_SECONDS", "0")
+    _FakeKomgaClient.instances.clear()
+    _FakeKomgaClient.series_by_name = {
+        "Kalle Anka och Co": {"id": 55, "name": "Kalle Anka och Co"}
+    }
+
+    cover_root = tmp_path / "covers"
+    cover_root.mkdir()
+    (cover_root / "ka.jpg").write_bytes(b"\xff\xd8" + b"x" * 100)
+    monkeypatch.setattr(
+        "flipp_dl.scheduler.default_cover_cache_root", lambda: cover_root
+    )
+
+    issue_id, stem = _seed_mapped_issue(repo, cover_cache_path="ka.jpg")
+    _FakeKomgaClient.books_by_series = {55: [{"id": "book-1", "name": stem}]}
+    job_id = _queue_komga_sync_job(repo, issue_id)
+
+    processed = run_komga_sync_queue(session_factory, max_jobs=1)
+    assert processed == 1
+
+    with get_session(session_factory) as session:
+        r = DownloadRepository(session)
+        job = r.get_job(job_id)
+        assert job.status == JobStatus.DONE
+        assert job.error_message is None
+        assert r.get_issue(issue_id).komga_book_id == "book-1"
+    client = _FakeKomgaClient.instances[-1]
+    assert client.patched_books, "book metadata must still have been pushed"
+
+
+def test_komga_sync_does_not_upload_a_cover_over_the_size_limit(
+    repo, session_factory, monkeypatch, tmp_path
+):
+    """A cover Komga would 413 on is never sent in the first place."""
+    monkeypatch.setattr("flipp_dl.scheduler.KomgaClient", _FakeKomgaClient)
+    monkeypatch.setenv("KOMGA_WAIT_SECONDS", "0")
+    monkeypatch.setenv("KOMGA_MAX_COVER_BYTES", "50")
+    _FakeKomgaClient.instances.clear()
+    _FakeKomgaClient.series_by_name = {
+        "Kalle Anka och Co": {"id": 55, "name": "Kalle Anka och Co"}
+    }
+
+    cover_root = tmp_path / "covers"
+    cover_root.mkdir()
+    (cover_root / "ka.jpg").write_bytes(b"x" * 500)
+    monkeypatch.setattr(
+        "flipp_dl.scheduler.default_cover_cache_root", lambda: cover_root
+    )
+
+    issue_id, stem = _seed_mapped_issue(repo, cover_cache_path="ka.jpg")
+    _FakeKomgaClient.books_by_series = {55: [{"id": "book-1", "name": stem}]}
+    job_id = _queue_komga_sync_job(repo, issue_id)
+
+    run_komga_sync_queue(session_factory, max_jobs=1)
+
+    client = _FakeKomgaClient.instances[-1]
+    assert client.uploaded_thumbnails == []
+    assert client.patched_books, "the metadata push must still happen"
+    with get_session(session_factory) as session:
+        assert DownloadRepository(session).get_job(job_id).status == JobStatus.DONE
+
+
 def test_komga_sync_skips_cover_upload_when_disabled(
     repo, session_factory, monkeypatch, tmp_path
 ):
