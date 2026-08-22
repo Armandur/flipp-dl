@@ -1619,7 +1619,7 @@ Klart när: scrollWidth == viewportbredden vid 390 px. Verifiera med Playwright 
 
 ---
 
-## [P4][todo] [flipp] Kopiera-knappen i debug-vyn gör inget över vanlig http
+## [P4][done] [flipp] Kopiera-knappen i debug-vyn gör inget över vanlig http
 
 Knappen Copy JSON använder navigator.clipboard, som bara finns i säker kontext. Instansen nås över http på hemnätet, så API:t saknas helt och knappen gör ingenting - felgrenen körs inte ens, anropet kastar direkt.
 
