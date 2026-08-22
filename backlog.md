@@ -452,7 +452,7 @@ Rätt fix är troligen en riktig claim-fråga mot DB (SELECT ... WHERE status=qu
 
 ---
 
-## [P3][todo] [flipp] README speglar inte vad branchen faktiskt kan
+## [P3][done] [flipp] README speglar inte vad branchen faktiskt kan
 
 Rasmus 2026-08-22: README ska uppdateras för allt som byggts på claude/review-project-improvements-qdoid.
 
