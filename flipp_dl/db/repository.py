@@ -16,6 +16,8 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from types import SimpleNamespace
+from typing import Literal
 
 import requests
 from sqlalchemy import case, delete, func, or_, select
@@ -46,6 +48,7 @@ _COVER_CONTENT_TYPES = {
     "image/gif": ".gif",
 }
 _DEFAULT_COVER_TIMEOUT = 15
+_UNSET = object()
 
 
 def default_cover_cache_root() -> Path:
@@ -444,12 +447,35 @@ class DownloadRepository:
     def _publication_folder_component(publication: DbPublication) -> str:
         return storage.publication_folder(Path(), publication).name
 
-    def publication_folder_conflict(self, custom_code: str) -> DbPublication | None:
+    @staticmethod
+    def _publication_storage_view(
+        publication: DbPublication,
+        *,
+        folder_name: str | None,
+        destination: str | None,
+    ) -> SimpleNamespace:
+        return SimpleNamespace(
+            name=str(publication.name),
+            folder_name=folder_name,
+            destination=destination,
+        )
+
+    def publication_folder_conflict(
+        self, custom_code: str, folder_name: str | None | object = _UNSET
+    ) -> DbPublication | None:
         """Return the other publication claiming the same folder, if any."""
         publication = self.get_publication(custom_code)
         if publication is None:
             return None
-        component = self._publication_folder_component(publication).casefold()
+        selected_folder_name = (
+            publication.folder_name if folder_name is _UNSET else folder_name
+        )
+        storage_view = self._publication_storage_view(
+            publication,
+            folder_name=selected_folder_name,
+            destination=publication.destination,
+        )
+        component = storage.publication_folder(Path(), storage_view).name.casefold()
         for other in self.session.scalars(
             select(DbPublication).where(DbPublication.id != publication.id)
         ):
@@ -515,7 +541,8 @@ class DownloadRepository:
         Files tracked by issues are moved one by one so an old folder shared
         by two publications is never moved wholesale.
         """
-        publication = self.get_publication(custom_code)
+        with self.session.no_autoflush:
+            publication = self.get_publication(custom_code)
         if publication is None:
             return PublicationMoveReport(found=False)
 
@@ -533,12 +560,9 @@ class DownloadRepository:
         else:
             selected_value = selected
 
-        previous = publication.folder_name
-        publication.folder_name = selected_value
-
-        conflict = self.publication_folder_conflict(custom_code)
+        self._raise_if_unrelated_pending_changes(publication)
+        conflict = self.publication_folder_conflict(custom_code, selected_value)
         if conflict is not None:
-            publication.folder_name = previous
             raise PublicationFolderConflict(
                 f'Folder name is already used by "{conflict.name}".'
             )
@@ -554,11 +578,13 @@ class DownloadRepository:
                 "The secondary output root does not exist.",
                 reason="secondary_missing",
             )
-        target_root = storage.destination_root(
-            primary, secondary, publication
-        ).resolve()
         report = self._move_publication_files(
-            publication, primary, secondary, target_root
+            publication,
+            primary,
+            secondary,
+            folder_name=selected_value,
+            destination=publication.destination,
+            update_field="folder_name",
         )
         return report
 
@@ -600,7 +626,8 @@ class DownloadRepository:
         secondary_output_root: Path | None,
     ) -> PublicationMoveReport:
         """Set the output destination and move downloaded files there."""
-        publication = self.get_publication(custom_code)
+        with self.session.no_autoflush:
+            publication = self.get_publication(custom_code)
         if publication is None:
             return PublicationMoveReport(found=False)
 
@@ -619,16 +646,18 @@ class DownloadRepository:
                 "The secondary output root is not configured or does not exist.",
                 reason="secondary_missing",
             )
+        self._raise_if_unrelated_pending_changes(publication)
         self._raise_if_publication_download_is_active(
             publication, PublicationDestinationError
         )
 
-        publication.destination = selected_value
-        target_root = storage.destination_root(
-            primary, secondary, publication
-        ).resolve()
         return self._move_publication_files(
-            publication, primary, secondary, target_root
+            publication,
+            primary,
+            secondary,
+            folder_name=publication.folder_name,
+            destination=selected_value,
+            update_field="destination",
         )
 
     def _raise_if_publication_download_is_active(
@@ -668,15 +697,32 @@ class DownloadRepository:
         publication: DbPublication,
         primary: Path,
         secondary: Path | None,
-        target_root: Path,
+        *,
+        folder_name: str | None,
+        destination: str | None,
+        update_field: Literal["folder_name", "destination"],
     ) -> PublicationMoveReport:
-        """Move tracked files and durably record each completed file."""
+        """Move tracked files and durably record each completed file.
+
+        This commits after every completed file, which commits the caller's
+        entire session. Callers must not queue pending changes to objects
+        other than this publication and its issues. Violations raise
+        RuntimeError before any file is moved.
+        """
+        self._raise_if_unrelated_pending_changes(publication)
         roots = [primary]
         if secondary is not None and secondary != primary:
             roots.append(secondary)
-        target_folder = storage.publication_folder(target_root, publication).resolve()
+        storage_view = self._publication_storage_view(
+            publication,
+            folder_name=folder_name,
+            destination=destination,
+        )
+        target_root = storage.destination_root(
+            primary, secondary, storage_view
+        ).resolve()
+        target_folder = storage.publication_folder(target_root, storage_view).resolve()
         report = PublicationMoveReport(found=True)
-        completed = 0
 
         for issue in publication.issues:
             if not issue.file_path:
@@ -705,7 +751,6 @@ class DownloadRepository:
                         continue
                 issue.file_path = self._stored_file_path(raw_path, target, target_root)
                 self.session.commit()
-                completed += 1
                 continue
             if source is None:
                 report.failed.append(str(raw_path))
@@ -722,11 +767,30 @@ class DownloadRepository:
             issue.file_path = self._stored_file_path(raw_path, target, target_root)
             self.session.commit()
             report.moved += 1
-            completed += 1
 
-        if completed == 0 and not report.failed:
+        # Keeping the old routing value after a partial move makes a retry repair
+        # the split: files already at the target count as complete, while remaining
+        # files and new downloads still use the old location.
+        if not report.failed:
+            value = folder_name if update_field == "folder_name" else destination
+            setattr(publication, update_field, value)
             self.session.commit()
         return report
+
+    def _raise_if_unrelated_pending_changes(self, publication: DbPublication) -> None:
+        with self.session.no_autoflush:
+            allowed = {publication, *publication.issues}
+            dirty = {
+                obj
+                for obj in self.session.dirty
+                if self.session.is_modified(obj, include_collections=True)
+            }
+            pending = dirty - allowed
+        if pending:
+            raise RuntimeError(
+                "Cannot move publication files with unrelated pending changes "
+                "in the session."
+            )
 
     @staticmethod
     def _relative_publication_file(raw_path: Path, roots: list[Path]) -> Path:

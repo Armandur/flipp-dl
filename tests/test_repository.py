@@ -162,6 +162,8 @@ def test_setting_folder_name_moves_downloaded_files_and_updates_path(repo, tmp_p
     assert moved.is_file()
     assert not old_path.exists()
     assert repo.get_issue(db_issue.id).file_path == str(moved.resolve())
+    assert repo.get_publication("A").folder_name == "Hjemmet (NO)"
+
 
 def test_destination_change_moves_files_between_roots(repo, tmp_path):
     primary = tmp_path / "primary"
@@ -170,9 +172,7 @@ def test_destination_change_moves_files_between_roots(repo, tmp_path):
     secondary.mkdir()
     issue_ids, sources = _downloaded_publication(repo, primary)
 
-    report = repo.set_publication_destination(
-        "A", "secondary", primary, secondary
-    )
+    report = repo.set_publication_destination("A", "secondary", primary, secondary)
 
     assert report.moved == 2
     assert report.failed == []
@@ -181,6 +181,7 @@ def test_destination_change_moves_files_between_roots(repo, tmp_path):
         assert target.is_file()
         assert not source.exists()
         assert repo.get_issue(issue_id).file_path == str(target.resolve())
+    assert repo.get_publication("A").destination == "secondary"
 
 
 def test_destination_change_copies_verifies_and_deletes_on_exdev(
@@ -201,9 +202,7 @@ def test_destination_change_copies_verifies_and_deletes_on_exdev(
 
     monkeypatch.setattr(Path, "replace", raise_exdev)
 
-    report = repo.set_publication_destination(
-        "A", "secondary", primary, secondary
-    )
+    report = repo.set_publication_destination("A", "secondary", primary, secondary)
 
     target = secondary / "Hjemmet" / source.name
     assert report.moved == 1
@@ -243,6 +242,7 @@ def test_interrupted_move_keeps_each_issue_consistent_and_can_resume(
     assert repo.get_issue(issue_ids[0]).file_path == str(first_target.resolve())
     assert sources[1].is_file()
     assert repo.get_issue(issue_ids[1]).file_path == str(sources[1])
+    assert repo.get_publication("A").destination is None
 
     monkeypatch.setattr(storage, "move_file", original_move)
     second_report = repo.set_publication_destination(
@@ -255,6 +255,32 @@ def test_interrupted_move_keeps_each_issue_consistent_and_can_resume(
     assert second_target.is_file()
     assert not sources[1].exists()
     assert repo.get_issue(issue_ids[1]).file_path == str(second_target.resolve())
+    assert repo.get_publication("A").destination == "secondary"
+
+
+def test_publication_move_rejects_unrelated_pending_changes(repo, tmp_path):
+    primary = tmp_path / "primary"
+    secondary = tmp_path / "secondary"
+    primary.mkdir()
+    secondary.mkdir()
+    _, sources = _downloaded_publication(repo, primary, issue_count=1)
+    unrelated = repo.upsert_publication(_publication("B", "Allers"))
+    repo.session.commit()
+    publication = repo.get_publication("A")
+    unrelated.watched = True
+
+    with pytest.raises(RuntimeError, match="unrelated pending changes"):
+        repo._move_publication_files(
+            publication,
+            primary,
+            secondary,
+            folder_name=publication.folder_name,
+            destination="secondary",
+            update_field="destination",
+        )
+
+    assert sources[0].is_file()
+    assert repo.get_publication("A").destination is None
 
 
 def test_restart_accepts_file_already_at_target(repo, tmp_path):
@@ -268,9 +294,7 @@ def test_restart_accepts_file_already_at_target(repo, tmp_path):
     target.parent.mkdir(parents=True)
     target.write_bytes(source.read_bytes())
 
-    report = repo.set_publication_destination(
-        "A", "secondary", primary, secondary
-    )
+    report = repo.set_publication_destination("A", "secondary", primary, secondary)
 
     assert report.moved == 0
     assert report.failed == []
@@ -306,20 +330,15 @@ def test_publication_move_is_blocked_by_active_download_job(
     # the web layer and must be free to change without breaking this.
     with pytest.raises(error_type) as excinfo:
         if operation == "folder":
-            repo.set_publication_folder_name(
-                "A", "Nya Hjemmet", primary, secondary
-            )
+            repo.set_publication_folder_name("A", "Nya Hjemmet", primary, secondary)
         else:
-            repo.set_publication_destination(
-                "A", "secondary", primary, secondary
-            )
+            repo.set_publication_destination("A", "secondary", primary, secondary)
 
     assert excinfo.value.reason == "download_active"
     assert sources[0].is_file()
     publication = repo.get_publication("A")
     assert publication.folder_name is None
     assert publication.destination is None
-
 
 
 def test_folder_name_reaches_detached_domain_publication(repo, tmp_path):
