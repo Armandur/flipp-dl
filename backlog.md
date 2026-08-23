@@ -1878,44 +1878,77 @@ Bygg vidare på befintliga byggstenar i stället för att uppfinna nya: `list_is
 
 ---
 
-## [P4][todo] [flipp] Låt inte mappnamn och destination beskriva en flytt som inte är färdig
+## [P4][done] [flipp] Låt inte mappnamn och destination beskriva en flytt som inte är färdig
 
 ## Context
 
-Avknoppad från TASK-1482, som Judge godkände med tre observationer. Två av
-dem hänger ihop och är värda att städa, ingen av dem bryter mot något
-acceptanskriterium.
+Avknoppad från TASK-1482, ur Judge-granskningen av den. Två fynd, inget av
+dem bryter mot TASK-1482:s kriterier, men båda är fällor i drift och rör
+78 GB skarp data.
 
 1. `DownloadRepository._move_publication_files` (repository.py:685) sätter
    `publication.folder_name` respektive `publication.destination` INNAN
-   flytten körs, och det värdet committas tillsammans med den första fil
-   som lyckas. Misslyckas en senare fil beskriver fältet en plats som inte
-   alla filer nått. Varje utgåvas `file_path` är fortfarande korrekt, så
-   inget pekar fel - men publikationens fält gör det, tills en omkörning
-   blir klar.
+   flytten körs, och värdet committas tillsammans med den första fil som
+   lyckas. Misslyckas en senare fil beskriver fältet en plats som inte alla
+   filer nått.
 2. Samma metod anropar `self.session.commit()` inne i sin loop. Det
    committar HELA sessionen, inte bara metodens egna skrivningar. Alla
    nuvarande anropare öppnar en egen session för just flytten, så det är
-   ofarligt i dag, men mönstret är skört: en framtida anropare som köar
-   andra ändringar före flytten får dem committade mitt i, utan väg
-   tillbaka om flytten sedan faller.
+   ofarligt i dag, men en framtida anropare som köar andra ändringar före
+   flytten får dem committade mitt i, utan väg tillbaka.
 
-Den tredje observationen (fsync i EXDEV-vägen) är redan åtgärdad i
-TASK-1482.
+## Beslutat upplägg (bygg detta, designa inte om)
+
+**Fältet skrivs sist.** `folder_name`/`destination` ska behålla sitt gamla
+värde under hela flytten och sättas först när flytten är HELT klar, alltså
+när `report.failed` är tom. Målsökvägarna räknas ut från det önskade
+värdet utan att ORM-objektet muteras dessförinnan.
+
+Vid delvis flytt behåller fältet alltså sitt gamla värde medan några filer
+redan ligger på den nya platsen. Det är den avsiktligt valda av två
+inkonsistenser: att köra om samma byte blir då en reparation - filer som
+redan ligger rätt räknas som klara (finns sedan TASK-1482) och resten
+flyttas - och nya nedladdningar hamnar i den gamla mappen tillsammans med
+de filer som ännu inte flyttats. Skriv ut resonemanget som kommentar i
+koden, inte bara i commiten.
+
+**Commit-kontraktet skrivs ut.** Metoden ska dokumentera i sin docstring
+att den committar per fil och därmed committar anroparens session, och att
+anroparen inte får ha andra ostädade ändringar köade när den anropas. Lägg
+till en kontroll som gör brottet synligt i stället för tyst: om sessionen
+har andra ändrade objekt än publikationen och dess utgåvor när metoden
+börjar, höj `RuntimeError` med en tydlig text.
+
+## Icke-mål
+
+- Ingen ny kolumn, ingen migration.
+- Rör inte `storage.move_file` - den är klar.
+- Ingen ändring av EXDEV-vägen, omstartslogiken eller jobbspärren.
+- Ingen ny UI-vy. Det befintliga flyttresultatet räcker.
 
 ## Acceptance criteria
 
-- [ ] En delvis misslyckad flytt lämnar antingen fältet orört tills alla
-      filer nått fram, eller gör avvikelsen synlig för användaren i stället
-      för att tyst påstå fel plats.
-- [ ] Flyttmetoden committar inte anroparens orelaterade ändringar. Antingen
-      dokumenteras kontraktet explicit och kontrolleras, eller så begränsas
-      committen till metodens egna rader.
-- [ ] Test som visar det valda beteendet vid en flytt där andra filen felar.
+- [ ] Vid en flytt där någon fil inte går att flytta står
+      `publication.folder_name` respektive `publication.destination` kvar på
+      sitt GAMLA värde efteråt.
+- [ ] Vid en helt lyckad flytt sätts fältet till det nya värdet och
+      committas.
+- [ ] En omkörning av samma byte efter en delvis flytt går igenom och sätter
+      fältet, utan att de redan flyttade filerna räknas som fel.
+- [ ] `_move_publication_files` höjer `RuntimeError` om anroparens session
+      har andra ändrade objekt köade när den anropas, och docstringen
+      beskriver commit-kontraktet.
+- [ ] Befintliga tester för TASK-1482 fortsätter passera oförändrade i sak -
+      justera bara de assertioner som handlar om just fältets värde vid
+      delvis flytt.
 
 ## Verification
 
-- `.venv/bin/python -m pytest tests/test_repository.py -q`
+- `.venv/bin/python -m pytest tests/test_repository.py tests/test_web_routes.py -q`
+- Nya tester ska täcka: delvis flytt lämnar fältet orört, lyckad flytt
+  sätter det, omkörning efter delvis flytt sätter det, och att en session
+  med en orelaterad ändrad rad ger `RuntimeError`.
+- `.venv/bin/ruff check flipp_dl tests`
 
 - ID: `01M0Q01E210P4YMBCRG2X8WG8Y`
 - Type: improvement
