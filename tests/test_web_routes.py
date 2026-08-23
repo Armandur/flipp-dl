@@ -2491,9 +2491,7 @@ def test_destination_and_folder_routes_move_files_and_show_result(
     secondary = tmp_path / "secondary"
     secondary.mkdir()
     with get_session(client.app.state.session_factory) as session:
-        DownloadRepository(session).set_setting(
-            "secondary_output_root", str(secondary)
-        )
+        DownloadRepository(session).set_setting("secondary_output_root", str(secondary))
 
     token = _csrf_for(client)
     destination_response = client.post(

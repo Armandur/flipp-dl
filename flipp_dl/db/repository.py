@@ -663,8 +663,9 @@ class DownloadRepository:
     def _raise_if_publication_download_is_active(
         self,
         publication: DbPublication,
-        error_type: type[PublicationFolderMoveError]
-        | type[PublicationDestinationError],
+        error_type: (
+            type[PublicationFolderMoveError] | type[PublicationDestinationError]
+        ),
     ) -> None:
         issue_ids = {issue.id for issue in publication.issues}
         if not issue_ids:
