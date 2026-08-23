@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-08-22 22:53+0200\n"
+"POT-Creation-Date: 2026-08-23 11:36+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -95,7 +95,7 @@ msgid "Recent Downloads"
 msgstr ""
 
 #: flipp_dl/web/templates/dashboard.html:19
-#: flipp_dl/web/templates/publication_detail.html:224
+#: flipp_dl/web/templates/publication_detail.html:229
 #: flipp_dl/web/templates/search.html:43
 msgid "Issue"
 msgstr ""
@@ -111,7 +111,7 @@ msgstr ""
 
 #: flipp_dl/web/templates/dashboard.html:22
 #: flipp_dl/web/templates/library.html:41
-#: flipp_dl/web/templates/publication_detail.html:228
+#: flipp_dl/web/templates/publication_detail.html:233
 msgid "File"
 msgstr ""
 
@@ -139,7 +139,7 @@ msgstr ""
 #: flipp_dl/web/templates/dashboard.html:84
 #: flipp_dl/web/templates/job_detail.html:19
 #: flipp_dl/web/templates/jobs.html:28
-#: flipp_dl/web/templates/publication_detail.html:226
+#: flipp_dl/web/templates/publication_detail.html:231
 #: flipp_dl/web/templates/search.html:46
 msgid "Status"
 msgstr ""
@@ -160,7 +160,7 @@ msgstr ""
 #: flipp_dl/web/templates/issue_row.html:45
 #: flipp_dl/web/templates/job_detail.html:82
 #: flipp_dl/web/templates/jobs.html:32
-#: flipp_dl/web/templates/publication_detail.html:204
+#: flipp_dl/web/templates/publication_detail.html:209
 #: flipp_dl/web/templates/search.html:24 flipp_dl/web/templates/search.html:68
 msgid "Error"
 msgstr ""
@@ -302,7 +302,7 @@ msgid "No longer listed"
 msgstr ""
 
 #: flipp_dl/web/templates/issue_row.html:35
-#: flipp_dl/web/templates/publication_detail.html:203
+#: flipp_dl/web/templates/publication_detail.html:208
 #: flipp_dl/web/templates/publications.html:39
 #: flipp_dl/web/templates/search.html:23 flipp_dl/web/templates/search.html:60
 #: flipp_dl/web/templates/stats_cards.html:15
@@ -310,7 +310,7 @@ msgid "Downloaded"
 msgstr ""
 
 #: flipp_dl/web/templates/issue_row.html:38
-#: flipp_dl/web/templates/publication_detail.html:202
+#: flipp_dl/web/templates/publication_detail.html:207
 #: flipp_dl/web/templates/search.html:21
 msgid "Downloading"
 msgstr ""
@@ -321,7 +321,7 @@ msgid "Downloading…"
 msgstr ""
 
 #: flipp_dl/web/templates/issue_row.html:43
-#: flipp_dl/web/templates/publication_detail.html:201
+#: flipp_dl/web/templates/publication_detail.html:206
 #: flipp_dl/web/templates/search.html:20 flipp_dl/web/templates/search.html:64
 msgid "Queued"
 msgstr ""
@@ -332,19 +332,19 @@ msgid "Retry pending"
 msgstr ""
 
 #: flipp_dl/web/templates/issue_row.html:49
-#: flipp_dl/web/templates/publication_detail.html:200
+#: flipp_dl/web/templates/publication_detail.html:205
 #: flipp_dl/web/templates/search.html:19 flipp_dl/web/templates/search.html:70
 msgid "Not downloaded"
 msgstr ""
 
 #: flipp_dl/web/templates/issue_row.html:55
-#: flipp_dl/web/templates/publication_detail.html:208
-#: flipp_dl/web/templates/publication_detail.html:227
+#: flipp_dl/web/templates/publication_detail.html:213
+#: flipp_dl/web/templates/publication_detail.html:232
 msgid "Read"
 msgstr ""
 
 #: flipp_dl/web/templates/issue_row.html:57
-#: flipp_dl/web/templates/publication_detail.html:209
+#: flipp_dl/web/templates/publication_detail.html:214
 msgid "Unread"
 msgstr ""
 
@@ -691,39 +691,39 @@ msgstr ""
 msgid "Needs a notification channel configured under Settings."
 msgstr ""
 
-#: flipp_dl/web/templates/publication_detail.html:194
+#: flipp_dl/web/templates/publication_detail.html:199
 msgid "Search issues…"
 msgstr ""
 
-#: flipp_dl/web/templates/publication_detail.html:199
+#: flipp_dl/web/templates/publication_detail.html:204
 #: flipp_dl/web/templates/search.html:18
 msgid "All statuses"
 msgstr ""
 
-#: flipp_dl/web/templates/publication_detail.html:207
+#: flipp_dl/web/templates/publication_detail.html:212
 msgid "Read/unread"
 msgstr ""
 
-#: flipp_dl/web/templates/publication_detail.html:212
+#: flipp_dl/web/templates/publication_detail.html:217
 #: flipp_dl/web/templates/publications.html:25
 msgid "No longer listed only"
 msgstr ""
 
-#: flipp_dl/web/templates/publication_detail.html:225
+#: flipp_dl/web/templates/publication_detail.html:230
 #: flipp_dl/web/templates/search.html:44
 msgid "Date"
 msgstr ""
 
-#: flipp_dl/web/templates/publication_detail.html:229
+#: flipp_dl/web/templates/publication_detail.html:234
 #: flipp_dl/web/templates/search.html:47
 msgid "Action"
 msgstr ""
 
-#: flipp_dl/web/templates/publication_detail.html:240
+#: flipp_dl/web/templates/publication_detail.html:245
 msgid "No issues match the current filters."
 msgstr ""
 
-#: flipp_dl/web/templates/publication_detail.html:244
+#: flipp_dl/web/templates/publication_detail.html:249
 msgid "No issues for this publication yet. Run a poll to refresh."
 msgstr ""
 
@@ -1351,79 +1351,101 @@ msgstr ""
 msgid "idle"
 msgstr ""
 
-#: flipp_dl/web/routes.py:68
+#: flipp_dl/web/routes.py:70
 msgid "Use only characters that are valid in a folder name."
 msgstr ""
 
-#: flipp_dl/web/routes.py:69
+#: flipp_dl/web/routes.py:71
 msgid "That folder name is already used by another publication."
 msgstr ""
 
-#: flipp_dl/web/routes.py:70
+#: flipp_dl/web/routes.py:72 flipp_dl/web/routes.py:98
 msgid "The downloaded files could not be moved."
 msgstr ""
 
-#: flipp_dl/web/routes.py:71
+#: flipp_dl/web/routes.py:73
 msgid "Test notification sent. Check your ntfy app."
 msgstr ""
 
-#: flipp_dl/web/routes.py:72
+#: flipp_dl/web/routes.py:74
 msgid "Fill in the ntfy server URL and topic first."
 msgstr ""
 
-#: flipp_dl/web/routes.py:73
+#: flipp_dl/web/routes.py:75
 msgid "The notification could not be delivered."
 msgstr ""
 
-#: flipp_dl/web/routes.py:74
+#: flipp_dl/web/routes.py:76
 msgid "Wrong email address or password."
 msgstr ""
 
-#: flipp_dl/web/routes.py:75
+#: flipp_dl/web/routes.py:77
 msgid "Could not sign in to Flipp."
 msgstr ""
 
-#: flipp_dl/web/routes.py:76
+#: flipp_dl/web/routes.py:78
 msgid "Signed in. The token is saved and in use."
 msgstr ""
 
-#: flipp_dl/web/routes.py:77
+#: flipp_dl/web/routes.py:79
 msgid "No Flipp token is configured, so there is nothing to poll with."
 msgstr ""
 
-#: flipp_dl/web/routes.py:79
+#: flipp_dl/web/routes.py:81
 msgid ""
 "Destination cannot be changed because this publication already has "
 "downloaded issues."
 msgstr ""
 
-#: flipp_dl/web/routes.py:82
+#: flipp_dl/web/routes.py:84
 msgid ""
 "That folder does not exist. Create it first, or pick one with the browse "
 "button."
 msgstr ""
 
-#: flipp_dl/web/routes.py:92
+#: flipp_dl/web/routes.py:93
+msgid "The secondary output folder is not configured, or does not exist."
+msgstr ""
+
+#: flipp_dl/web/routes.py:96
+msgid "A download is running for this publication. Try again once it finishes."
+msgstr ""
+
+#: flipp_dl/web/routes.py:101
+#, python-format
+msgid "Move finished: %(moved)s file(s) moved."
+msgstr ""
+
+#: flipp_dl/web/routes.py:102
+msgid "Move finished: no files needed moving."
+msgstr ""
+
+#: flipp_dl/web/routes.py:104
+#, python-format
+msgid "Move partly finished: %(moved)s file(s) moved. Could not move: %(failed)s."
+msgstr ""
+
+#: flipp_dl/web/routes.py:142
 msgid ""
 "the address did not respond. Check that the URL is correct and that Komga"
 " is running."
 msgstr ""
 
-#: flipp_dl/web/routes.py:95
+#: flipp_dl/web/routes.py:145
 msgid "the login was rejected. Check the username, password or API key."
 msgstr ""
 
-#: flipp_dl/web/routes.py:97
+#: flipp_dl/web/routes.py:147
 msgid ""
 "the address responded, but the content doesn't look like it came from "
 "Komga."
 msgstr ""
 
-#: flipp_dl/web/routes.py:100
+#: flipp_dl/web/routes.py:149
 msgid "something went wrong. Check the address and try again."
 msgstr ""
 
-#: flipp_dl/web/routes.py:1592
+#: flipp_dl/web/routes.py:1659
 msgid "This is a test notification from flipp-dl. Nothing is wrong."
 msgstr ""
 

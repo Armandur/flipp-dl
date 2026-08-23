@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-08-22 22:53+0200\n"
+"POT-Creation-Date: 2026-08-23 11:36+0200\n"
 "PO-Revision-Date: 2026-08-19 18:14+0200\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: sv\n"
@@ -102,7 +102,7 @@ msgid "Recent Downloads"
 msgstr "Senaste nedladdningar"
 
 #: flipp_dl/web/templates/dashboard.html:19
-#: flipp_dl/web/templates/publication_detail.html:224
+#: flipp_dl/web/templates/publication_detail.html:229
 #: flipp_dl/web/templates/search.html:43
 msgid "Issue"
 msgstr "Utgåva"
@@ -118,7 +118,7 @@ msgstr "Nedladdad"
 
 #: flipp_dl/web/templates/dashboard.html:22
 #: flipp_dl/web/templates/library.html:41
-#: flipp_dl/web/templates/publication_detail.html:228
+#: flipp_dl/web/templates/publication_detail.html:233
 msgid "File"
 msgstr "Fil"
 
@@ -146,7 +146,7 @@ msgstr "Typ"
 #: flipp_dl/web/templates/dashboard.html:84
 #: flipp_dl/web/templates/job_detail.html:19
 #: flipp_dl/web/templates/jobs.html:28
-#: flipp_dl/web/templates/publication_detail.html:226
+#: flipp_dl/web/templates/publication_detail.html:231
 #: flipp_dl/web/templates/search.html:46
 msgid "Status"
 msgstr "Status"
@@ -167,7 +167,7 @@ msgstr "Klar"
 #: flipp_dl/web/templates/issue_row.html:45
 #: flipp_dl/web/templates/job_detail.html:82
 #: flipp_dl/web/templates/jobs.html:32
-#: flipp_dl/web/templates/publication_detail.html:204
+#: flipp_dl/web/templates/publication_detail.html:209
 #: flipp_dl/web/templates/search.html:24 flipp_dl/web/templates/search.html:68
 msgid "Error"
 msgstr "Fel"
@@ -317,7 +317,7 @@ msgid "No longer listed"
 msgstr "Listas inte längre"
 
 #: flipp_dl/web/templates/issue_row.html:35
-#: flipp_dl/web/templates/publication_detail.html:203
+#: flipp_dl/web/templates/publication_detail.html:208
 #: flipp_dl/web/templates/publications.html:39
 #: flipp_dl/web/templates/search.html:23 flipp_dl/web/templates/search.html:60
 #: flipp_dl/web/templates/stats_cards.html:15
@@ -325,7 +325,7 @@ msgid "Downloaded"
 msgstr "Nedladdad"
 
 #: flipp_dl/web/templates/issue_row.html:38
-#: flipp_dl/web/templates/publication_detail.html:202
+#: flipp_dl/web/templates/publication_detail.html:207
 #: flipp_dl/web/templates/search.html:21
 msgid "Downloading"
 msgstr "Laddar ner"
@@ -336,7 +336,7 @@ msgid "Downloading…"
 msgstr "Laddar ner…"
 
 #: flipp_dl/web/templates/issue_row.html:43
-#: flipp_dl/web/templates/publication_detail.html:201
+#: flipp_dl/web/templates/publication_detail.html:206
 #: flipp_dl/web/templates/search.html:20 flipp_dl/web/templates/search.html:64
 msgid "Queued"
 msgstr "Köad"
@@ -347,19 +347,19 @@ msgid "Retry pending"
 msgstr "Väntar på omförsök"
 
 #: flipp_dl/web/templates/issue_row.html:49
-#: flipp_dl/web/templates/publication_detail.html:200
+#: flipp_dl/web/templates/publication_detail.html:205
 #: flipp_dl/web/templates/search.html:19 flipp_dl/web/templates/search.html:70
 msgid "Not downloaded"
 msgstr "Ej nedladdad"
 
 #: flipp_dl/web/templates/issue_row.html:55
-#: flipp_dl/web/templates/publication_detail.html:208
-#: flipp_dl/web/templates/publication_detail.html:227
+#: flipp_dl/web/templates/publication_detail.html:213
+#: flipp_dl/web/templates/publication_detail.html:232
 msgid "Read"
 msgstr "Läst"
 
 #: flipp_dl/web/templates/issue_row.html:57
-#: flipp_dl/web/templates/publication_detail.html:209
+#: flipp_dl/web/templates/publication_detail.html:214
 msgid "Unread"
 msgstr "Oläst"
 
@@ -487,8 +487,8 @@ msgid ""
 "Komga is not fully configured. Enable it, enter the URL and select a "
 "library, then save settings first."
 msgstr ""
-"Komga är inte färdigkonfigurerat. Slå på det, fyll i adressen och välj ett "
-"bibliotek, och spara inställningarna först."
+"Komga är inte färdigkonfigurerat. Slå på det, fyll i adressen och välj "
+"ett bibliotek, och spara inställningarna först."
 
 #: flipp_dl/web/templates/komga_backfill_result.html:5
 #, python-format
@@ -724,39 +724,39 @@ msgstr "Notifiera vid nya utgåvor"
 msgid "Needs a notification channel configured under Settings."
 msgstr "Kräver en notifieringskanal konfigurerad under Inställningar."
 
-#: flipp_dl/web/templates/publication_detail.html:194
+#: flipp_dl/web/templates/publication_detail.html:199
 msgid "Search issues…"
 msgstr "Sök utgåvor…"
 
-#: flipp_dl/web/templates/publication_detail.html:199
+#: flipp_dl/web/templates/publication_detail.html:204
 #: flipp_dl/web/templates/search.html:18
 msgid "All statuses"
 msgstr "Alla statusar"
 
-#: flipp_dl/web/templates/publication_detail.html:207
+#: flipp_dl/web/templates/publication_detail.html:212
 msgid "Read/unread"
 msgstr "Läst/oläst"
 
-#: flipp_dl/web/templates/publication_detail.html:212
+#: flipp_dl/web/templates/publication_detail.html:217
 #: flipp_dl/web/templates/publications.html:25
 msgid "No longer listed only"
 msgstr "Bara ej längre listade"
 
-#: flipp_dl/web/templates/publication_detail.html:225
+#: flipp_dl/web/templates/publication_detail.html:230
 #: flipp_dl/web/templates/search.html:44
 msgid "Date"
 msgstr "Datum"
 
-#: flipp_dl/web/templates/publication_detail.html:229
+#: flipp_dl/web/templates/publication_detail.html:234
 #: flipp_dl/web/templates/search.html:47
 msgid "Action"
 msgstr "Åtgärd"
 
-#: flipp_dl/web/templates/publication_detail.html:240
+#: flipp_dl/web/templates/publication_detail.html:245
 msgid "No issues match the current filters."
 msgstr "Inga utgåvor matchar de aktuella filtren."
 
-#: flipp_dl/web/templates/publication_detail.html:244
+#: flipp_dl/web/templates/publication_detail.html:249
 msgid "No issues for this publication yet. Run a poll to refresh."
 msgstr ""
 "Inga utgåvor för den här publikationen än. Kör en pollning för att "
@@ -1457,47 +1457,47 @@ msgstr "körs"
 msgid "idle"
 msgstr "vilar"
 
-#: flipp_dl/web/routes.py:68
+#: flipp_dl/web/routes.py:70
 msgid "Use only characters that are valid in a folder name."
 msgstr "Använd bara tecken som är giltiga i ett katalognamn."
 
-#: flipp_dl/web/routes.py:69
+#: flipp_dl/web/routes.py:71
 msgid "That folder name is already used by another publication."
 msgstr "Det katalognamnet används redan av en annan publikation."
 
-#: flipp_dl/web/routes.py:70
+#: flipp_dl/web/routes.py:72 flipp_dl/web/routes.py:98
 msgid "The downloaded files could not be moved."
 msgstr "De nedladdade filerna kunde inte flyttas."
 
-#: flipp_dl/web/routes.py:71
+#: flipp_dl/web/routes.py:73
 msgid "Test notification sent. Check your ntfy app."
 msgstr "Testnotisen är skickad. Kolla ntfy-appen."
 
-#: flipp_dl/web/routes.py:72
+#: flipp_dl/web/routes.py:74
 msgid "Fill in the ntfy server URL and topic first."
 msgstr "Fyll i ntfy-serverns URL och topic först."
 
-#: flipp_dl/web/routes.py:73
+#: flipp_dl/web/routes.py:75
 msgid "The notification could not be delivered."
 msgstr "Notisen kunde inte levereras."
 
-#: flipp_dl/web/routes.py:74
+#: flipp_dl/web/routes.py:76
 msgid "Wrong email address or password."
 msgstr "Fel e-postadress eller lösenord."
 
-#: flipp_dl/web/routes.py:75
+#: flipp_dl/web/routes.py:77
 msgid "Could not sign in to Flipp."
 msgstr "Kunde inte logga in mot Flipp."
 
-#: flipp_dl/web/routes.py:76
+#: flipp_dl/web/routes.py:78
 msgid "Signed in. The token is saved and in use."
 msgstr "Inloggad. Token är sparad och i bruk."
 
-#: flipp_dl/web/routes.py:77
+#: flipp_dl/web/routes.py:79
 msgid "No Flipp token is configured, so there is nothing to poll with."
 msgstr "Ingen Flipp-token är konfigurerad, så det finns inget att polla med."
 
-#: flipp_dl/web/routes.py:79
+#: flipp_dl/web/routes.py:81
 msgid ""
 "Destination cannot be changed because this publication already has "
 "downloaded issues."
@@ -1505,33 +1505,55 @@ msgstr ""
 "Destinationen kan inte ändras eftersom publikationen redan har nedladdade"
 " utgåvor."
 
-#: flipp_dl/web/routes.py:82
+#: flipp_dl/web/routes.py:84
 msgid ""
 "That folder does not exist. Create it first, or pick one with the browse "
 "button."
 msgstr "Den mappen finns inte. Skapa den först, eller välj en med bläddra-knappen."
 
-#: flipp_dl/web/routes.py:92
+#: flipp_dl/web/routes.py:93
+msgid "The secondary output folder is not configured, or does not exist."
+msgstr "Den sekundära utdatamappen är inte konfigurerad, eller finns inte."
+
+#: flipp_dl/web/routes.py:96
+msgid "A download is running for this publication. Try again once it finishes."
+msgstr "En nedladdning pågår för den här publikationen. Försök igen när den är klar."
+
+#: flipp_dl/web/routes.py:101
+#, python-format
+msgid "Move finished: %(moved)s file(s) moved."
+msgstr "Flytten är klar: %(moved)s fil(er) flyttades."
+
+#: flipp_dl/web/routes.py:102
+msgid "Move finished: no files needed moving."
+msgstr "Flytten är klar: inga filer behövde flyttas."
+
+#: flipp_dl/web/routes.py:104
+#, python-format
+msgid "Move partly finished: %(moved)s file(s) moved. Could not move: %(failed)s."
+msgstr "Flytten är delvis klar: %(moved)s fil(er) flyttades. Kunde inte flytta: %(failed)s."
+
+#: flipp_dl/web/routes.py:142
 msgid ""
 "the address did not respond. Check that the URL is correct and that Komga"
 " is running."
 msgstr "adressen svarade inte. Kontrollera att URL:en stämmer och att Komga körs."
 
-#: flipp_dl/web/routes.py:95
+#: flipp_dl/web/routes.py:145
 msgid "the login was rejected. Check the username, password or API key."
 msgstr "inloggningen nekades. Kontrollera användarnamn, lösenord eller API-nyckel."
 
-#: flipp_dl/web/routes.py:97
+#: flipp_dl/web/routes.py:147
 msgid ""
 "the address responded, but the content doesn't look like it came from "
 "Komga."
 msgstr "adressen svarade, men innehållet verkar inte komma från Komga."
 
-#: flipp_dl/web/routes.py:100
+#: flipp_dl/web/routes.py:149
 msgid "something went wrong. Check the address and try again."
 msgstr "något gick fel. Kontrollera adressen och försök igen."
 
-#: flipp_dl/web/routes.py:1592
+#: flipp_dl/web/routes.py:1659
 msgid "This is a test notification from flipp-dl. Nothing is wrong."
 msgstr "Det här är en testnotis från flipp-dl. Inget är fel."
 

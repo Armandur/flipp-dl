@@ -1,7 +1,9 @@
 """Tests for DownloadRepository using an in-memory SQLite database."""
 
+import errno
 import json
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
 from sqlalchemy import inspect as sa_inspect
@@ -14,8 +16,10 @@ from flipp_dl.db.repository import (
     MAX_AUTO_RETRIES,
     RETRY_DELAYS_MINUTES,
     DownloadRepository,
+    PublicationDestinationError,
     PublicationFolderConflict,
     PublicationFolderError,
+    PublicationFolderMoveError,
     default_cover_cache_root,
     fetch_and_cache_cover,
 )
@@ -49,6 +53,25 @@ def _publication(code: str = "KA", name: str = "Kalle Anka & Co") -> Publication
             Issue(custom_code=f"{code}-02", issue_name="Nr 2", issue_date="2024-01-15"),
         ],
     )
+
+
+def _downloaded_publication(
+    repo: DownloadRepository, root: Path, *, issue_count: int = 2
+) -> tuple[list[int], list[Path]]:
+    publication = _publication("A", "Hjemmet")
+    db_publication = repo.upsert_publication(publication)
+    issue_ids = []
+    paths = []
+    for issue in publication.issues[:issue_count]:
+        db_issue, _ = repo.upsert_issue(issue, db_publication.id)
+        path = storage.issue_path(root, db_publication, db_issue)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(f"issue-{db_issue.id}".encode())
+        repo.mark_issue_done(db_issue.id, str(path.resolve()))
+        issue_ids.append(db_issue.id)
+        paths.append(path.resolve())
+    repo.session.commit()
+    return issue_ids, paths
 
 
 # ---------------------------------------------------------------------------
@@ -130,13 +153,173 @@ def test_setting_folder_name_moves_downloaded_files_and_updates_path(repo, tmp_p
     repo.mark_issue_done(db_issue.id, str(old_path.resolve()))
     repo.session.commit()
 
-    repo.set_publication_folder_name("A", "Hjemmet (NO)", tmp_path)
+    report = repo.set_publication_folder_name("A", "Hjemmet (NO)", tmp_path)
     repo.session.commit()
 
+    assert report.moved == 1
+    assert report.failed == []
     moved = tmp_path / "Hjemmet (NO)" / old_path.name
     assert moved.is_file()
     assert not old_path.exists()
     assert repo.get_issue(db_issue.id).file_path == str(moved.resolve())
+
+def test_destination_change_moves_files_between_roots(repo, tmp_path):
+    primary = tmp_path / "primary"
+    secondary = tmp_path / "secondary"
+    primary.mkdir()
+    secondary.mkdir()
+    issue_ids, sources = _downloaded_publication(repo, primary)
+
+    report = repo.set_publication_destination(
+        "A", "secondary", primary, secondary
+    )
+
+    assert report.moved == 2
+    assert report.failed == []
+    for issue_id, source in zip(issue_ids, sources, strict=True):
+        target = secondary / "Hjemmet" / source.name
+        assert target.is_file()
+        assert not source.exists()
+        assert repo.get_issue(issue_id).file_path == str(target.resolve())
+
+
+def test_destination_change_copies_verifies_and_deletes_on_exdev(
+    repo, tmp_path, monkeypatch
+):
+    primary = tmp_path / "primary"
+    secondary = tmp_path / "secondary"
+    primary.mkdir()
+    secondary.mkdir()
+    issue_ids, sources = _downloaded_publication(repo, primary, issue_count=1)
+    source = sources[0]
+    original_replace = Path.replace
+
+    def raise_exdev(path, target):
+        if path == source:
+            raise OSError(errno.EXDEV, "cross-device link")
+        return original_replace(path, target)
+
+    monkeypatch.setattr(Path, "replace", raise_exdev)
+
+    report = repo.set_publication_destination(
+        "A", "secondary", primary, secondary
+    )
+
+    target = secondary / "Hjemmet" / source.name
+    assert report.moved == 1
+    assert report.failed == []
+    assert target.read_bytes() == f"issue-{issue_ids[0]}".encode()
+    assert not source.exists()
+    assert repo.get_issue(issue_ids[0]).file_path == str(target.resolve())
+
+
+def test_interrupted_move_keeps_each_issue_consistent_and_can_resume(
+    repo, tmp_path, monkeypatch
+):
+    primary = tmp_path / "primary"
+    secondary = tmp_path / "secondary"
+    primary.mkdir()
+    secondary.mkdir()
+    issue_ids, sources = _downloaded_publication(repo, primary)
+    original_move = storage.move_file
+    calls = 0
+
+    def fail_second(source, target):
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise OSError("simulated interruption")
+        original_move(source, target)
+
+    monkeypatch.setattr(storage, "move_file", fail_second)
+    first_report = repo.set_publication_destination(
+        "A", "secondary", primary, secondary
+    )
+
+    first_target = secondary / "Hjemmet" / sources[0].name
+    assert first_report.moved == 1
+    assert first_report.failed == [str(sources[1])]
+    assert first_target.is_file()
+    assert repo.get_issue(issue_ids[0]).file_path == str(first_target.resolve())
+    assert sources[1].is_file()
+    assert repo.get_issue(issue_ids[1]).file_path == str(sources[1])
+
+    monkeypatch.setattr(storage, "move_file", original_move)
+    second_report = repo.set_publication_destination(
+        "A", "secondary", primary, secondary
+    )
+
+    second_target = secondary / "Hjemmet" / sources[1].name
+    assert second_report.moved == 1
+    assert second_report.failed == []
+    assert second_target.is_file()
+    assert not sources[1].exists()
+    assert repo.get_issue(issue_ids[1]).file_path == str(second_target.resolve())
+
+
+def test_restart_accepts_file_already_at_target(repo, tmp_path):
+    primary = tmp_path / "primary"
+    secondary = tmp_path / "secondary"
+    primary.mkdir()
+    secondary.mkdir()
+    issue_ids, sources = _downloaded_publication(repo, primary, issue_count=1)
+    source = sources[0]
+    target = secondary / "Hjemmet" / source.name
+    target.parent.mkdir(parents=True)
+    target.write_bytes(source.read_bytes())
+
+    report = repo.set_publication_destination(
+        "A", "secondary", primary, secondary
+    )
+
+    assert report.moved == 0
+    assert report.failed == []
+    assert target.is_file()
+    assert not source.exists()
+    assert repo.get_issue(issue_ids[0]).file_path == str(target.resolve())
+
+
+@pytest.mark.parametrize(
+    "job_status",
+    [JobStatus.QUEUED, JobStatus.RUNNING, JobStatus.RETRY_PENDING],
+)
+@pytest.mark.parametrize(
+    ("operation", "error_type"),
+    [
+        ("folder", PublicationFolderMoveError),
+        ("destination", PublicationDestinationError),
+    ],
+)
+def test_publication_move_is_blocked_by_active_download_job(
+    repo, tmp_path, job_status, operation, error_type
+):
+    primary = tmp_path / "primary"
+    secondary = tmp_path / "secondary"
+    primary.mkdir()
+    secondary.mkdir()
+    issue_ids, sources = _downloaded_publication(repo, primary, issue_count=1)
+    job = repo.create_job("download", {"issue_id": issue_ids[0]})
+    job.status = job_status
+    repo.session.commit()
+
+    # Asserted on the reason, not the prose: the message is translated in
+    # the web layer and must be free to change without breaking this.
+    with pytest.raises(error_type) as excinfo:
+        if operation == "folder":
+            repo.set_publication_folder_name(
+                "A", "Nya Hjemmet", primary, secondary
+            )
+        else:
+            repo.set_publication_destination(
+                "A", "secondary", primary, secondary
+            )
+
+    assert excinfo.value.reason == "download_active"
+    assert sources[0].is_file()
+    publication = repo.get_publication("A")
+    assert publication.folder_name is None
+    assert publication.destination is None
+
 
 
 def test_folder_name_reaches_detached_domain_publication(repo, tmp_path):

@@ -2460,26 +2460,70 @@ def test_settings_shows_the_token_console_snippet(client: TestClient):
     assert "tidningar.flipp.se" in resp.text
 
 
-def test_destination_change_is_refused_for_downloaded_publication_in_swedish(
-    client: TestClient,
+def test_destination_change_is_refused_while_download_job_is_active(
+    client: TestClient, tmp_path: Path
 ):
-    client.get("/language/sv?next=/publications/KA")
-    token = _csrf_for(client)
+    secondary = tmp_path / "secondary"
+    secondary.mkdir()
+    with get_session(client.app.state.session_factory) as session:
+        repo = DownloadRepository(session)
+        repo.set_setting("secondary_output_root", str(secondary))
+        issue_id = repo.get_publication("KA").issues[0].id
+        repo.create_job("download", {"issue_id": issue_id})
 
+    token = _csrf_for(client)
     response = client.post(
         "/publications/KA/destination",
         data={"_csrf_token": token, "destination": "secondary"},
     )
 
     assert response.status_code == 400
-    assert (
-        "Destinationen kan inte ändras eftersom publikationen redan har nedladdade utgåvor."
-        in response.text
-    )
+    assert "A download is running for this publication" in response.text
     assert 'class="error destination-error"' in response.text
     with get_session(client.app.state.session_factory) as session:
         publication = DownloadRepository(session).get_publication("KA")
         assert publication.destination is None
+
+
+def test_destination_and_folder_routes_move_files_and_show_result(
+    client: TestClient, tmp_path: Path
+):
+    secondary = tmp_path / "secondary"
+    secondary.mkdir()
+    with get_session(client.app.state.session_factory) as session:
+        DownloadRepository(session).set_setting(
+            "secondary_output_root", str(secondary)
+        )
+
+    token = _csrf_for(client)
+    destination_response = client.post(
+        "/publications/KA/destination",
+        data={"_csrf_token": token, "destination": "secondary"},
+    )
+
+    destination_target = secondary / "Kalle Anka" / "ka01.pdf"
+    assert destination_response.status_code == 200
+    assert "Move finished: 1 file(s) moved." in destination_response.text
+    assert destination_target.is_file()
+    with get_session(client.app.state.session_factory) as session:
+        publication = DownloadRepository(session).get_publication("KA")
+        assert publication.destination == "secondary"
+        assert publication.issues[0].file_path == str(destination_target.resolve())
+
+    folder_response = client.post(
+        "/publications/KA/folder-name",
+        data={"_csrf_token": token, "folder_name": "Kalle Anka Sverige"},
+    )
+
+    folder_target = secondary / "Kalle Anka Sverige" / "ka01.pdf"
+    assert folder_response.status_code == 200
+    assert "Move finished: 1 file(s) moved." in folder_response.text
+    assert folder_target.is_file()
+    assert not destination_target.exists()
+    with get_session(client.app.state.session_factory) as session:
+        publication = DownloadRepository(session).get_publication("KA")
+        assert publication.folder_name == "Kalle Anka Sverige"
+        assert publication.issues[0].file_path == str(folder_target.resolve())
 
 
 def test_settings_saves_secondary_output_root_as_absolute_path(

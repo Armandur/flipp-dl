@@ -7,6 +7,7 @@ import logging
 import os
 from datetime import UTC, datetime
 from pathlib import Path
+from urllib.parse import urlencode
 
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import (
@@ -29,6 +30,7 @@ from ..db.repository import (
     PublicationFolderConflict,
     PublicationFolderError,
     PublicationFolderMoveError,
+    PublicationMoveReport,
     default_cover_cache_root,
     fetch_and_cache_cover,
     find_cached_cover,
@@ -82,6 +84,54 @@ _SECONDARY_ROOT_MISSING = _(
     "That folder does not exist. Create it first, or pick one with the browse button."
 )
 
+
+# Why a move was refused, keyed by the exception's reason - same pattern
+# as _KOMGA_TEST_CONNECTION_MESSAGES below. The repository raises stable
+# English text; the user reads whichever language they picked.
+_MOVE_ERROR_MESSAGES = {
+    "secondary_missing": _(
+        "The secondary output folder is not configured, or does not exist."
+    ),
+    "download_active": _(
+        "A download is running for this publication. Try again once it finishes."
+    ),
+    "other": _("The downloaded files could not be moved."),
+}
+
+_MOVE_DONE = _("Move finished: %(moved)s file(s) moved.")
+_MOVE_NOTHING = _("Move finished: no files needed moving.")
+_MOVE_PARTIAL = _(
+    "Move partly finished: %(moved)s file(s) moved. Could not move: %(failed)s."
+)
+
+
+def _move_error_message(request: Request, exc: Exception) -> str:
+    """Translate a move failure into the user's language."""
+    reason = getattr(exc, "reason", "other")
+    return i18n.translate(
+        i18n.get_language(request),
+        _MOVE_ERROR_MESSAGES.get(reason, _MOVE_ERROR_MESSAGES["other"]),
+    )
+
+
+def _move_result_message(request: Request, report: PublicationMoveReport) -> str:
+    lang = i18n.get_language(request)
+    if report.failed:
+        failed = ", ".join(Path(path).name for path in report.failed)
+        return i18n.translate(lang, _MOVE_PARTIAL) % {
+            "moved": report.moved,
+            "failed": failed,
+        }
+    if report.moved:
+        return i18n.translate(lang, _MOVE_DONE) % {"moved": report.moved}
+    return i18n.translate(lang, _MOVE_NOTHING)
+
+
+def _secondary_output_root(repo: DownloadRepository) -> Path | None:
+    value = repo.get_setting("secondary_output_root", "").strip()
+    return Path(value) if value else None
+
+
 # Short, non-technical messages for the "Test connection" button
 # (komga_test_connection below), keyed by KomgaError.reason. The
 # technical requests/urllib3 text stays out of the UI - it's logged
@@ -94,8 +144,7 @@ _KOMGA_TEST_CONNECTION_MESSAGES: dict[str, str] = {
     ),
     "auth": _("the login was rejected. Check the username, password or API key."),
     "bad_response": _(
-        "the address responded, but the content doesn't look like it came "
-        "from Komga."
+        "the address responded, but the content doesn't look like it came from Komga."
     ),
     "other": _("something went wrong. Check the address and try again."),
 }
@@ -448,13 +497,16 @@ def register(app: FastAPI) -> None:
                 else:
                     try:
                         repo.set_publication_folder_name(
-                            code, folder_name, request.app.state.output_root
+                            code,
+                            folder_name,
+                            request.app.state.output_root,
+                            _secondary_output_root(repo),
                         )
                     except PublicationFolderConflict:
                         folder_error = _FOLDER_NAME_CONFLICT
                         folder_required = True
-                    except PublicationFolderMoveError:
-                        folder_error = _FOLDER_MOVE_FAILED
+                    except PublicationFolderMoveError as exc:
+                        folder_error = _move_error_message(request, exc)
                         folder_required = True
                     except PublicationFolderError:
                         folder_error = _INVALID_FOLDER_NAME
@@ -652,6 +704,7 @@ def register(app: FastAPI) -> None:
         pub,
         *,
         destination_error: str | None = None,
+        move_result: str | None = None,
         status_code: int = 200,
     ):
         # Newest issues first - issue_date is a YYYY-MM-DD string so
@@ -670,18 +723,25 @@ def register(app: FastAPI) -> None:
                 "queue_estimate": repo.estimate_missing_download_size(pub.id),
                 "queue_warn_threshold_bytes": repo.queue_warn_threshold_bytes(),
                 "destination_error": destination_error,
+                "move_result": move_result,
             },
             status_code=status_code,
         )
 
     @app.get("/publications/{code}", response_class=HTMLResponse)
-    async def publication_detail(request: Request, code: str):
+    async def publication_detail(
+        request: Request, code: str, move_result: str | None = None
+    ):
         repo = _repo(request)
         try:
             pub = repo.get_publication(code)
             if pub is None:
                 return HTMLResponse("Publication not found", status_code=404)
-            return _publication_detail_response(request, repo, pub)
+            # The move outcome is a result, not an error - it rides the
+            # redirect back here as a query parameter after the POST.
+            return _publication_detail_response(
+                request, repo, pub, move_result=move_result
+            )
         finally:
             repo.session.close()
 
@@ -689,19 +749,22 @@ def register(app: FastAPI) -> None:
     async def set_publication_destination(
         request: Request, code: str, destination: str = Form("primary")
     ):
-        """Set the publication output root without moving existing files."""
+        """Set the publication output root and move its tracked files."""
         if not await check_csrf_form(request):
             return HTMLResponse("CSRF validation failed", status_code=400)
         try:
             with get_session(request.app.state.session_factory) as session:
-                changed = DownloadRepository(session).set_publication_destination(
-                    code, destination
+                repo = DownloadRepository(session)
+                report = repo.set_publication_destination(
+                    code,
+                    destination,
+                    request.app.state.output_root,
+                    _secondary_output_root(repo),
                 )
-                if not changed:
+                if not report:
                     return HTMLResponse("Publication not found", status_code=404)
-        except PublicationDestinationError:
-            lang = i18n.get_language(request)
-            message = i18n.translate(lang, _DESTINATION_CHANGE_BLOCKED)
+        except PublicationDestinationError as exc:
+            message = _move_error_message(request, exc)
             repo = _repo(request)
             try:
                 publication = repo.get_publication(code)
@@ -716,7 +779,8 @@ def register(app: FastAPI) -> None:
                 )
             finally:
                 repo.session.close()
-        return RedirectResponse(f"/publications/{code}", status_code=303)
+        query = urlencode({"move_result": _move_result_message(request, report)})
+        return RedirectResponse(f"/publications/{code}?{query}", status_code=303)
 
     @app.post("/publications/{code}/notify", response_class=HTMLResponse)
     async def set_publication_notify(
@@ -748,23 +812,26 @@ def register(app: FastAPI) -> None:
         lang = i18n.get_language(request)
         try:
             with get_session(request.app.state.session_factory) as session:
-                changed = DownloadRepository(session).set_publication_folder_name(
-                    code, folder_name, request.app.state.output_root
+                repo = DownloadRepository(session)
+                report = repo.set_publication_folder_name(
+                    code,
+                    folder_name,
+                    request.app.state.output_root,
+                    _secondary_output_root(repo),
                 )
-                if not changed:
+                if not report:
                     return HTMLResponse("Publication not found", status_code=404)
         except PublicationFolderConflict:
             message = i18n.translate(lang, _FOLDER_NAME_CONFLICT)
             return HTMLResponse(message, status_code=400)
-        except PublicationFolderMoveError:
-            return HTMLResponse(
-                i18n.translate(lang, _FOLDER_MOVE_FAILED), status_code=400
-            )
+        except PublicationFolderMoveError as exc:
+            return HTMLResponse(_move_error_message(request, exc), status_code=400)
         except PublicationFolderError:
             return HTMLResponse(
                 i18n.translate(lang, _INVALID_FOLDER_NAME), status_code=400
             )
-        return RedirectResponse(f"/publications/{code}", status_code=303)
+        query = urlencode({"move_result": _move_result_message(request, report)})
+        return RedirectResponse(f"/publications/{code}?{query}", status_code=303)
 
     @app.post("/publications/{code}/queue-missing", response_class=HTMLResponse)
     async def queue_missing(request: Request, code: str):

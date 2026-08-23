@@ -173,6 +173,11 @@
       <button class="btn btn-watch" type="submit">{{ _("Save") }}</button>
       <span class="dim">{{ _("Needs a notification channel configured under Settings.") }}</span>
     </form>
+    {% if move_result %}
+    <div class="note" style="margin-top:8px;">
+      {{ move_result }}
+    </div>
+    {% endif %}
     {% if destination_error %}
     <div class="error destination-error" style="margin-top:8px;">
       {{ destination_error }}

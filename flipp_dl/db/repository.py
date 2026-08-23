@@ -229,6 +229,18 @@ class QueueSizeEstimate:
     basis: str  # "publication" | "global" | "none"
 
 
+@dataclass
+class PublicationMoveReport:
+    """Result of changing a publication's folder or destination."""
+
+    found: bool
+    moved: int = 0
+    failed: list[str] = field(default_factory=list)
+
+    def __bool__(self) -> bool:
+        return self.found
+
+
 class PublicationFolderError(ValueError):
     """The selected publication folder name cannot be used."""
 
@@ -238,11 +250,28 @@ class PublicationFolderConflict(PublicationFolderError):
 
 
 class PublicationFolderMoveError(PublicationFolderError):
-    """Existing downloaded files could not be moved safely."""
+    """Existing downloaded files could not be moved safely.
+
+    ``reason`` is the stable category the web layer maps to a translated,
+    non-technical message, the same way :class:`~flipp_dl.komga.KomgaError`
+    does: ``"secondary_missing"``, ``"download_active"`` or ``"other"``.
+    """
+
+    def __init__(self, message: str, *, reason: str = "other") -> None:
+        super().__init__(message)
+        self.reason = reason
 
 
 class PublicationDestinationError(ValueError):
-    """A destination change is not allowed for this publication."""
+    """A destination change is not allowed for this publication.
+
+    Carries the same ``reason`` categories as
+    :class:`PublicationFolderMoveError`.
+    """
+
+    def __init__(self, message: str, *, reason: str = "other") -> None:
+        super().__init__(message)
+        self.reason = reason
 
 
 class DownloadRepository:
@@ -475,17 +504,24 @@ class DownloadRepository:
                     )
 
     def set_publication_folder_name(
-        self, custom_code: str, folder_name: str, output_root: Path
-    ) -> bool:
+        self,
+        custom_code: str,
+        folder_name: str,
+        output_root: Path,
+        secondary_output_root: Path | None = None,
+    ) -> PublicationMoveReport:
         """Set a user-owned folder name and move this publication's files.
 
-        Returns False if the publication does not exist. Files tracked by
-        issues are moved one by one so an old folder shared by two
-        publications is never moved wholesale.
+        Files tracked by issues are moved one by one so an old folder shared
+        by two publications is never moved wholesale.
         """
         publication = self.get_publication(custom_code)
         if publication is None:
-            return False
+            return PublicationMoveReport(found=False)
+
+        self._raise_if_publication_download_is_active(
+            publication, PublicationFolderMoveError
+        )
 
         selected = folder_name.strip()
         if not selected:
@@ -497,10 +533,8 @@ class DownloadRepository:
         else:
             selected_value = selected
 
-        old_folder = storage.publication_folder(output_root, publication).resolve()
         previous = publication.folder_name
         publication.folder_name = selected_value
-        new_folder = storage.publication_folder(output_root, publication).resolve()
 
         conflict = self.publication_folder_conflict(custom_code)
         if conflict is not None:
@@ -509,50 +543,24 @@ class DownloadRepository:
                 f'Folder name is already used by "{conflict.name}".'
             )
 
-        if old_folder == new_folder:
-            return True
-
-        moves: list[tuple[Path, Path, DbIssue, str]] = []
-        for issue in publication.issues:
-            if not issue.file_path:
-                continue
-            source = storage.resolve_safe_path(output_root, issue.file_path)
-            if source is None:
-                continue
-            try:
-                relative = source.relative_to(old_folder)
-            except ValueError:
-                continue
-            target = new_folder / relative
-            if target.exists():
-                publication.folder_name = previous
-                raise PublicationFolderMoveError(
-                    f'Cannot move files because "{target.name}" already exists.'
-                )
-            moves.append((source, target, issue, issue.file_path))
-
-        completed: list[tuple[Path, Path, DbIssue, str]] = []
-        try:
-            for source, target, issue, old_file_path in moves:
-                target.parent.mkdir(parents=True, exist_ok=True)
-                source.replace(target)
-                if Path(old_file_path).is_absolute():
-                    issue.file_path = str(target.resolve())
-                else:
-                    issue.file_path = str(
-                        target.resolve().relative_to(Path(output_root).resolve())
-                    )
-                completed.append((source, target, issue, old_file_path))
-        except OSError as exc:
-            for source, target, issue, old_file_path in reversed(completed):
-                source.parent.mkdir(parents=True, exist_ok=True)
-                target.replace(source)
-                issue.file_path = old_file_path
-            publication.folder_name = previous
+        primary = Path(output_root).resolve()
+        secondary = (
+            Path(secondary_output_root).resolve() if secondary_output_root else None
+        )
+        if publication.destination == "secondary" and (
+            secondary is None or not secondary.is_dir()
+        ):
             raise PublicationFolderMoveError(
-                "The downloaded files could not be moved."
-            ) from exc
-        return True
+                "The secondary output root does not exist.",
+                reason="secondary_missing",
+            )
+        target_root = storage.destination_root(
+            primary, secondary, publication
+        ).resolve()
+        report = self._move_publication_files(
+            publication, primary, secondary, target_root
+        )
+        return report
 
     def set_publication_notify(self, custom_code: str, enabled: bool) -> bool:
         """Toggle per-publication notifications. False if not found.
@@ -584,24 +592,176 @@ class DownloadRepository:
         )
         return set(rows)
 
-    def set_publication_destination(self, custom_code: str, destination: str) -> bool:
-        """Set the output destination unless downloaded issues already exist."""
+    def set_publication_destination(
+        self,
+        custom_code: str,
+        destination: str,
+        output_root: Path,
+        secondary_output_root: Path | None,
+    ) -> PublicationMoveReport:
+        """Set the output destination and move downloaded files there."""
         publication = self.get_publication(custom_code)
         if publication is None:
-            return False
+            return PublicationMoveReport(found=False)
 
         selected = destination.strip()
         if selected not in {"", "primary", "secondary"}:
             raise ValueError("Unknown publication destination")
         selected_value = "secondary" if selected == "secondary" else None
-        if publication.destination == selected_value:
-            return True
-        if any(issue.status == IssueStatus.DONE for issue in publication.issues):
+        primary = Path(output_root).resolve()
+        secondary = (
+            Path(secondary_output_root).resolve() if secondary_output_root else None
+        )
+        if selected_value == "secondary" and (
+            secondary is None or not secondary.is_dir()
+        ):
             raise PublicationDestinationError(
-                "Downloaded issues prevent changing the destination."
+                "The secondary output root is not configured or does not exist.",
+                reason="secondary_missing",
             )
+        self._raise_if_publication_download_is_active(
+            publication, PublicationDestinationError
+        )
+
         publication.destination = selected_value
-        return True
+        target_root = storage.destination_root(
+            primary, secondary, publication
+        ).resolve()
+        return self._move_publication_files(
+            publication, primary, secondary, target_root
+        )
+
+    def _raise_if_publication_download_is_active(
+        self,
+        publication: DbPublication,
+        error_type: type[PublicationFolderMoveError]
+        | type[PublicationDestinationError],
+    ) -> None:
+        issue_ids = {issue.id for issue in publication.issues}
+        if not issue_ids:
+            return
+        payloads = self.session.scalars(
+            select(DbJob.payload).where(
+                DbJob.job_type == "download",
+                DbJob.status.in_(
+                    (
+                        JobStatus.QUEUED,
+                        JobStatus.RUNNING,
+                        JobStatus.RETRY_PENDING,
+                    )
+                ),
+            )
+        )
+        for raw_payload in payloads:
+            try:
+                issue_id = int(json.loads(raw_payload or "{}").get("issue_id"))
+            except (AttributeError, TypeError, ValueError):
+                continue
+            if issue_id in issue_ids:
+                raise error_type(
+                    "A download is in progress for this publication.",
+                    reason="download_active",
+                )
+
+    def _move_publication_files(
+        self,
+        publication: DbPublication,
+        primary: Path,
+        secondary: Path | None,
+        target_root: Path,
+    ) -> PublicationMoveReport:
+        """Move tracked files and durably record each completed file."""
+        roots = [primary]
+        if secondary is not None and secondary != primary:
+            roots.append(secondary)
+        target_folder = storage.publication_folder(target_root, publication).resolve()
+        report = PublicationMoveReport(found=True)
+        completed = 0
+
+        for issue in publication.issues:
+            if not issue.file_path:
+                continue
+            raw_path = Path(issue.file_path)
+            relative = self._relative_publication_file(raw_path, roots)
+            target = (target_folder / relative).resolve()
+            if not target.is_relative_to(target_folder):
+                report.failed.append(str(raw_path))
+                continue
+            source = self._resolve_publication_source(raw_path, roots)
+
+            if target.is_file():
+                if source is not None and source != target:
+                    try:
+                        same_size = source.stat().st_size == target.stat().st_size
+                    except OSError:
+                        same_size = False
+                    if not same_size:
+                        report.failed.append(str(source))
+                        continue
+                    try:
+                        source.unlink()
+                    except OSError:
+                        report.failed.append(str(source))
+                        continue
+                issue.file_path = self._stored_file_path(raw_path, target, target_root)
+                self.session.commit()
+                completed += 1
+                continue
+            if source is None:
+                report.failed.append(str(raw_path))
+                continue
+
+            try:
+                target.parent.mkdir(parents=True, exist_ok=True)
+                storage.move_file(source, target)
+            except OSError:
+                logger.exception("Could not move publication file %s", source)
+                report.failed.append(str(source))
+                continue
+
+            issue.file_path = self._stored_file_path(raw_path, target, target_root)
+            self.session.commit()
+            report.moved += 1
+            completed += 1
+
+        if completed == 0 and not report.failed:
+            self.session.commit()
+        return report
+
+    @staticmethod
+    def _relative_publication_file(raw_path: Path, roots: list[Path]) -> Path:
+        relative = raw_path
+        if raw_path.is_absolute():
+            for root in roots:
+                try:
+                    relative = raw_path.resolve().relative_to(root)
+                    break
+                except ValueError:
+                    continue
+        return (
+            Path(*relative.parts[1:])
+            if len(relative.parts) > 1
+            else Path(relative.name)
+        )
+
+    @staticmethod
+    def _resolve_publication_source(raw_path: Path, roots: list[Path]) -> Path | None:
+        if raw_path.is_absolute():
+            candidates = [raw_path.resolve()]
+        else:
+            candidates = [(root / raw_path).resolve() for root in roots]
+        for candidate in candidates:
+            if not candidate.is_file():
+                continue
+            if any(candidate.is_relative_to(root) for root in roots):
+                return candidate
+        return None
+
+    @staticmethod
+    def _stored_file_path(raw_path: Path, target: Path, target_root: Path) -> str:
+        if raw_path.is_absolute():
+            return str(target)
+        return str(target.relative_to(target_root))
 
     def mark_polled(self, custom_code: str) -> None:
         db_pub = self.get_publication(custom_code)

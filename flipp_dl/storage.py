@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import errno
+import os
+import shutil
 import string
+import tempfile
 import unicodedata
 from hashlib import sha256
 from pathlib import Path
@@ -19,6 +23,54 @@ _WINDOWS_MAX_PATH = 259  # 260 including the terminating null character
 _MAX_COMPONENT_LENGTH = 255
 _HASH_LENGTH = 12
 _EMPTY_NAME = "unnamed"
+
+
+def move_file(source: Path, target: Path) -> None:
+    """Move one file, falling back to verified copy on EXDEV only."""
+    try:
+        source.replace(target)
+        return
+    except OSError as exc:
+        if exc.errno != errno.EXDEV:
+            raise
+
+    temporary_path: Path | None = None
+    try:
+        with (
+            tempfile.NamedTemporaryFile(
+                dir=target.parent,
+                prefix=f".{target.name}.",
+                suffix=".tmp",
+                delete=False,
+            ) as temporary,
+            source.open("rb") as source_file,
+        ):
+            temporary_path = Path(temporary.name)
+            shutil.copyfileobj(source_file, temporary, length=1024 * 1024)
+            # Force the copy to disk before it is renamed into place. A
+            # restart treats any file at the target as already moved, so
+            # a target that only exists in the page cache when the
+            # machine dies would be accepted as complete while holding
+            # nothing.
+            temporary.flush()
+            os.fsync(temporary.fileno())
+        if temporary_path.stat().st_size != source.stat().st_size:
+            raise OSError("Copied file size does not match the source")
+        if target.exists():
+            raise FileExistsError(target)
+        os.replace(temporary_path, target)
+        temporary_path = None
+        # The rename itself needs the directory entry on disk too, or the
+        # crash window just moves from the file to its name.
+        directory = os.open(target.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+        source.unlink()
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
 
 
 def safe_name(value: str) -> str:
