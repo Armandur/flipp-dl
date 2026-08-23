@@ -630,60 +630,83 @@ Ingen ny kolumn, ingen migration.
 
 ---
 
-## [P3][todo] [flipp] Flytta filerna när en publikation byter mapp eller destination
+## [P3][done] [flipp] Flytta filerna vid destinationsbyte, över volymgräns och omstartbart
 
 ## Context
 
-flipp-dl kan inte flytta sina egna filer, och det blockerar tre saker som
-alla valdes bort med samma motivering - att lämna filer på fel ställe är
-värre än att vägra:
+Tasken skrevs som om flipp-dl inte kan flytta sina filer alls. Det stämmer
+inte längre: `set_publication_folder_name` (repository.py:477) flyttar redan
+filerna vid byte av mappnamn, en i taget, med rollback om något går fel.
+Kvar står det som den flytten INTE klarar, plus det som aldrig byggdes.
 
-- Byte av destination (sekundär utdatarot) vägras för en publikation som har
-  nedladdade utgåvor (TASK-1445, `set_publication_destination` i
-  repository.py:509).
-- Automatisk disambiguering av mappnamn körs bara när INGEN av de
-  kolliderande publikationerna har filer (TASK-1441).
-- Omdöpning efter ändrad namnkonvention kräver `--migrate-filenames` manuellt
-  inne i containern. Kördes 2026-08-22 på 121 filer.
+Kvarvarande luckor, mätt i koden 2026-08-23:
+
+- **Destinationsbyte vägras fortfarande.** `set_publication_destination`
+  (repository.py:587) kastar `PublicationDestinationError` så fort någon
+  utgåva är `done`. Ingen flytt sker.
+- **Flytten klarar inte två volymer.** `source.replace(target)` i
+  folder-flytten är ett rename och ger `OSError EXDEV` över en
+  filsystemsgräns. Primär och sekundär rot är två Unraid-shares, så exakt
+  det fallet är det som destinationsbytet behöver.
+- **Flytten är inte omstartbar.** Rollbacken i `set_publication_folder_name`
+  kör i minnet; dör processen mitt i finns ingen väg tillbaka och ingen väg
+  vidare.
+- **Ingen spärr mot pågående nedladdningar.** Byter man mapp medan ett
+  download-jobb kör skriver jobbet till den gamla katalogen.
+
+## Icke-mål
+
+- Skriv inte om `set_publication_folder_name` från grunden. Bygg ut den, och
+  återanvänd samma flytt för destinationsbytet.
+- Ingen ny UI-vy. Befintliga formulär för mappnamn och destination räcker;
+  felmeddelanden finns redan (`PublicationFolderMoveError` m.fl.).
+- Rör inte `--migrate-filenames` i cli.py. Läs den gärna som mönster, men
+  den ligger utanför uppgiften.
+- Ingen ny kolumn om du kan undvika det. Behövs en, motivera i rapporten.
 
 ## Acceptance criteria
 
-- [ ] En publikation med nedladdade utgåvor kan byta mappnamn, och filerna
-      följer med. `file_path` i databasen pekar rätt efteråt.
-- [ ] Samma sak för byte av destination mellan primär och sekundär rot.
+- [ ] En publikation med nedladdade utgåvor kan byta destination mellan
+      primär och sekundär rot, och filerna följer med. `file_path` pekar
+      rätt efteråt. `PublicationDestinationError` kastas inte längre bara
+      för att utgåvor är nedladdade.
+- [ ] Flytten fungerar över en filsystemsgräns: när rename ger `EXDEV`
+      kopieras filen, kopian verifieras (storlek räcker som kontroll) och
+      först därefter raderas källan.
 - [ ] En avbruten flytt lämnar aldrig databasen pekande på en fil som inte
-      finns - varje fil är antingen flyttad och bokförd, eller orörd.
-- [ ] Flytten går att köra om efter ett avbrott och fortsätter där den var.
-- [ ] Mål på annan volym hanteras: kopiera, verifiera att kopian är komplett,
-      radera först då.
-- [ ] Inga nedladdningar skriver till den gamla katalogen under flytten -
-      antingen pausas kön eller vägras bytet medan jobb pågår.
-- [ ] Resultatet rapporteras: hur många som flyttades och vilka som inte gick.
+      finns. Varje utgåva är antingen flyttad och bokförd, eller orörd.
+- [ ] Flytten går att köra om efter ett avbrott och fortsätter där den var -
+      en fil som redan ligger på målplatsen räknas som klar, inte som en
+      krock.
+- [ ] Ett byte vägras med ett begripligt fel medan publikationen har ett
+      download-jobb i `queued`, `running` eller `retry_pending`.
+- [ ] Både mapp- och destinationsbytet returnerar hur många filer som
+      flyttades och vilka som inte gick, och webblagret visar det.
 
 ## Implementation hints
 
-- `--migrate-filenames` i cli.py har redan mönstret för en omstartbar
-  omdöpning med rapport (renamed/recovered/missing/conflicts/errors) och för
-  att uppdatera `file_path`. Bygg vidare på det i stället för att uppfinna om.
-- `storage.publication_folder` och `destination_root` avgör var en fil ska
-  ligga; skillnaden mot var den ligger är flyttens arbetslista.
-- Tiotals gigabyte: `shutil.move` klarar inte samma-filsystem-antagandet över
-  två Unraid-shares, då blir det kopiera och radera.
+- `storage.publication_folder` och `storage.destination_root` avgör var en
+  fil ska ligga. Skillnaden mot var den ligger är arbetslistan.
+- Sekundärroten läses ur inställningen `secondary_output_root` (se hur
+  `run_download_queue` i scheduler.py plockar upp den).
+- Aktiva jobb: `DbJob` med `job_type="download"` och status i
+  `queued`/`running`/`retry_pending`, issue-id i payloaden. Se
+  `list_active_download_jobs` och `reset_stuck_download_jobs` för mönstret
+  att läsa payloads en gång i stället för en fråga per utgåva.
+- Tiotals gigabyte per publikation: kopiera i block, inte via `read_bytes`.
 
 ## Verification
 
-- `.venv/bin/python -m pytest tests/test_cli.py tests/test_repository.py -q`
-- Testerna ska täcka: flytt inom samma rot, flytt mellan rötter, avbrott
-  mitt i (avbryt efter första filen och kontrollera att databasen är
-  konsistent), och en fil som inte går att flytta.
-- Manuellt: ett byte i gränssnittet på en publikation med några utgåvor, och
-  kontroll att filerna ligger på den nya platsen och att biblioteksvyn
-  fortfarande hittar dem.
-
-## Notes
-
-Komga matchar flyttade filer via filhash och tar med metadata och läsläge -
-men bara om papperskorgen inte tömts emellan. Verifierat 2026-08-21.
+- `.venv/bin/python -m pytest tests/test_repository.py tests/test_web_routes.py -q`
+- Testerna ska täcka: flytt inom samma rot, flytt mellan två rötter,
+  EXDEV-fallet (monkeypatcha `Path.replace` så den kastar
+  `OSError(errno.EXDEV)` och kontrollera att kopiera-verifiera-radera
+  används), avbrott mitt i (låt andra filen faila och kontrollera att
+  databasen är konsistent), omstart efter avbrott, och att ett byte vägras
+  när ett download-jobb är aktivt.
+- `.venv/bin/ruff check flipp_dl tests`
+- Manuellt (görs av föräldern): byte i gränssnittet på en publikation med
+  några utgåvor, och kontroll att filerna ligger på den nya platsen.
 
 - ID: `01M0NEF2N154B8SH51N8JT95AW`
 - Type: feature
@@ -1851,6 +1874,51 @@ Bygg vidare på befintliga byggstenar i stället för att uppfinna nya: `list_is
 
 - ID: `01M0BBY3X4VKXXTRYY9T2EGDP4`
 - Type: feature
+- Actor: ai:claude-opus-5
+
+---
+
+## [P4][todo] [flipp] Låt inte mappnamn och destination beskriva en flytt som inte är färdig
+
+## Context
+
+Avknoppad från TASK-1482, som Judge godkände med tre observationer. Två av
+dem hänger ihop och är värda att städa, ingen av dem bryter mot något
+acceptanskriterium.
+
+1. `DownloadRepository._move_publication_files` (repository.py:685) sätter
+   `publication.folder_name` respektive `publication.destination` INNAN
+   flytten körs, och det värdet committas tillsammans med den första fil
+   som lyckas. Misslyckas en senare fil beskriver fältet en plats som inte
+   alla filer nått. Varje utgåvas `file_path` är fortfarande korrekt, så
+   inget pekar fel - men publikationens fält gör det, tills en omkörning
+   blir klar.
+2. Samma metod anropar `self.session.commit()` inne i sin loop. Det
+   committar HELA sessionen, inte bara metodens egna skrivningar. Alla
+   nuvarande anropare öppnar en egen session för just flytten, så det är
+   ofarligt i dag, men mönstret är skört: en framtida anropare som köar
+   andra ändringar före flytten får dem committade mitt i, utan väg
+   tillbaka om flytten sedan faller.
+
+Den tredje observationen (fsync i EXDEV-vägen) är redan åtgärdad i
+TASK-1482.
+
+## Acceptance criteria
+
+- [ ] En delvis misslyckad flytt lämnar antingen fältet orört tills alla
+      filer nått fram, eller gör avvikelsen synlig för användaren i stället
+      för att tyst påstå fel plats.
+- [ ] Flyttmetoden committar inte anroparens orelaterade ändringar. Antingen
+      dokumenteras kontraktet explicit och kontrolleras, eller så begränsas
+      committen till metodens egna rader.
+- [ ] Test som visar det valda beteendet vid en flytt där andra filen felar.
+
+## Verification
+
+- `.venv/bin/python -m pytest tests/test_repository.py -q`
+
+- ID: `01M0Q01E210P4YMBCRG2X8WG8Y`
+- Type: improvement
 - Actor: ai:claude-opus-5
 
 ---
