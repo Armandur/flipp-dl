@@ -54,7 +54,6 @@ from .komga import (
     filter_pushed_fields,
     html_to_plain_text,
     max_cover_bytes,
-    parse_issue_number,
 )
 from .models import Issue as DomainIssue
 from .models import Publication as DomainPublication
@@ -939,12 +938,9 @@ def _push_publication_and_issue_metadata(
             "sync again manually once Komga has finished scanning."
         )
 
-    number, number_sort = parse_issue_number(domain_issue.issue_name)
     issue_fields = filter_pushed_fields(
         {
             "title": domain_issue.issue_name,
-            "number": number,
-            "numberSort": number_sort,
             "releaseDate": domain_issue.issue_date,
         },
         ISSUE_METADATA_FIELDS,

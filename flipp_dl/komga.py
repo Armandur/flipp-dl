@@ -50,10 +50,14 @@ PUBLICATION_METADATA_FIELDS: dict[str, str] = {
     "tags": "KOMGA_PUSH_GENRES",
 }
 
+# No ``number``/``numberSort`` (TASK-3704): an issue name like "Nr 5 2026"
+# restarts every year, and 919 issues are named by date alone, so no parse
+# of it gives a series-wide number. Komga numbers unlocked books by
+# filename on every scan, and flipp-dl's date-prefixed filenames already
+# sort chronologically - pushing a number only raced that renumbering and
+# dropped the newest issue among the oldest ones.
 ISSUE_METADATA_FIELDS: dict[str, str] = {
     "title": "KOMGA_PUSH_ISSUE_TITLE",
-    "number": "KOMGA_PUSH_NUMBER",
-    "numberSort": "KOMGA_PUSH_NUMBER",
     "releaseDate": "KOMGA_PUSH_RELEASE_DATE",
 }
 
@@ -67,8 +71,6 @@ PUSH_COVER_FLAG = "KOMGA_PUSH_COVER"
 # turns a guaranteed round trip into a skipped one. Raise it alongside
 # Komga's own SPRING_SERVLET_MULTIPART_MAXFILESIZE if that is raised.
 DEFAULT_MAX_COVER_BYTES = 1_000_000
-
-_NUMBER_RE = re.compile(r"(?:nr\.?\s*)?(\d+)", re.IGNORECASE)
 
 
 def _flag_enabled(env_key: str) -> bool:
@@ -150,22 +152,6 @@ def html_to_plain_text(html_body: str | None) -> str:
     text = _WHITESPACE_RE.sub(" ", text)
     text = _BLANK_LINES_RE.sub("\n\n", text)
     return "\n".join(line.strip() for line in text.strip().splitlines()).strip()
-
-
-def parse_issue_number(issue_name: str | None) -> tuple[str | None, float | None]:
-    """Extract a book number from *issue_name*, e.g. "Nr 12" -> ("12", 12.0).
-
-    Returns ``(None, None)`` when no digits are found - callers then omit
-    ``number``/``numberSort`` entirely and let Komga fall back to its own
-    lexicographic ordering, per the level-2 implementation plan.
-    """
-    if not issue_name:
-        return None, None
-    match = _NUMBER_RE.search(issue_name)
-    if not match:
-        return None, None
-    digits = match.group(1)
-    return digits, float(digits)
 
 
 class KomgaError(Exception):

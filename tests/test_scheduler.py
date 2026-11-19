@@ -831,10 +831,9 @@ def test_komga_sync_maps_series_and_pushes_metadata(repo, session_factory, monke
 
     book_id, book_fields = client.patched_books[0]
     assert book_id == 77
-    assert book_fields["title"] == "Nr 12"
-    assert book_fields["number"] == "12"
-    assert book_fields["numberSort"] == 12.0
-    assert book_fields["releaseDate"] == "2024-03-01"
+    # Komga numbers books by filename itself (TASK-3704) - a pushed number
+    # would race that and misplace the issue in the series.
+    assert book_fields == {"title": "Nr 12", "releaseDate": "2024-03-01"}
 
 
 def test_komga_sync_maps_the_series_by_folder_name_not_publication_name(

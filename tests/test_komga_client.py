@@ -6,14 +6,12 @@ import pytest
 import requests
 
 from flipp_dl.komga import (
-    ISSUE_METADATA_FIELDS,
     PUBLICATION_METADATA_FIELDS,
     KomgaClient,
     KomgaError,
     cover_push_enabled,
     filter_pushed_fields,
     html_to_plain_text,
-    parse_issue_number,
 )
 
 
@@ -354,12 +352,12 @@ def test_patch_book_metadata_sends_patch_with_fields():
     session = FakeSession(FakeResponse(204))
     client = KomgaClient("http://localhost:25600", api_key="k", session=session)
 
-    client.patch_book_metadata(7, title="Nr 12", number="12")
+    client.patch_book_metadata(7, title="Nr 12", releaseDate="2024-03-01")
 
     call = session.calls[0]
     assert call["method"] == "patch"
     assert call["url"] == "http://localhost:25600/api/v1/books/7/metadata"
-    assert call["json"] == {"title": "Nr 12", "number": "12"}
+    assert call["json"] == {"title": "Nr 12", "releaseDate": "2024-03-01"}
 
 
 # ---------------------------------------------------------------------------
@@ -508,15 +506,6 @@ def test_filter_pushed_fields_keeps_field_by_default(monkeypatch):
     }
 
 
-def test_filter_pushed_fields_issue_number_flag(monkeypatch):
-    monkeypatch.setenv("KOMGA_PUSH_NUMBER", "0")
-    fields = {"title": "Nr 1", "number": "1", "numberSort": 1.0}
-
-    result = filter_pushed_fields(fields, ISSUE_METADATA_FIELDS)
-
-    assert result == {"title": "Nr 1"}
-
-
 def test_cover_push_enabled_defaults_true(monkeypatch):
     monkeypatch.delenv("KOMGA_PUSH_COVER", raising=False)
     assert cover_push_enabled() is True
@@ -525,27 +514,6 @@ def test_cover_push_enabled_defaults_true(monkeypatch):
 def test_cover_push_enabled_false_when_disabled(monkeypatch):
     monkeypatch.setenv("KOMGA_PUSH_COVER", "false")
     assert cover_push_enabled() is False
-
-
-# ---------------------------------------------------------------------------
-# parse_issue_number
-# ---------------------------------------------------------------------------
-
-
-def test_parse_issue_number_extracts_digits():
-    assert parse_issue_number("Nr 12") == ("12", 12.0)
-
-
-def test_parse_issue_number_without_nr_prefix():
-    assert parse_issue_number("12") == ("12", 12.0)
-
-
-def test_parse_issue_number_returns_none_without_digits():
-    assert parse_issue_number("Julnummer") == (None, None)
-
-
-def test_parse_issue_number_handles_none():
-    assert parse_issue_number(None) == (None, None)
 
 
 # ---------------------------------------------------------------------------
